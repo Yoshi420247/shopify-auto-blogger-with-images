@@ -282,21 +282,24 @@ export async function createArticle(blogId, article) {
     tags = [],
     published = true,
     imageUrl = null,
-    imageAlt = null
+    imageAlt = null,
+    imageData = null  // Base64 image data
   } = article;
 
-  console.log(`Creating article: ${title}`);
+  // Ensure we have a valid title
+  const finalTitle = title && title.trim() ? title.trim() : 'New Blog Post';
+  console.log(`Creating article: ${finalTitle}`);
 
   // Convert body markdown to HTML
   const htmlBody = markdownToHtml(body);
 
   // Ensure title is not too long (Shopify max is 255 characters)
-  const safeTitle = title.length > 250 ? title.substring(0, 247) + '...' : title;
+  const safeTitle = finalTitle.length > 250 ? finalTitle.substring(0, 247) + '...' : finalTitle;
 
   try {
     // Try GraphQL mutation (2024-10+ format)
     const mutation = `
-      mutation CreateArticle($article: ArticleInput!) {
+      mutation CreateArticle($article: ArticleCreateInput!) {
         articleCreate(article: $article) {
           article {
             id
@@ -318,18 +321,13 @@ export async function createArticle(blogId, article) {
       blogId: gidBlogId,
       title: safeTitle,
       body: htmlBody,
-      author: author,
+      author: { name: author },
       tags,
-      published
+      isPublished: published
     };
 
-    // Add image if available
-    if (imageUrl) {
-      articleInput.image = {
-        url: imageUrl,
-        altText: imageAlt || safeTitle
-      };
-    }
+    // Note: GraphQL image upload requires staged uploads, skip for now
+    // Images will be embedded in body HTML instead
 
     const data = await graphqlQuery(mutation, {
       article: articleInput
@@ -364,12 +362,21 @@ export async function createArticle(blogId, article) {
       }
     };
 
-    if (imageUrl) {
+    // Handle image - either URL or base64 attachment
+    if (imageData) {
+      // Base64 image data - use attachment field
+      articleData.article.image = {
+        attachment: imageData,
+        alt: imageAlt || safeTitle
+      };
+    } else if (imageUrl && imageUrl.startsWith('http')) {
+      // External URL
       articleData.article.image = {
         src: imageUrl,
         alt: imageAlt || safeTitle
       };
     }
+    // Skip image if neither valid URL nor base64 data
 
     const response = await shopifyRequest(getShopifyEndpoint(`/blogs/${numericBlogId}/articles.json`), {
       method: 'POST',

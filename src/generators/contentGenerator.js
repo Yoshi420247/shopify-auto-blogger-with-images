@@ -87,6 +87,13 @@ export async function generateBlogPost(options) {
     // Parse the response into structured format
     const parsedPost = parseGeneratedContent(cleanedContent);
 
+    // Ensure we have a valid title - fallback to topic if parsing failed
+    if (!parsedPost.title || parsedPost.title.trim() === '') {
+      console.log('Warning: Title extraction failed, using topic as fallback');
+      // Create title from topic
+      parsedPost.title = createTitleFromTopic(topic);
+    }
+
     // Audit for SEO
     const seoAudit = auditContent(parsedPost.body, targetKeywords[0]);
 
@@ -450,6 +457,36 @@ function extractImageMarkers(content) {
     });
   }
   return imageMarkers;
+}
+
+/**
+ * Create a blog title from a topic when parsing fails
+ */
+function createTitleFromTopic(topic) {
+  // Clean up the topic
+  let title = topic.trim();
+
+  // Capitalize first letter of each word
+  title = title.replace(/\b\w/g, c => c.toUpperCase());
+
+  // Add engaging prefix if topic is very short
+  if (title.length < 30) {
+    const prefixes = [
+      'The Ultimate Guide to',
+      'Everything You Need to Know About',
+      'Mastering',
+      'Your Complete Guide to'
+    ];
+    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+    title = `${prefix} ${title}`;
+  }
+
+  // Ensure it's not too long
+  if (title.length > 200) {
+    title = title.substring(0, 197) + '...';
+  }
+
+  return title;
 }
 
 /**

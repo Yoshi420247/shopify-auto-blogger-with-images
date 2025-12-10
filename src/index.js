@@ -434,6 +434,10 @@ async function generateAndPublishBlog(plan, researchData) {
 
   console.log('\nPublishing to Shopify...');
   const blog = await getOrCreateBlog('News');
+
+  // Get featured image data (first successful image)
+  const featuredImage = images.find(img => img.success && img.imageData);
+
   const publishedArticle = await createArticle(blog.id, {
     title: generatedPost.title,
     body: finalContent,
@@ -441,8 +445,9 @@ async function generateAndPublishBlog(plan, researchData) {
     author: 'Oil Slick Pad',
     tags: getTagsForTopic(plan.topic),
     published: true,
-    imageUrl: images[0]?.success ? imageToDataUrl(images[0]) : null,
-    imageAlt: images[0]?.altText || generatedPost.title
+    // Pass raw base64 data for image attachment
+    imageData: featuredImage?.imageData || null,
+    imageAlt: featuredImage?.altText || generatedPost.title
   });
 
   console.log(`Published: ${publishedArticle?.onlineStoreUrl || publishedArticle?.id || 'Success'}`);
