@@ -3,11 +3,11 @@
  *
  * Main orchestrator that coordinates:
  * 1. Scraping existing blogs and competitor sites
- * 2. Generating new content with OpenAI GPT-4o
- * 3. Creating images with Gemini Nano Banana Pro
+ * 2. Generating new content with OpenAI GPT-5.1
+ * 3. Creating images with Gemini Nano Banana Pro 3.0
  * 4. Publishing to Shopify
  *
- * Designed to run as a GitHub Action on a schedule.
+ * Supports multiple blogs per run and different content modes.
  */
 
 import config from './config.js';
@@ -44,123 +44,73 @@ async function main() {
   console.log(`Started at: ${new Date().toISOString()}`);
   console.log('');
 
+  // Show configuration
+  console.log('Configuration:');
+  console.log(`  - Blogs per run: ${config.blog.blogsPerRun}`);
+  console.log(`  - Mode: ${config.blog.mode}`);
+  console.log(`  - Dry run: ${config.blog.dryRun}`);
+  console.log(`  - Custom topic: ${process.env.CUSTOM_TOPIC || 'None'}`);
+  console.log('');
+
   // Validate required environment variables
   if (!validateEnvironment()) {
     process.exit(1);
   }
 
+  const results = [];
+  let researchData = null;
+
   try {
-    // Step 1: Test Shopify connection
-    console.log('\n--- STEP 1: Testing Shopify Connection ---');
-    const connectionTest = await testConnection();
-    if (!connectionTest.success) {
-      throw new Error(`Shopify connection failed: ${connectionTest.error}`);
-    }
-    console.log('Shopify connection: OK');
-
-    // Step 2: Analyze existing content
-    console.log('\n--- STEP 2: Analyzing Existing Content ---');
-    const existingBlogs = await scrapeAllBlogs(10);
-    console.log(`Found ${existingBlogs.blogs.length} existing blog posts`);
-    console.log(`Analysis: ${JSON.stringify(existingBlogs.analysis, null, 2)}`);
-
-    // Step 3: Analyze competitors
-    console.log('\n--- STEP 3: Analyzing Competitors ---');
-    const competitorData = await analyzeAllCompetitors();
-    const trendingTopics = extractTrendingTopics(competitorData);
-    const industryContext = buildIndustryContext(trendingTopics);
-    console.log(`Analyzed ${competitorData.length} competitor sites`);
-    console.log(`Found ${trendingTopics.totalArticlesAnalyzed} competitor articles`);
-    console.log(`Top trending topics: ${trendingTopics.trendingTopics.slice(0, 5).map(t => t.topic).join(', ')}`);
-
-    // Step 4: Generate content ideas
-    console.log('\n--- STEP 4: Generating Content Ideas ---');
-    const contentIdeas = await generateTopicIdeas({
-      existingBlogAnalysis: existingBlogs.analysis,
-      competitorInsights: trendingTopics,
-      contentGaps: existingBlogs.analysis.contentGaps
-    });
-    console.log(`Generated ${contentIdeas.length} content ideas`);
-
-    // Step 5: Decide what to create
-    console.log('\n--- STEP 5: Determining Content to Create ---');
-    const contentPlan = planContent(existingBlogs, contentIdeas);
-    console.log(`Plan: ${contentPlan.action}`);
-    console.log(`Topic: ${contentPlan.topic}`);
-
-    // Step 6: Generate the blog post
-    console.log('\n--- STEP 6: Generating Blog Content ---');
-    let generatedPost;
-
-    if (contentPlan.action === 'update') {
-      console.log('Rewriting existing post...');
-      generatedPost = await rewriteExistingPost(
-        contentPlan.existingPost,
-        trendingTopics.allTitles
-      );
-    } else {
-      console.log('Creating new post...');
-      generatedPost = await generateBlogPost({
-        topic: contentPlan.topic,
-        targetKeywords: getKeywordsForTopic(contentPlan.topic),
-        competitorInsights: trendingTopics.allTitles,
-        industryContext
-      });
-    }
-
-    console.log(`Generated post: "${generatedPost.title}"`);
-    console.log(`Word count: ${generatedPost.wordCount}`);
-    console.log(`Author style: ${generatedPost.authorStyle}`);
-    console.log(`SEO audit: ${JSON.stringify(generatedPost.seoAudit)}`);
-
-    // Step 7: Generate images
-    console.log('\n--- STEP 7: Generating Images ---');
-    let images = [];
-    if (generatedPost.imageMarkers && generatedPost.imageMarkers.length > 0) {
-      images = await generateBlogImages(generatedPost.imageMarkers, generatedPost.title);
-      console.log(`Generated ${images.filter(i => i.success).length}/${images.length} images`);
-    } else {
-      console.log('No image markers found in content');
-    }
-
-    // Step 8: Prepare content with images
-    console.log('\n--- STEP 8: Preparing Final Content ---');
-    const finalContent = prepareContentWithImages(generatedPost, images);
-
-    // Step 9: Publish to Shopify
-    console.log('\n--- STEP 9: Publishing to Shopify ---');
-    const blog = await getOrCreateBlog('News');
-    console.log(`Publishing to blog: ${blog.title || blog.handle}`);
-
-    const publishedArticle = await createArticle(blog.id, {
-      title: generatedPost.title,
-      body: finalContent,
-      metaDescription: generatedPost.metaDescription,
-      author: 'Oil Slick Pad',
-      tags: getTagsForTopic(contentPlan.topic),
-      published: true,
-      imageUrl: images[0]?.success ? imageToDataUrl(images[0]) : null,
-      imageAlt: images[0]?.altText || generatedPost.title
-    });
-
-    console.log('\n' + '='.repeat(60));
-    console.log('SUCCESS! Blog post published.');
-    console.log('='.repeat(60));
-    console.log(`Title: ${publishedArticle?.title || generatedPost.title}`);
-    console.log(`URL: ${publishedArticle?.onlineStoreUrl || 'Check your Shopify admin'}`);
-    console.log(`Article ID: ${publishedArticle?.id}`);
-    console.log(`Completed at: ${new Date().toISOString()}`);
-
-    return {
-      success: true,
-      article: publishedArticle,
-      stats: {
-        wordCount: generatedPost.wordCount,
-        imagesGenerated: images.filter(i => i.success).length,
-        competitorsAnalyzed: competitorData.length,
-        topicSource: contentPlan.action
+    // Step 1: Test Shopify connection (skip if dry run)
+    if (!config.blog.dryRun) {
+      console.log('\n--- STEP 1: Testing Shopify Connection ---');
+      const connectionTest = await testConnection();
+      if (!connectionTest.success) {
+        throw new Error(`Shopify connection failed: ${connectionTest.error}`);
       }
-    };
+      console.log('Shopify connection: OK');
+    } else {
+      console.log('\n--- STEP 1: Skipping Shopify Connection (Dry Run) ---');
+    }
+
+    // Step 2: Research phase (do once for all blogs)
+    console.log('\n--- STEP 2: Research Phase ---');
+    researchData = await doResearch();
+
+    // Step 3: Generate content plans
+    console.log('\n--- STEP 3: Planning Content ---');
+    const contentPlans = planMultipleBlogs(researchData, config.blog.blogsPerRun);
+    console.log(`Planned ${contentPlans.length} blog(s) to create`);
+
+    // Step 4: Generate and publish each blog
+    for (let i = 0; i < contentPlans.length; i++) {
+      const plan = contentPlans[i];
+      console.log(`\n${'='.repeat(60)}`);
+      console.log(`BLOG ${i + 1}/${contentPlans.length}: ${plan.topic}`);
+      console.log(`Mode: ${plan.action} | Reason: ${plan.reason}`);
+      console.log('='.repeat(60));
+
+      try {
+        const result = await generateAndPublishBlog(plan, researchData);
+        results.push(result);
+        console.log(`Blog ${i + 1} completed: ${result.success ? 'SUCCESS' : 'FAILED'}`);
+      } catch (blogError) {
+        console.error(`Blog ${i + 1} failed:`, blogError.message);
+        results.push({ success: false, error: blogError.message, plan });
+      }
+
+      // Delay between blogs to avoid rate limits
+      if (i < contentPlans.length - 1) {
+        console.log('\nWaiting 10 seconds before next blog...');
+        await new Promise(resolve => setTimeout(resolve, 10000));
+      }
+    }
+
+    // Summary
+    printSummary(results);
+
+    const allSuccessful = results.every(r => r.success);
+    return { success: allSuccessful, results };
 
   } catch (error) {
     console.error('\n' + '='.repeat(60));
@@ -169,10 +119,7 @@ async function main() {
     console.error(error.message);
     console.error(error.stack);
 
-    return {
-      success: false,
-      error: error.message
-    };
+    return { success: false, error: error.message };
   }
 }
 
@@ -200,46 +147,312 @@ function validateEnvironment() {
 }
 
 /**
- * Plan what content to create based on analysis
+ * Do research phase - scrape blogs and competitors
  */
-function planContent(existingBlogs, contentIdeas) {
-  // Priority 1: Update outdated posts (older than 6 months)
-  const outdatedPosts = existingBlogs.analysis.outdatedPosts || [];
-  if (outdatedPosts.length > 0) {
-    const postToUpdate = outdatedPosts[Math.floor(Math.random() * outdatedPosts.length)];
-    return {
-      action: 'update',
-      topic: postToUpdate.title,
-      existingPost: existingBlogs.blogs.find(b => b.title === postToUpdate.title) || postToUpdate,
-      reason: 'Updating outdated content'
-    };
-  }
+async function doResearch() {
+  // Analyze existing content
+  console.log('Analyzing existing blogs...');
+  const existingBlogs = await scrapeAllBlogs(15);
+  console.log(`Found ${existingBlogs.blogs.length} existing blog posts`);
 
-  // Priority 2: Fill content gaps
-  const contentGaps = existingBlogs.analysis.contentGaps || [];
-  if (contentGaps.length > 0) {
-    return {
-      action: 'new',
-      topic: contentGaps[0],
-      reason: 'Filling content gap'
-    };
-  }
+  // Analyze competitors
+  console.log('Analyzing competitors...');
+  const competitorData = await analyzeAllCompetitors();
+  const trendingTopics = extractTrendingTopics(competitorData);
+  const industryContext = buildIndustryContext(trendingTopics);
+  console.log(`Analyzed ${competitorData.length} competitor sites`);
+  console.log(`Found ${trendingTopics.totalArticlesAnalyzed} competitor articles`);
 
-  // Priority 3: Create from generated ideas
-  if (contentIdeas.length > 0) {
-    const idea = contentIdeas[0];
-    return {
-      action: 'new',
-      topic: idea.title || idea.topic,
-      reason: `New content idea: ${idea.type || 'general'}`
-    };
-  }
+  // Generate content ideas
+  console.log('Generating content ideas...');
+  const contentIdeas = await generateTopicIdeas({
+    existingBlogAnalysis: existingBlogs.analysis,
+    competitorInsights: trendingTopics,
+    contentGaps: existingBlogs.analysis.contentGaps
+  });
+  console.log(`Generated ${contentIdeas.length} content ideas`);
 
-  // Fallback: Default topic
   return {
-    action: 'new',
-    topic: 'The Ultimate Guide to Choosing Your First Dab Pad',
-    reason: 'Default evergreen topic'
+    existingBlogs,
+    competitorData,
+    trendingTopics,
+    industryContext,
+    contentIdeas
+  };
+}
+
+/**
+ * Plan multiple blogs based on mode and count
+ */
+function planMultipleBlogs(researchData, count) {
+  const { existingBlogs, contentIdeas, trendingTopics } = researchData;
+  const mode = config.blog.mode;
+  const customTopic = process.env.CUSTOM_TOPIC;
+
+  // If custom topic provided, just use that
+  if (customTopic) {
+    return [{
+      action: 'new',
+      topic: customTopic,
+      reason: 'Custom topic specified'
+    }];
+  }
+
+  const plans = [];
+  const usedTopics = new Set();
+
+  // Get outdated posts
+  const outdatedPosts = existingBlogs.analysis.outdatedPosts || [];
+  const contentGaps = existingBlogs.analysis.contentGaps || [];
+
+  for (let i = 0; i < count; i++) {
+    let plan = null;
+
+    switch (mode) {
+      case 'update':
+        // Only update existing posts
+        plan = getUpdatePlan(outdatedPosts, existingBlogs.blogs, usedTopics);
+        break;
+
+      case 'new':
+        // Only create new posts
+        plan = getNewPlan(contentIdeas, contentGaps, trendingTopics, usedTopics);
+        break;
+
+      case 'mixed':
+        // Alternate between updates and new
+        if (i % 2 === 0 && outdatedPosts.length > 0) {
+          plan = getUpdatePlan(outdatedPosts, existingBlogs.blogs, usedTopics);
+        } else {
+          plan = getNewPlan(contentIdeas, contentGaps, trendingTopics, usedTopics);
+        }
+        break;
+
+      case 'auto':
+      default:
+        // Prioritize based on config.blog.priorities
+        plan = getAutoPlan(outdatedPosts, existingBlogs.blogs, contentIdeas, contentGaps, trendingTopics, usedTopics);
+        break;
+    }
+
+    if (plan) {
+      plans.push(plan);
+      usedTopics.add(plan.topic.toLowerCase());
+    }
+  }
+
+  // If no plans generated, add default
+  if (plans.length === 0) {
+    plans.push({
+      action: 'new',
+      topic: 'The Ultimate Guide to Choosing Your First Dab Pad',
+      reason: 'Default evergreen topic'
+    });
+  }
+
+  return plans;
+}
+
+/**
+ * Get a plan for updating an existing post
+ */
+function getUpdatePlan(outdatedPosts, allBlogs, usedTopics) {
+  for (const post of outdatedPosts) {
+    if (!usedTopics.has(post.title?.toLowerCase())) {
+      return {
+        action: 'update',
+        topic: post.title,
+        existingPost: allBlogs.find(b => b.title === post.title) || post,
+        reason: 'Updating outdated content'
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Get a plan for creating new content
+ */
+function getNewPlan(contentIdeas, contentGaps, trendingTopics, usedTopics) {
+  // Try content gaps first
+  for (const gap of contentGaps) {
+    if (!usedTopics.has(gap.toLowerCase())) {
+      return {
+        action: 'new',
+        topic: gap,
+        reason: 'Filling content gap'
+      };
+    }
+  }
+
+  // Try generated ideas
+  for (const idea of contentIdeas) {
+    const topic = idea.title || idea.topic;
+    if (topic && !usedTopics.has(topic.toLowerCase())) {
+      return {
+        action: 'new',
+        topic,
+        reason: `Content idea: ${idea.type || 'general'}`
+      };
+    }
+  }
+
+  // Try trending topics
+  for (const trend of trendingTopics.trendingTopics || []) {
+    if (!usedTopics.has(trend.topic?.toLowerCase())) {
+      return {
+        action: 'new',
+        topic: `Guide to ${trend.topic}`,
+        reason: 'Trending topic'
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Get auto-planned content based on priorities
+ */
+function getAutoPlan(outdatedPosts, allBlogs, contentIdeas, contentGaps, trendingTopics, usedTopics) {
+  const priorities = config.blog.priorities;
+
+  // Build weighted options
+  const options = [];
+
+  // Outdated posts
+  if (outdatedPosts.length > 0) {
+    const post = outdatedPosts.find(p => !usedTopics.has(p.title?.toLowerCase()));
+    if (post) {
+      options.push({
+        weight: priorities.updateOutdated,
+        plan: {
+          action: 'update',
+          topic: post.title,
+          existingPost: allBlogs.find(b => b.title === post.title) || post,
+          reason: 'Updating outdated content'
+        }
+      });
+    }
+  }
+
+  // Content gaps
+  const gap = contentGaps.find(g => !usedTopics.has(g.toLowerCase()));
+  if (gap) {
+    options.push({
+      weight: priorities.fillContentGaps,
+      plan: {
+        action: 'new',
+        topic: gap,
+        reason: 'Filling content gap'
+      }
+    });
+  }
+
+  // Trending topics
+  const trend = (trendingTopics.trendingTopics || []).find(t => !usedTopics.has(t.topic?.toLowerCase()));
+  if (trend) {
+    options.push({
+      weight: priorities.trendingTopics,
+      plan: {
+        action: 'new',
+        topic: `Guide to ${trend.topic}`,
+        reason: 'Trending topic'
+      }
+    });
+  }
+
+  // Fresh content ideas
+  const idea = contentIdeas.find(i => !usedTopics.has((i.title || i.topic)?.toLowerCase()));
+  if (idea) {
+    options.push({
+      weight: priorities.freshContent,
+      plan: {
+        action: 'new',
+        topic: idea.title || idea.topic,
+        reason: `Fresh content: ${idea.type || 'general'}`
+      }
+    });
+  }
+
+  // Sort by weight (highest first) and return top
+  options.sort((a, b) => b.weight - a.weight);
+  return options[0]?.plan || null;
+}
+
+/**
+ * Generate and publish a single blog
+ */
+async function generateAndPublishBlog(plan, researchData) {
+  const { trendingTopics, industryContext } = researchData;
+
+  // Generate content
+  console.log('\nGenerating blog content...');
+  let generatedPost;
+
+  if (plan.action === 'update' && plan.existingPost) {
+    generatedPost = await rewriteExistingPost(plan.existingPost, trendingTopics.allTitles);
+  } else {
+    generatedPost = await generateBlogPost({
+      topic: plan.topic,
+      targetKeywords: getKeywordsForTopic(plan.topic),
+      competitorInsights: trendingTopics.allTitles,
+      industryContext
+    });
+  }
+
+  console.log(`Generated: "${generatedPost.title}"`);
+  console.log(`Word count: ${generatedPost.wordCount}`);
+  console.log(`Author style: ${generatedPost.authorStyle}`);
+
+  // Generate images
+  console.log('\nGenerating images...');
+  let images = [];
+  if (generatedPost.imageMarkers && generatedPost.imageMarkers.length > 0) {
+    images = await generateBlogImages(generatedPost.imageMarkers, generatedPost.title);
+    console.log(`Generated ${images.filter(i => i.success).length}/${images.length} images`);
+  }
+
+  // Prepare content
+  const finalContent = prepareContentWithImages(generatedPost, images);
+
+  // Publish (unless dry run)
+  if (config.blog.dryRun) {
+    console.log('\n[DRY RUN] Skipping publish. Would have published:');
+    console.log(`  Title: ${generatedPost.title}`);
+    console.log(`  Words: ${generatedPost.wordCount}`);
+    console.log(`  Images: ${images.filter(i => i.success).length}`);
+
+    return {
+      success: true,
+      dryRun: true,
+      title: generatedPost.title,
+      wordCount: generatedPost.wordCount,
+      images: images.filter(i => i.success).length
+    };
+  }
+
+  console.log('\nPublishing to Shopify...');
+  const blog = await getOrCreateBlog('News');
+  const publishedArticle = await createArticle(blog.id, {
+    title: generatedPost.title,
+    body: finalContent,
+    metaDescription: generatedPost.metaDescription,
+    author: 'Oil Slick Pad',
+    tags: getTagsForTopic(plan.topic),
+    published: true,
+    imageUrl: images[0]?.success ? imageToDataUrl(images[0]) : null,
+    imageAlt: images[0]?.altText || generatedPost.title
+  });
+
+  console.log(`Published: ${publishedArticle?.onlineStoreUrl || publishedArticle?.id || 'Success'}`);
+
+  return {
+    success: true,
+    article: publishedArticle,
+    title: generatedPost.title,
+    wordCount: generatedPost.wordCount,
+    images: images.filter(i => i.success).length
   };
 }
 
@@ -250,7 +463,6 @@ function getKeywordsForTopic(topic) {
   const topicLower = topic.toLowerCase();
   const keywords = [...config.seo.focusKeywords];
 
-  // Add topic-specific keywords
   if (topicLower.includes('guide') || topicLower.includes('how')) {
     keywords.unshift('dabbing guide', 'how to dab');
   }
@@ -289,8 +501,7 @@ function getTagsForTopic(topic) {
 function prepareContentWithImages(post, images) {
   let content = post.body;
 
-  // Replace image markers with actual images or placeholders
-  images.forEach((img, index) => {
+  images.forEach((img) => {
     const marker = img.originalMarker;
     if (marker && content.includes(marker)) {
       if (img.success && img.imageData) {
@@ -301,16 +512,35 @@ function prepareContentWithImages(post, images) {
 </figure>`;
         content = content.replace(marker, imgHtml);
       } else {
-        // Use placeholder for failed images
         content = content.replace(marker, `<!-- Image placeholder: ${img.description} -->`);
       }
     }
   });
 
-  // Remove any remaining image markers
   content = content.replace(/\[IMAGE:[^\]]+\]/g, '');
-
   return content;
+}
+
+/**
+ * Print summary of all results
+ */
+function printSummary(results) {
+  console.log('\n' + '='.repeat(60));
+  console.log('SUMMARY');
+  console.log('='.repeat(60));
+  console.log(`Total blogs attempted: ${results.length}`);
+  console.log(`Successful: ${results.filter(r => r.success).length}`);
+  console.log(`Failed: ${results.filter(r => !r.success).length}`);
+
+  results.forEach((r, i) => {
+    if (r.success) {
+      console.log(`  ${i + 1}. ${r.title} - ${r.wordCount} words, ${r.images} images ${r.dryRun ? '[DRY RUN]' : ''}`);
+    } else {
+      console.log(`  ${i + 1}. FAILED: ${r.error}`);
+    }
+  });
+
+  console.log(`\nCompleted at: ${new Date().toISOString()}`);
 }
 
 // Run the main function

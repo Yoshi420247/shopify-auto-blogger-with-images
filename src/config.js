@@ -34,7 +34,33 @@ export const config = {
     minWords: 1200,
     maxWords: 2000,
     imagesPerPost: 3,
-    imageAspectRatio: '16:9'
+    imageAspectRatio: '16:9',
+
+    // ============ BEHAVIOR CONTROLS ============
+    // Number of blogs to generate per run (1-10)
+    blogsPerRun: parseInt(process.env.BLOGS_PER_RUN) || 1,
+
+    // Content mode - what type of blogs to create
+    // Options:
+    //   'new'    - Only create fresh new blogs from research
+    //   'update' - Only rewrite/update existing old blogs
+    //   'mixed'  - Smart mix: prioritize updates, then create new (recommended)
+    //   'auto'   - AI decides based on content analysis (default)
+    mode: process.env.BLOG_MODE || 'auto',
+
+    // Update threshold - how old (in days) before a post is considered for update
+    updateThresholdDays: parseInt(process.env.UPDATE_THRESHOLD_DAYS) || 180, // 6 months
+
+    // Priority for 'auto' and 'mixed' modes (higher = more priority)
+    priorities: {
+      updateOutdated: 3,    // Rewriting old posts
+      fillContentGaps: 2,   // Topics competitors cover that you don't
+      trendingTopics: 2,    // Hot topics from competitor analysis
+      freshContent: 1       // Completely new topic ideas
+    },
+
+    // Skip publishing (dry run) - useful for testing
+    dryRun: process.env.DRY_RUN === 'true' || false
   },
 
   // Your website and niche
