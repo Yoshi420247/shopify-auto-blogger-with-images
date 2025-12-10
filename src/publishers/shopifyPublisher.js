@@ -595,8 +595,32 @@ function markdownToHtml(markdown) {
       return para;
     }
 
+    // Break up very long paragraphs (more than 500 chars) at sentence boundaries
+    let text = para.replace(/\n/g, ' ');
+    if (text.length > 500) {
+      const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+      const chunks = [];
+      let currentChunk = '';
+
+      for (const sentence of sentences) {
+        if (currentChunk.length + sentence.length > 400 && currentChunk.length > 100) {
+          chunks.push(currentChunk.trim());
+          currentChunk = sentence;
+        } else {
+          currentChunk += sentence;
+        }
+      }
+      if (currentChunk.trim()) {
+        chunks.push(currentChunk.trim());
+      }
+
+      return chunks.map(chunk =>
+        `<p style="margin-bottom: 20px; line-height: 1.8;">${chunk}</p>`
+      ).join('\n');
+    }
+
     // Wrap text in paragraph with styling
-    return `<p style="margin-bottom: 20px; line-height: 1.8; font-size: 1.05em;">${para.replace(/\n/g, ' ')}</p>`;
+    return `<p style="margin-bottom: 20px; line-height: 1.8;">${text}</p>`;
   }).filter(p => p).join('\n\n');
 
   // Final cleanup

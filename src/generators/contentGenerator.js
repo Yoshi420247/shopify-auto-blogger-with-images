@@ -139,17 +139,22 @@ CRITICAL RULES - YOUR CONTENT MUST:
 
 CONTENT STRUCTURE:
 - Write at least 1200 words, target 1500-1800
-- Use H2 (##) and H3 (###) headings to break up content
-- Keep paragraphs short (2-4 sentences max for readability)
+- Use H2 (##) and H3 (###) headings to break up content - aim for a new H2 every 200-300 words
+- CRITICAL: Keep paragraphs SHORT - 2-4 sentences MAXIMUM. One idea per paragraph.
 - Include a compelling introduction that hooks the reader
 - End with a genuine conclusion, NOT a formulaic summary
 
-FORMATTING:
-- Output in clean Markdown format
+FORMATTING - THIS IS CRITICAL FOR READABILITY:
+- Output in clean Markdown format with PROPER LINE BREAKS
 - Start with a suggested title on the first line (just the title, no "Title:" prefix)
 - Include a suggested meta description on the second line (just the description, no prefix)
-- Then blank line, then the article content
-- Mark suggested image placements with: [IMAGE: description of what image should show]
+- Then a BLANK LINE, then the article content
+- ALWAYS put a blank line BEFORE and AFTER each heading (## or ###)
+- ALWAYS put a blank line between paragraphs
+- ALWAYS put a blank line before and after lists
+- Use --- on its own line to create section dividers between major topics
+- Mark suggested image placements with: [IMAGE: description of what image should show] on its own line
+- Lists should have each item on its own line starting with "- "
 
 You are writing for real people who know their stuff. Don't talk down to them, but do explain technical concepts when needed.`;
 }

@@ -410,7 +410,15 @@ async function generateAndPublishBlog(plan, researchData) {
   let images = [];
   if (generatedPost.imageMarkers && generatedPost.imageMarkers.length > 0) {
     images = await generateBlogImages(generatedPost.imageMarkers, generatedPost.title);
-    console.log(`Generated ${images.filter(i => i.success).length}/${images.length} images`);
+    const successfulImages = images.filter(i => i.success);
+    console.log(`Generated ${successfulImages.length}/${images.length} images`);
+
+    // Debug: Log image data availability
+    successfulImages.forEach((img, idx) => {
+      console.log(`  Image ${idx + 1}: ${img.imageData ? `${Math.round(img.imageData.length / 1024)}KB` : 'NO DATA'} - ${img.model || 'unknown model'}`);
+    });
+  } else {
+    console.log('No image markers found in content');
   }
 
   // Prepare content
