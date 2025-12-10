@@ -28,6 +28,10 @@ import {
   imageToDataUrl
 } from './generators/imageGenerator.js';
 import {
+  reviewAndFixContent,
+  getUniqueTopic
+} from './generators/contentReviewer.js';
+import {
   testConnection,
   getOrCreateBlog,
   createArticle,
@@ -385,18 +389,34 @@ function getAutoPlan(outdatedPosts, allBlogs, contentIdeas, contentGaps, trendin
  * Generate and publish a single blog
  */
 async function generateAndPublishBlog(plan, researchData) {
-  const { trendingTopics, industryContext } = researchData;
+  const { trendingTopics, industryContext, existingBlogs, contentIdeas } = researchData;
 
-  // Generate content
-  console.log('\nGenerating blog content...');
+  // STEP 1: Check if topic was recently covered (skip for updates)
+  let finalTopic = plan.topic;
+  if (plan.action !== 'update') {
+    console.log('\n--- Checking Topic Uniqueness ---');
+    const recentArticles = existingBlogs?.blogs || [];
+    const topicCheck = await getUniqueTopic(plan.topic, recentArticles, contentIdeas);
+
+    if (topicCheck.wasChanged) {
+      console.log(`Topic changed: "${plan.topic}" -> "${topicCheck.topic}"`);
+      console.log(`Reason: ${topicCheck.reason}`);
+      finalTopic = topicCheck.topic;
+    } else {
+      console.log(`Topic "${finalTopic}" is unique - proceeding`);
+    }
+  }
+
+  // STEP 2: Generate content
+  console.log('\n--- Generating Blog Content ---');
   let generatedPost;
 
   if (plan.action === 'update' && plan.existingPost) {
     generatedPost = await rewriteExistingPost(plan.existingPost, trendingTopics.allTitles);
   } else {
     generatedPost = await generateBlogPost({
-      topic: plan.topic,
-      targetKeywords: getKeywordsForTopic(plan.topic),
+      topic: finalTopic,
+      targetKeywords: getKeywordsForTopic(finalTopic),
       competitorInsights: trendingTopics.allTitles,
       industryContext
     });
@@ -406,15 +426,14 @@ async function generateAndPublishBlog(plan, researchData) {
   console.log(`Word count: ${generatedPost.wordCount}`);
   console.log(`Author style: ${generatedPost.authorStyle}`);
 
-  // Generate images
-  console.log('\nGenerating images...');
+  // STEP 3: Generate images
+  console.log('\n--- Generating Images ---');
   let images = [];
   if (generatedPost.imageMarkers && generatedPost.imageMarkers.length > 0) {
     images = await generateBlogImages(generatedPost.imageMarkers, generatedPost.title);
     const successfulImages = images.filter(i => i.success);
     console.log(`Generated ${successfulImages.length}/${images.length} images`);
 
-    // Debug: Log image data availability
     successfulImages.forEach((img, idx) => {
       console.log(`  Image ${idx + 1}: ${img.imageData ? `${Math.round(img.imageData.length / 1024)}KB` : 'NO DATA'} - ${img.model || 'unknown model'}`);
     });
@@ -422,8 +441,12 @@ async function generateAndPublishBlog(plan, researchData) {
     console.log('No image markers found in content');
   }
 
-  // Prepare content - upload inline images to Shopify Files and embed by URL
-  const finalContent = await prepareContentWithImages(generatedPost, images, generatedPost.title);
+  // STEP 4: Prepare content - upload inline images to Shopify Files and embed by URL
+  let finalContent = await prepareContentWithImages(generatedPost, images, generatedPost.title);
+
+  // STEP 5: AI Content Review - Fix formatting issues before publishing
+  console.log('\n--- AI Content Review ---');
+  finalContent = await reviewAndFixContent(finalContent, generatedPost.title);
 
   // Publish (unless dry run)
   if (config.blog.dryRun) {
@@ -441,7 +464,8 @@ async function generateAndPublishBlog(plan, researchData) {
     };
   }
 
-  console.log('\nPublishing to Shopify...');
+  // STEP 6: Publish to Shopify
+  console.log('\n--- Publishing to Shopify ---');
   const blog = await getOrCreateBlog('News');
 
   // Get featured image data (first successful image)
@@ -452,9 +476,8 @@ async function generateAndPublishBlog(plan, researchData) {
     body: finalContent,
     metaDescription: generatedPost.metaDescription,
     author: 'Oil Slick Pad',
-    tags: getTagsForTopic(plan.topic),
+    tags: getTagsForTopic(finalTopic),
     published: true,
-    // Pass raw base64 data for image attachment
     imageData: featuredImage?.imageData || null,
     imageAlt: featuredImage?.altText || generatedPost.title
   });
