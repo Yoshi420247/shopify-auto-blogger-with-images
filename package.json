@@ -1,0 +1,33 @@
+{
+  "name": "shopify-auto-blogger-with-images",
+  "version": "1.0.0",
+  "description": "Automated blog generator for Shopify using AI-powered content and image generation",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "generate": "node src/index.js",
+    "test": "node --test src/**/*.test.js",
+    "lint": "eslint src/"
+  },
+  "keywords": [
+    "shopify",
+    "blog",
+    "automation",
+    "ai",
+    "seo",
+    "content-generation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "axios": "^1.7.7",
+    "cheerio": "^1.0.0",
+    "openai": "^4.72.0",
+    "sharp": "^0.33.5"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -1,0 +1,102 @@
+name: Auto-Blogger with AI Images
+
+on:
+  # Run on schedule - twice per week (Mondays and Thursdays at 9 AM UTC)
+  schedule:
+    - cron: '0 9 * * 1,4'
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Run mode'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - test
+      topic:
+        description: 'Specific topic to write about (optional)'
+        required: false
+        type: string
+
+jobs:
+  generate-blog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate secrets
+        run: |
+          echo "Validating required secrets..."
+          if [ -z "${{ secrets.SHOPIFY_ADMIN_API_TOKEN }}" ]; then
+            echo "ERROR: SHOPIFY_ADMIN_API_TOKEN is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.SHOPIFY_STORE_DOMAIN }}" ]; then
+            echo "ERROR: SHOPIFY_STORE_DOMAIN is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
+            echo "ERROR: OPENAI_API_KEY is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.GEMINI_API_KEY }}" ]; then
+            echo "ERROR: GEMINI_API_KEY is not set"
+            exit 1
+          fi
+          echo "All required secrets are configured"
+
+      - name: Run Auto-Blogger
+        env:
+          SHOPIFY_ADMIN_API_TOKEN: ${{ secrets.SHOPIFY_ADMIN_API_TOKEN }}
+          SHOPIFY_STORE_DOMAIN: ${{ secrets.SHOPIFY_STORE_DOMAIN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          RUN_MODE: ${{ github.event.inputs.mode || 'full' }}
+          CUSTOM_TOPIC: ${{ github.event.inputs.topic || '' }}
+        run: |
+          echo "Starting Auto-Blogger..."
+          echo "Mode: $RUN_MODE"
+          if [ -n "$CUSTOM_TOPIC" ]; then
+            echo "Custom topic: $CUSTOM_TOPIC"
+          fi
+          npm start
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auto-blogger-logs-${{ github.run_number }}
+          path: |
+            *.log
+          retention-days: 30
+
+  # Notification job (optional - can be extended)
+  notify:
+    needs: generate-blog
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Report status
+        run: |
+          if [ "${{ needs.generate-blog.result }}" == "success" ]; then
+            echo "Auto-blogger completed successfully"
+          else
+            echo "Auto-blogger failed or was cancelled"
+            exit 1
+          fi
