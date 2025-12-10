@@ -365,18 +365,28 @@ export async function createArticle(blogId, article) {
     // Handle image - either URL or base64 attachment
     if (imageData) {
       // Base64 image data - use attachment field
+      // Ensure we have clean base64 without data: prefix
+      let cleanBase64 = imageData;
+      if (cleanBase64.includes('base64,')) {
+        cleanBase64 = cleanBase64.split('base64,')[1];
+      }
+
+      console.log(`Attaching featured image (${Math.round(cleanBase64.length / 1024)}KB base64)`);
+
       articleData.article.image = {
-        attachment: imageData,
+        attachment: cleanBase64,
         alt: imageAlt || safeTitle
       };
     } else if (imageUrl && imageUrl.startsWith('http')) {
       // External URL
+      console.log(`Attaching featured image from URL: ${imageUrl}`);
       articleData.article.image = {
         src: imageUrl,
         alt: imageAlt || safeTitle
       };
+    } else {
+      console.log('No featured image available to attach');
     }
-    // Skip image if neither valid URL nor base64 data
 
     const response = await shopifyRequest(getShopifyEndpoint(`/blogs/${numericBlogId}/articles.json`), {
       method: 'POST',
@@ -495,7 +505,8 @@ export async function updateArticle(articleId, updates) {
 }
 
 /**
- * Convert basic markdown to HTML with proper styling
+ * Convert markdown to HTML with proper styling
+ * Handles both properly formatted markdown AND inline/compact content
  */
 function markdownToHtml(markdown) {
   if (!markdown) return '';
@@ -505,40 +516,55 @@ function markdownToHtml(markdown) {
   // Remove image markers first
   html = html.replace(/\[IMAGE:[^\]]+\]/g, '');
 
-  // Remove placeholder divs if present
-  html = html.replace(/<div class="image-section"[^>]*>[\s\S]*?<\/div>/g, '');
+  // STEP 1: Normalize content - add line breaks around markdown markers
+  // This handles content that comes as one long block without proper newlines
 
-  // Horizontal rules (--- or ***)
-  html = html.replace(/^[\-\*]{3,}\s*$/gm, '<hr style="margin: 30px 0; border: none; border-top: 2px solid #e0e0e0;">');
+  // Add line break before ## headers (but not if already at start of line)
+  html = html.replace(/([^\n])(\s*)(#{1,3}\s+)/g, '$1\n\n$3');
 
-  // Headers with styling
-  html = html.replace(/^### (.*$)/gim, '<h3 style="font-size: 1.3em; margin-top: 25px; margin-bottom: 15px; color: #333;">$1</h3>');
-  html = html.replace(/^## (.*$)/gim, '<h2 style="font-size: 1.6em; margin-top: 35px; margin-bottom: 20px; color: #222;">$1</h2>');
-  html = html.replace(/^# (.*$)/gim, '<h1 style="font-size: 2em; margin-top: 40px; margin-bottom: 25px; color: #111;">$1</h1>');
+  // Add line break before --- separators
+  html = html.replace(/([^\n])\s*---\s*/g, '$1\n\n---\n\n');
 
-  // Bold and italic
-  html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
-  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  // Add line break before list items that follow text
+  html = html.replace(/([.!?:])(\s+)(- [A-Z])/g, '$1\n\n$3');
 
-  // Links
+  // Clean up multiple newlines
+  html = html.replace(/\n{3,}/g, '\n\n');
+
+  // STEP 2: Convert horizontal rules
+  html = html.replace(/^---+\s*$/gm, '<hr style="margin: 30px 0; border: none; border-top: 2px solid #ddd;">');
+
+  // Also handle inline --- that weren't on their own line
+  html = html.replace(/\s---\s/g, '\n<hr style="margin: 30px 0; border: none; border-top: 2px solid #ddd;">\n');
+
+  // STEP 3: Convert headers
+  html = html.replace(/^### (.+)$/gm, '<h3 style="font-size: 1.25em; margin: 25px 0 15px 0; color: #333; font-weight: 600;">$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2 style="font-size: 1.5em; margin: 35px 0 20px 0; color: #222; font-weight: 600;">$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1 style="font-size: 1.8em; margin: 40px 0 25px 0; color: #111; font-weight: 700;">$1</h1>');
+
+  // STEP 4: Bold and italic
+  html = html.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+  // STEP 5: Links
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #0066cc;">$1</a>');
 
-  // Process lists - find consecutive list items
+  // STEP 6: Process lists
   const lines = html.split('\n');
   const processedLines = [];
   let inList = false;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const listMatch = line.match(/^\s*[-*]\s+(.*)$/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const listMatch = trimmed.match(/^[-*]\s+(.+)$/);
 
     if (listMatch) {
       if (!inList) {
-        processedLines.push('<ul style="margin: 15px 0; padding-left: 25px;">');
+        processedLines.push('<ul style="margin: 20px 0; padding-left: 30px;">');
         inList = true;
       }
-      processedLines.push(`<li style="margin-bottom: 8px;">${listMatch[1]}</li>`);
+      processedLines.push(`<li style="margin-bottom: 10px; line-height: 1.6;">${listMatch[1]}</li>`);
     } else {
       if (inList) {
         processedLines.push('</ul>');
@@ -553,20 +579,29 @@ function markdownToHtml(markdown) {
 
   html = processedLines.join('\n');
 
-  // Convert double newlines to paragraph breaks
+  // STEP 7: Convert paragraphs
   const paragraphs = html.split(/\n\n+/);
   html = paragraphs.map(para => {
     para = para.trim();
     if (!para) return '';
+
     // Don't wrap if already an HTML element
-    if (para.startsWith('<h') || para.startsWith('<ul') || para.startsWith('<ol') ||
-        para.startsWith('<hr') || para.startsWith('<p') || para.startsWith('<div') ||
-        para.startsWith('<blockquote')) {
+    if (/^<(h[1-6]|ul|ol|li|hr|p|div|blockquote|table)/i.test(para)) {
       return para;
     }
-    // Wrap in paragraph with styling
-    return `<p style="margin-bottom: 18px; line-height: 1.7;">${para.replace(/\n/g, ' ')}</p>`;
-  }).filter(p => p).join('\n');
+
+    // Check for orphan closing tags
+    if (para === '</ul>' || para === '</ol>') {
+      return para;
+    }
+
+    // Wrap text in paragraph with styling
+    return `<p style="margin-bottom: 20px; line-height: 1.8; font-size: 1.05em;">${para.replace(/\n/g, ' ')}</p>`;
+  }).filter(p => p).join('\n\n');
+
+  // Final cleanup
+  html = html.replace(/<\/ul>\s*<\/ul>/g, '</ul>');
+  html = html.replace(/<p[^>]*>\s*<\/p>/g, '');
 
   return html;
 }
