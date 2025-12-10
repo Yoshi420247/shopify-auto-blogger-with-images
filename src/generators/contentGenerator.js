@@ -1,8 +1,13 @@
 /**
  * Content Generator Module
  *
- * Uses OpenAI GPT-4o to generate human-like blog content
+ * Uses OpenAI GPT-5.1 (November 2025) to generate human-like blog content
  * with emphasis on avoiding AI tells and mimicking author styles.
+ *
+ * GPT-5.1 features:
+ * - Adaptive reasoning with configurable effort levels
+ * - Extended 24-hour prompt caching
+ * - Improved agentic and coding capabilities
  */
 
 import OpenAI from 'openai';
@@ -55,14 +60,20 @@ export async function generateBlogPost(options) {
 
   try {
     const client = getOpenAI();
+
+    // GPT-5.1 API call with adaptive reasoning
+    // Using 'medium' reasoning effort for creative content generation
     const response = await client.chat.completions.create({
-      model: config.openai.model,
+      model: config.openai.model, // gpt-5.1
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      max_tokens: config.openai.maxTokens,
-      temperature: config.openai.temperature
+      max_completion_tokens: config.openai.maxOutputTokens,
+      temperature: config.openai.temperature,
+      // GPT-5.1 specific: reasoning effort controls how much "thinking" the model does
+      // 'none' = fast responses, 'low'/'medium'/'high' = more reasoning
+      reasoning_effort: config.openai.reasoningEffort || 'medium'
     });
 
     const rawContent = response.choices[0]?.message?.content;
@@ -336,8 +347,9 @@ For each idea, provide:
 Format as JSON array.`;
 
   try {
+    // GPT-5.1 with lower reasoning effort for faster topic generation
     const response = await client.chat.completions.create({
-      model: config.openai.model,
+      model: config.openai.model, // gpt-5.1
       messages: [
         {
           role: 'system',
@@ -345,8 +357,9 @@ Format as JSON array.`;
         },
         { role: 'user', content: prompt }
       ],
-      max_tokens: 2000,
-      temperature: 0.7
+      max_completion_tokens: 2000,
+      temperature: 0.7,
+      reasoning_effort: 'low' // Fast mode for simple task
     });
 
     const responseText = response.choices[0]?.message?.content;

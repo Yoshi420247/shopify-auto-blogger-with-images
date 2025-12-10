@@ -11,19 +11,22 @@ export const config = {
     apiVersion: '2024-10'
   },
 
-  // OpenAI Configuration (GPT-4o - latest flagship model)
+  // OpenAI Configuration (GPT-5.1 - released November 2025)
   openai: {
     apiKey: process.env.OPENAI_API_KEY,
-    model: 'gpt-4o', // Latest and most capable model as of Dec 2024
-    maxTokens: 4096,
-    temperature: 0.8 // Higher for more creative, human-like output
+    model: 'gpt-5.1', // GPT-5.1 with adaptive reasoning (Nov 2025)
+    maxOutputTokens: 8192,
+    temperature: 0.8, // Higher for more creative, human-like output
+    reasoningEffort: 'medium' // Options: 'none', 'low', 'medium', 'high'
   },
 
-  // Gemini Configuration (Nano Banana Pro for image generation)
+  // Gemini Configuration (Nano Banana Pro 3.0 for image generation)
   gemini: {
     apiKey: process.env.GEMINI_API_KEY,
-    imageModel: 'gemini-2.0-flash-exp', // Nano Banana Pro - latest image generation
-    textModel: 'gemini-1.5-pro'
+    imageModel: 'gemini-3-pro-image-preview', // Nano Banana Pro 3.0 (Gemini 3 Pro Image)
+    textModel: 'gemini-3-pro',
+    imageSize: '2K', // Options: 1K, 2K, 4K
+    aspectRatio: '16:9'
   },
 
   // Blog generation settings

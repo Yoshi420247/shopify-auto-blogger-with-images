@@ -5,11 +5,19 @@ Automated blog content generator for Shopify stores. Creates SEO-optimized, huma
 ## Features
 
 - **Smart Content Analysis**: Scrapes your existing blogs and competitor sites to identify content opportunities
-- **Human-Like Writing**: Uses GPT-4o with custom author style profiles to generate content that sounds genuinely human (no AI tells, no em-dashes)
-- **AI Image Generation**: Creates relevant images using Google's Gemini (Nano Banana Pro) image generation
+- **Human-Like Writing**: Uses **OpenAI GPT-5.1** (November 2025) with custom author style profiles to generate content that sounds genuinely human (no AI tells, no em-dashes)
+- **AI Image Generation**: Creates relevant images using **Google's Nano Banana Pro 3.0** (Gemini 3 Pro Image) with 2K/4K resolution support
 - **SEO Optimization**: Built-in optimization for traditional search, Google AI Overviews, and LLM-based search engines
 - **Shopify Integration**: Publishes directly to your Shopify blog using the GraphQL Admin API
 - **Scheduled Automation**: Runs automatically via GitHub Actions on a configurable schedule
+
+## AI Models Used
+
+| Purpose | Model | Details |
+|---------|-------|---------|
+| Content Generation | **GPT-5.1** | OpenAI's November 2025 release with adaptive reasoning |
+| Image Generation | **Nano Banana Pro 3.0** | Gemini 3 Pro Image (`gemini-3-pro-image-preview`) |
+| Fallback Images | Nano Banana / Imagen 4 | Automatic fallback for reliability |
 
 ## How It Works
 
@@ -20,13 +28,13 @@ Automated blog content generator for Shopify stores. Creates SEO-optimized, huma
 
 2. **Content Generation**
    - Selects appropriate author style (Hunter S. Thompson, Anthony Bourdain, etc.)
-   - Generates 1200+ word blog posts with proper structure
+   - GPT-5.1 generates 1200+ word blog posts with adaptive reasoning
    - Removes AI tells and creates natural-sounding content
-   - Includes SEO optimization for 2024/2025 best practices
+   - Includes SEO optimization for 2025 best practices
 
 3. **Image Creation**
    - Parses content for image markers
-   - Generates relevant images using Gemini's image models
+   - Generates 2K/4K images using Nano Banana Pro 3.0
    - Creates SEO-friendly alt text
 
 4. **Publishing**
@@ -115,8 +123,8 @@ src/
 │   ├── blogScraper.js         # Scrapes your existing blogs
 │   └── competitorScraper.js   # Analyzes competitor content
 ├── generators/
-│   ├── contentGenerator.js    # GPT-4o content generation
-│   └── imageGenerator.js      # Gemini image generation
+│   ├── contentGenerator.js    # GPT-5.1 content generation
+│   └── imageGenerator.js      # Nano Banana Pro 3.0 image generation
 ├── publishers/
 │   └── shopifyPublisher.js    # Shopify API integration
 └── utils/
@@ -172,9 +180,9 @@ Edit the `seo.focusKeywords` array in `src/config.js`.
 
 1. **Shopify API errors**: Ensure your Admin API token has the required scopes (`write_content`, `read_content`)
 
-2. **OpenAI rate limits**: The system uses GPT-4o which has rate limits. If you hit them, the action will fail and retry on the next scheduled run.
+2. **OpenAI rate limits**: GPT-5.1 has rate limits. If you hit them, the action will fail and retry on the next scheduled run.
 
-3. **Image generation failures**: Gemini's image generation may occasionally fail. The system will use placeholders and continue publishing.
+3. **Image generation failures**: Nano Banana Pro 3.0 may occasionally fail. The system automatically falls back to Nano Banana or Imagen 4, and uses placeholders as a last resort.
 
 4. **Scraping errors**: Some competitor sites may block scraping. The system gracefully handles errors and continues with available data.
 
@@ -184,9 +192,9 @@ Go to Actions tab > Select a workflow run > Click on the job to see detailed log
 
 ## Cost Considerations
 
-- **OpenAI GPT-4o**: ~$0.01-0.05 per blog post
-- **Gemini Image Generation**: ~$0.03 per image
-- **Estimated total**: ~$0.15-0.25 per blog post with 3 images
+- **OpenAI GPT-5.1**: ~$0.02-0.10 per blog post (with adaptive reasoning)
+- **Nano Banana Pro 3.0**: ~$0.05 per 2K image
+- **Estimated total**: ~$0.20-0.35 per blog post with 3 images
 
 ## License
 

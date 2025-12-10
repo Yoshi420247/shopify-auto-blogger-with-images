@@ -1,8 +1,15 @@
 /**
  * Image Generator Module
  *
- * Uses Google Gemini's Nano Banana Pro (gemini-2.0-flash-exp) for AI image generation.
+ * Uses Google Gemini's Nano Banana Pro 3.0 (gemini-3-pro-image-preview) for AI image generation.
  * Creates relevant, high-quality images for blog posts.
+ *
+ * Nano Banana Pro 3.0 features (Gemini 3 Pro Image):
+ * - High-resolution output: 1K, 2K, and 4K visuals
+ * - Advanced text rendering for infographics and marketing assets
+ * - Reasoning-enhanced composition
+ * - Character consistency with up to 14 reference inputs
+ * - SynthID watermarking for AI detection
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -37,11 +44,16 @@ export async function generateImage(description, options = {}) {
   try {
     const ai = getGenAI();
 
-    // Use Gemini 2.0 Flash with image generation capabilities (Nano Banana)
+    // Use Gemini 3 Pro Image (Nano Banana Pro 3.0) for advanced image generation
     const model = ai.getGenerativeModel({
-      model: config.gemini.imageModel,
+      model: config.gemini.imageModel, // gemini-3-pro-image-preview
       generationConfig: {
-        responseModalities: ['TEXT', 'IMAGE']
+        responseModalities: ['TEXT', 'IMAGE'],
+        // Nano Banana Pro 3.0 specific image configuration
+        imageConfig: {
+          aspectRatio: config.gemini.aspectRatio || aspectRatio,
+          imageSize: config.gemini.imageSize || '2K' // Options: 1K, 2K, 4K
+        }
       }
     });
 
@@ -58,6 +70,7 @@ export async function generateImage(description, options = {}) {
     const parts = response.candidates?.[0]?.content?.parts || [];
 
     // Find the image part in the response
+    // Nano Banana Pro returns images with thought signatures handled by SDK
     for (const part of parts) {
       if (part.inlineData) {
         return {
@@ -65,54 +78,86 @@ export async function generateImage(description, options = {}) {
           imageData: part.inlineData.data,
           mimeType: part.inlineData.mimeType || 'image/png',
           prompt: enhancedPrompt,
-          generatedAt: new Date().toISOString()
+          generatedAt: new Date().toISOString(),
+          model: 'Nano Banana Pro 3.0 (gemini-3-pro-image-preview)'
         };
       }
     }
 
-    // If no image was generated, try alternative approach
+    // If no image was generated, try alternative approach with Nano Banana (faster model)
     return await generateImageAlternative(description, options);
 
   } catch (error) {
-    console.error('Error generating image with Gemini:', error.message);
+    console.error('Error generating image with Nano Banana Pro:', error.message);
 
-    // Fallback to alternative method
+    // Fallback to Nano Banana (faster, less advanced)
     return await generateImageAlternative(description, options);
   }
 }
 
 /**
- * Alternative image generation using Imagen model directly
+ * Alternative image generation using Nano Banana (faster model)
+ * Falls back to Imagen 4 if Nano Banana fails
  */
 async function generateImageAlternative(description, options = {}) {
   try {
     const ai = getGenAI();
 
-    // Try using Imagen 3 model
-    const model = ai.getGenerativeModel({ model: 'imagen-3.0-generate-001' });
-
-    const result = await model.generateImages({
-      prompt: buildImagePrompt(description, options.style || 'photorealistic'),
-      numberOfImages: 1,
-      aspectRatio: options.aspectRatio || '16:9',
-      safetySettings: 'block_only_high'
+    // Try Nano Banana (Gemini 2.5 Flash Image) - faster alternative
+    console.log('Trying Nano Banana (gemini-2.5-flash-image) as fallback...');
+    const model = ai.getGenerativeModel({
+      model: 'gemini-2.5-flash-image',
+      generationConfig: {
+        responseModalities: ['TEXT', 'IMAGE']
+      }
     });
 
-    if (result.images && result.images.length > 0) {
-      const image = result.images[0];
+    const result = await model.generateContent({
+      contents: [{
+        parts: [{ text: buildImagePrompt(description, options.style || 'photorealistic') }]
+      }]
+    });
+
+    const parts = result.response?.candidates?.[0]?.content?.parts || [];
+    for (const part of parts) {
+      if (part.inlineData) {
+        return {
+          success: true,
+          imageData: part.inlineData.data,
+          mimeType: part.inlineData.mimeType || 'image/png',
+          prompt: description,
+          generatedAt: new Date().toISOString(),
+          model: 'Nano Banana (gemini-2.5-flash-image)'
+        };
+      }
+    }
+
+    // Final fallback: Try Imagen 4
+    console.log('Trying Imagen 4 as final fallback...');
+    const imagenModel = ai.getGenerativeModel({ model: 'imagen-4.0-generate-001' });
+
+    const imagenResult = await imagenModel.generateImages({
+      prompt: buildImagePrompt(description, options.style || 'photorealistic'),
+      numberOfImages: 1,
+      aspectRatio: options.aspectRatio || '16:9'
+    });
+
+    if (imagenResult.images && imagenResult.images.length > 0) {
+      const image = imagenResult.images[0];
       return {
         success: true,
         imageData: image.bytesBase64Encoded,
         mimeType: image.mimeType || 'image/png',
         prompt: description,
-        generatedAt: new Date().toISOString()
+        generatedAt: new Date().toISOString(),
+        model: 'Imagen 4'
       };
     }
 
-    throw new Error('No images generated');
+    throw new Error('No images generated from any model');
 
   } catch (error) {
-    console.error('Alternative image generation failed:', error.message);
+    console.error('All image generation attempts failed:', error.message);
     return {
       success: false,
       error: error.message,
