@@ -290,17 +290,19 @@ export async function createArticle(blogId, article) {
   // Convert body markdown to HTML
   const htmlBody = markdownToHtml(body);
 
+  // Ensure title is not too long (Shopify max is 255 characters)
+  const safeTitle = title.length > 250 ? title.substring(0, 247) + '...' : title;
+
   try {
-    // Try GraphQL mutation (2024-10+)
+    // Try GraphQL mutation (2024-10+ format)
     const mutation = `
-      mutation CreateArticle($blogId: ID!, $article: ArticleCreateInput!) {
-        articleCreate(blogId: $blogId, article: $article) {
+      mutation CreateArticle($article: ArticleInput!) {
+        articleCreate(article: $article) {
           article {
             id
             title
             handle
             publishedAt
-            onlineStoreUrl
           }
           userErrors {
             field
@@ -310,24 +312,26 @@ export async function createArticle(blogId, article) {
       }
     `;
 
+    const gidBlogId = blogId.includes('gid://') ? blogId : `gid://shopify/Blog/${blogId}`;
+
     const articleInput = {
-      title,
+      blogId: gidBlogId,
+      title: safeTitle,
       body: htmlBody,
-      author: { name: author },
+      author: author,
       tags,
-      isPublished: published
+      published
     };
 
     // Add image if available
     if (imageUrl) {
       articleInput.image = {
-        src: imageUrl,
-        altText: imageAlt || title
+        url: imageUrl,
+        altText: imageAlt || safeTitle
       };
     }
 
     const data = await graphqlQuery(mutation, {
-      blogId: blogId.includes('gid://') ? blogId : `gid://shopify/Blog/${blogId}`,
       article: articleInput
     });
 
@@ -352,7 +356,7 @@ export async function createArticle(blogId, article) {
 
     const articleData = {
       article: {
-        title,
+        title: safeTitle,
         author,
         tags: tags.join(', '),
         body_html: htmlBody,
@@ -363,7 +367,7 @@ export async function createArticle(blogId, article) {
     if (imageUrl) {
       articleData.article.image = {
         src: imageUrl,
-        alt: imageAlt || title
+        alt: imageAlt || safeTitle
       };
     }
 
@@ -447,7 +451,6 @@ export async function updateArticle(articleId, updates) {
             id
             title
             handle
-            onlineStoreUrl
           }
           userErrors {
             field

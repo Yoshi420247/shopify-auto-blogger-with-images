@@ -265,35 +265,53 @@ function removeAiTells(content) {
 
 /**
  * Parse generated content into structured format
+ * Handles various GPT-5.1 output formats
  */
 function parseGeneratedContent(content) {
-  const lines = content.split('\n').filter(l => l.trim());
+  // Split by double newlines or single newlines
+  let lines = content.split(/\n+/).filter(l => l.trim());
+
+  // If only one long line, try to parse intelligently
+  if (lines.length === 1 || (lines[0] && lines[0].length > 300)) {
+    return parseCompactContent(content);
+  }
 
   // First non-empty line should be title
   let title = lines[0]?.replace(/^#+\s*/, '').replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+
+  // Ensure title is reasonable length (max 200 chars)
+  if (title && title.length > 200) {
+    // Try to find a natural break point (? ! : or first sentence)
+    const breakPoints = [
+      title.indexOf('?'),
+      title.indexOf('!'),
+      title.indexOf(':'),
+      title.indexOf('. ')
+    ].filter(i => i > 10 && i < 200);
+
+    if (breakPoints.length > 0) {
+      const breakAt = Math.min(...breakPoints) + 1;
+      title = title.substring(0, breakAt).trim();
+    } else {
+      title = title.substring(0, 197) + '...';
+    }
+  }
 
   // Second line should be meta description
   let metaDescription = lines[1]?.trim();
 
   // Check if meta description looks like content (too long or has heading markers)
-  if (metaDescription?.length > 200 || metaDescription?.startsWith('#')) {
-    metaDescription = title.substring(0, 150) + '...';
+  if (!metaDescription || metaDescription.length > 200 || metaDescription.startsWith('#')) {
+    // Generate from title or first part of content
+    metaDescription = generateMetaDescription(title, lines.slice(1).join(' '));
   }
 
   // Rest is the body
   const bodyStartIndex = metaDescription && metaDescription.length < 200 ? 2 : 1;
   const body = lines.slice(bodyStartIndex).join('\n\n');
 
-  // Extract image markers
-  const imageMarkers = [];
-  const imageRegex = /\[IMAGE:\s*([^\]]+)\]/gi;
-  let match;
-  while ((match = imageRegex.exec(body)) !== null) {
-    imageMarkers.push({
-      marker: match[0],
-      description: match[1].trim()
-    });
-  }
+  // Extract image markers from entire content
+  const imageMarkers = extractImageMarkers(content);
 
   // Calculate word count
   const wordCount = body.split(/\s+/).filter(w => w.length > 0).length;
@@ -305,6 +323,133 @@ function parseGeneratedContent(content) {
     imageMarkers,
     wordCount
   };
+}
+
+/**
+ * Parse content that came as a single block (no clear line breaks)
+ */
+function parseCompactContent(content) {
+  // Remove any leading # or ** from title
+  let text = content.replace(/^#+\s*/, '').replace(/^\*\*/, '').trim();
+
+  // Try to find title by looking for common patterns
+  let title = '';
+  let body = text;
+
+  // Pattern 1: Title ends with ? or ! followed by space and more text
+  const questionMatch = text.match(/^([^?!]{10,150}[?!])\s+/);
+  if (questionMatch) {
+    title = questionMatch[1].trim();
+    body = text.substring(questionMatch[0].length).trim();
+  }
+  // Pattern 2: Title is before first [IMAGE:
+  else if (text.includes('[IMAGE:')) {
+    const imageIdx = text.indexOf('[IMAGE:');
+    if (imageIdx > 20 && imageIdx < 300) {
+      // Find sentence end before image marker
+      const beforeImage = text.substring(0, imageIdx);
+      const lastSentence = beforeImage.lastIndexOf('. ');
+      if (lastSentence > 20) {
+        title = beforeImage.substring(0, lastSentence + 1).trim();
+        // Further refine: take first sentence as title
+        const firstSentenceEnd = title.search(/[.!?]/);
+        if (firstSentenceEnd > 10 && firstSentenceEnd < 200) {
+          title = title.substring(0, firstSentenceEnd + 1).trim();
+        }
+        body = text.substring(title.length).trim();
+      }
+    }
+  }
+  // Pattern 3: Look for --- or === separator
+  else if (text.includes('---') || text.includes('===')) {
+    const sepIdx = Math.min(
+      text.includes('---') ? text.indexOf('---') : 9999,
+      text.includes('===') ? text.indexOf('===') : 9999
+    );
+    if (sepIdx > 20 && sepIdx < 500) {
+      const beforeSep = text.substring(0, sepIdx).trim();
+      // First sentence/question is title
+      const titleEnd = beforeSep.search(/[.!?]/);
+      if (titleEnd > 10) {
+        title = beforeSep.substring(0, titleEnd + 1).trim();
+      } else {
+        title = beforeSep.substring(0, 150).trim();
+      }
+      body = text.substring(sepIdx + 3).trim();
+    }
+  }
+  // Pattern 4: First sentence as title (fallback)
+  else {
+    const firstSentenceEnd = text.search(/[.!?]/);
+    if (firstSentenceEnd > 10 && firstSentenceEnd < 200) {
+      title = text.substring(0, firstSentenceEnd + 1).trim();
+      body = text.substring(firstSentenceEnd + 1).trim();
+    } else {
+      // Last resort: first 150 chars
+      title = text.substring(0, 150).trim();
+      if (!title.match(/[.!?]$/)) title += '...';
+      body = text;
+    }
+  }
+
+  // Ensure title is not too long
+  if (title.length > 200) {
+    title = title.substring(0, 197) + '...';
+  }
+
+  // Generate meta description
+  const metaDescription = generateMetaDescription(title, body);
+
+  // Extract image markers
+  const imageMarkers = extractImageMarkers(content);
+
+  // Word count
+  const wordCount = body.split(/\s+/).filter(w => w.length > 0).length;
+
+  return {
+    title,
+    metaDescription,
+    body,
+    imageMarkers,
+    wordCount
+  };
+}
+
+/**
+ * Generate a meta description from title and body
+ */
+function generateMetaDescription(title, body) {
+  // Clean up body text
+  const cleanBody = body.replace(/\[IMAGE:[^\]]+\]/g, '').replace(/---/g, '').trim();
+
+  // Take first sentence or 150 chars
+  const firstSentenceEnd = cleanBody.search(/[.!?]/);
+  if (firstSentenceEnd > 20 && firstSentenceEnd < 160) {
+    return cleanBody.substring(0, firstSentenceEnd + 1).trim();
+  }
+
+  // Fallback: first 150 chars of body or derived from title
+  if (cleanBody.length > 20) {
+    return cleanBody.substring(0, 150).trim() + '...';
+  }
+
+  return title.substring(0, 150);
+}
+
+/**
+ * Extract image markers from content
+ */
+function extractImageMarkers(content) {
+  const imageMarkers = [];
+  const imageRegex = /\[IMAGE:\s*([^\]]+)\]/gi;
+  let match;
+  while ((match = imageRegex.exec(content)) !== null) {
+    imageMarkers.push({
+      marker: match[0],
+      description: match[1].trim()
+    });
+  }
+  return imageMarkers;
 }
 
 /**
