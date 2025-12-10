@@ -296,6 +296,21 @@ export async function createArticle(blogId, article) {
   // Ensure title is not too long (Shopify max is 255 characters)
   const safeTitle = finalTitle.length > 250 ? finalTitle.substring(0, 247) + '...' : finalTitle;
 
+  // If we have image data, use REST API directly (GraphQL doesn't support image attachments)
+  if (imageData) {
+    console.log('Using REST API for image attachment support...');
+    return await createArticleViaRest(blogId, {
+      title: safeTitle,
+      body: htmlBody,
+      author,
+      tags,
+      published,
+      imageData,
+      imageAlt,
+      metaDescription
+    });
+  }
+
   try {
     // Try GraphQL mutation (2024-10+ format)
     const mutation = `
@@ -395,6 +410,63 @@ export async function createArticle(blogId, article) {
 
     return response.article;
   }
+}
+
+/**
+ * Create article via REST API (supports image attachments)
+ */
+async function createArticleViaRest(blogId, options) {
+  const {
+    title,
+    body,
+    author = 'Oil Slick Pad',
+    tags = [],
+    published = true,
+    imageData,
+    imageAlt,
+    metaDescription
+  } = options;
+
+  const numericBlogId = blogId.toString().split('/').pop();
+
+  const articleData = {
+    article: {
+      title,
+      author,
+      tags: Array.isArray(tags) ? tags.join(', ') : tags,
+      body_html: body,
+      published
+    }
+  };
+
+  // Attach image
+  if (imageData) {
+    let cleanBase64 = imageData;
+    if (cleanBase64.includes('base64,')) {
+      cleanBase64 = cleanBase64.split('base64,')[1];
+    }
+
+    console.log(`Attaching featured image (${Math.round(cleanBase64.length / 1024)}KB)`);
+
+    articleData.article.image = {
+      attachment: cleanBase64,
+      alt: imageAlt || title
+    };
+  }
+
+  const response = await shopifyRequest(getShopifyEndpoint(`/blogs/${numericBlogId}/articles.json`), {
+    method: 'POST',
+    data: articleData
+  });
+
+  const createdArticle = response.article;
+
+  // Set meta description if provided
+  if (metaDescription && createdArticle?.id) {
+    await updateArticleMetaDescription(`gid://shopify/Article/${createdArticle.id}`, metaDescription);
+  }
+
+  return createdArticle;
 }
 
 /**
@@ -532,15 +604,15 @@ function markdownToHtml(markdown) {
   html = html.replace(/\n{3,}/g, '\n\n');
 
   // STEP 2: Convert horizontal rules
-  html = html.replace(/^---+\s*$/gm, '<hr style="margin: 30px 0; border: none; border-top: 2px solid #ddd;">');
+  html = html.replace(/^---+\s*$/gm, '<hr>');
 
   // Also handle inline --- that weren't on their own line
-  html = html.replace(/\s---\s/g, '\n<hr style="margin: 30px 0; border: none; border-top: 2px solid #ddd;">\n');
+  html = html.replace(/\s---\s/g, '\n<hr>\n');
 
-  // STEP 3: Convert headers
-  html = html.replace(/^### (.+)$/gm, '<h3 style="font-size: 1.25em; margin: 25px 0 15px 0; color: #333; font-weight: 600;">$1</h3>');
-  html = html.replace(/^## (.+)$/gm, '<h2 style="font-size: 1.5em; margin: 35px 0 20px 0; color: #222; font-weight: 600;">$1</h2>');
-  html = html.replace(/^# (.+)$/gm, '<h1 style="font-size: 1.8em; margin: 40px 0 25px 0; color: #111; font-weight: 700;">$1</h1>');
+  // STEP 3: Convert headers (no inline styles - let Shopify theme handle it)
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
 
   // STEP 4: Bold and italic
   html = html.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>');
@@ -548,7 +620,7 @@ function markdownToHtml(markdown) {
   html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
 
   // STEP 5: Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #0066cc;">$1</a>');
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
 
   // STEP 6: Process lists
   const lines = html.split('\n');
@@ -561,10 +633,10 @@ function markdownToHtml(markdown) {
 
     if (listMatch) {
       if (!inList) {
-        processedLines.push('<ul style="margin: 20px 0; padding-left: 30px;">');
+        processedLines.push('<ul>');
         inList = true;
       }
-      processedLines.push(`<li style="margin-bottom: 10px; line-height: 1.6;">${listMatch[1]}</li>`);
+      processedLines.push(`<li>${listMatch[1]}</li>`);
     } else {
       if (inList) {
         processedLines.push('</ul>');
@@ -614,13 +686,11 @@ function markdownToHtml(markdown) {
         chunks.push(currentChunk.trim());
       }
 
-      return chunks.map(chunk =>
-        `<p style="margin-bottom: 20px; line-height: 1.8;">${chunk}</p>`
-      ).join('\n');
+      return chunks.map(chunk => `<p>${chunk}</p>`).join('\n');
     }
 
-    // Wrap text in paragraph with styling
-    return `<p style="margin-bottom: 20px; line-height: 1.8;">${text}</p>`;
+    // Wrap text in paragraph
+    return `<p>${text}</p>`;
   }).filter(p => p).join('\n\n');
 
   // Final cleanup

@@ -291,23 +291,8 @@ function parseGeneratedContent(content) {
   // First non-empty line should be title
   let title = lines[0]?.replace(/^#+\s*/, '').replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
 
-  // Ensure title is reasonable length (max 200 chars)
-  if (title && title.length > 200) {
-    // Try to find a natural break point (? ! : or first sentence)
-    const breakPoints = [
-      title.indexOf('?'),
-      title.indexOf('!'),
-      title.indexOf(':'),
-      title.indexOf('. ')
-    ].filter(i => i > 10 && i < 200);
-
-    if (breakPoints.length > 0) {
-      const breakAt = Math.min(...breakPoints) + 1;
-      title = title.substring(0, breakAt).trim();
-    } else {
-      title = title.substring(0, 197) + '...';
-    }
-  }
+  // Clean up title - extract just the main title, not subtitle or meta description
+  title = cleanupTitle(title);
 
   // Second line should be meta description
   let metaDescription = lines[1]?.trim();
@@ -420,10 +405,8 @@ function parseCompactContent(content) {
     }
   }
 
-  // Ensure title is not too long
-  if (title.length > 200) {
-    title = title.substring(0, 197) + '...';
-  }
+  // Clean up and truncate title
+  title = cleanupTitle(title);
 
   // Generate meta description
   const metaDescription = generateMetaDescription(title, body);
@@ -462,6 +445,58 @@ function generateMetaDescription(title, body) {
   }
 
   return title.substring(0, 150);
+}
+
+/**
+ * Clean up and truncate title to reasonable length
+ * Separates main title from subtitle/meta description
+ */
+function cleanupTitle(rawTitle) {
+  if (!rawTitle) return '';
+
+  let title = rawTitle.trim();
+
+  // If title contains a colon followed by a long description, take only the part before or including the subtitle
+  // Pattern: "Main Title: Short Subtitle Long description..."
+  const colonIdx = title.indexOf(':');
+  if (colonIdx > 5 && colonIdx < 80) {
+    // Check if there's more content after the colon
+    const afterColon = title.substring(colonIdx + 1).trim();
+
+    // If after colon has another sentence (contains period/question/exclamation), likely includes meta description
+    if (afterColon.length > 60 && /[.!?]/.test(afterColon)) {
+      // Look for natural break point in the subtitle
+      const subtitleEnd = afterColon.search(/[.!?]\s+[A-Z]/);
+      if (subtitleEnd > 0 && subtitleEnd < 60) {
+        title = title.substring(0, colonIdx + 1 + subtitleEnd + 1).trim();
+      } else {
+        // Take just up to 80 chars total
+        title = title.substring(0, 80).trim();
+      }
+    }
+  }
+
+  // If title is still too long, find a good break point
+  if (title.length > 80) {
+    // Try to break at colon if present
+    const colon = title.indexOf(':');
+    if (colon > 10 && colon < 70) {
+      title = title.substring(0, colon).trim();
+    } else {
+      // Break at last space before 80 chars
+      const lastSpace = title.lastIndexOf(' ', 75);
+      if (lastSpace > 30) {
+        title = title.substring(0, lastSpace).trim();
+      } else {
+        title = title.substring(0, 75).trim();
+      }
+    }
+  }
+
+  // Remove trailing punctuation except ? or !
+  title = title.replace(/[,;:\s]+$/, '');
+
+  return title;
 }
 
 /**
