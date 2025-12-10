@@ -412,8 +412,23 @@ export async function createArticle(blogId, article) {
   const finalTitle = title && title.trim() ? title.trim() : 'New Blog Post';
   console.log(`Creating article: ${finalTitle}`);
 
-  // Convert body markdown to HTML
-  let htmlBody = markdownToHtml(body);
+  // Check if body is already HTML (contains HTML tags) or still markdown
+  // If already HTML (from prepareContentWithImages), don't convert again
+  const isAlreadyHtml = body && (
+    body.includes('<figure') ||
+    body.includes('<p style=') ||
+    body.includes('<h2 id=') ||
+    body.includes('<table style=')
+  );
+
+  let htmlBody;
+  if (isAlreadyHtml) {
+    console.log('Body already contains HTML, skipping markdown conversion');
+    htmlBody = body;
+  } else {
+    // Convert body markdown to HTML
+    htmlBody = markdownToHtml(body);
+  }
 
   // Add schema.org structured data for LLM/AI search optimization
   const wordCount = body ? body.split(/\s+/).length : 1200;
@@ -734,39 +749,93 @@ function generateSchemaMarkup(title, description, author, publishDate, wordCount
 
 /**
  * Convert markdown tables to HTML tables
+ * Handles various markdown table formats including those with newlines
  */
 function convertMarkdownTables(html) {
-  // Match markdown table patterns
-  const tableRegex = /(?:^|\n)((?:\|[^\n]+\|\n)+)/g;
+  // First, normalize tables - find table-like patterns and ensure proper formatting
+  // Match lines that look like table rows (start and end with |)
+  const lines = html.split('\n');
+  const result = [];
+  let tableLines = [];
+  let inTable = false;
 
-  return html.replace(tableRegex, (match, tableContent) => {
-    const rows = tableContent.trim().split('\n').filter(row => row.trim());
-    if (rows.length < 2) return match; // Need at least header + separator
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
 
-    // Check if second row is separator (|---|---|)
-    if (!rows[1].match(/^\|[\s\-:|]+\|$/)) return match;
+    // Check if this line looks like a table row
+    const isTableRow = line.startsWith('|') && line.endsWith('|') && line.length > 2;
+    const isSeparator = /^\|[\s\-:|]+\|$/.test(line);
 
-    let tableHtml = '<table style="width: 100%; border-collapse: collapse; margin: 1.5em 0; font-size: 0.95em;">';
+    if (isTableRow || isSeparator) {
+      if (!inTable) {
+        inTable = true;
+        tableLines = [];
+      }
+      tableLines.push(line);
+    } else {
+      // End of table
+      if (inTable && tableLines.length >= 2) {
+        // Convert collected table lines to HTML
+        const tableHtml = convertTableLinesToHtml(tableLines);
+        result.push(tableHtml);
+        tableLines = [];
+      }
+      inTable = false;
+      result.push(lines[i]);
+    }
+  }
 
-    rows.forEach((row, index) => {
-      // Skip separator row
-      if (index === 1) return;
+  // Handle table at end of content
+  if (inTable && tableLines.length >= 2) {
+    const tableHtml = convertTableLinesToHtml(tableLines);
+    result.push(tableHtml);
+  }
 
-      const cells = row.split('|').filter(cell => cell.trim() !== '');
-      const tag = index === 0 ? 'th' : 'td';
-      const bgColor = index === 0 ? '#f5f5f5' : (index % 2 === 0 ? '#fafafa' : '#fff');
-      const fontWeight = index === 0 ? 'font-weight: 600;' : '';
+  return result.join('\n');
+}
 
-      tableHtml += '<tr>';
-      cells.forEach(cell => {
-        tableHtml += `<${tag} style="border: 1px solid #e0e0e0; padding: 0.75em 1em; text-align: left; ${fontWeight} background: ${bgColor};">${cell.trim()}</${tag}>`;
-      });
-      tableHtml += '</tr>';
+/**
+ * Convert array of table lines to HTML table
+ */
+function convertTableLinesToHtml(tableLines) {
+  // Find separator row (contains only |, -, :, and spaces)
+  let separatorIndex = -1;
+  for (let i = 0; i < tableLines.length; i++) {
+    if (/^\|[\s\-:|]+\|$/.test(tableLines[i])) {
+      separatorIndex = i;
+      break;
+    }
+  }
+
+  // If no separator found, not a valid table
+  if (separatorIndex === -1 || separatorIndex === 0) {
+    return tableLines.join('\n');
+  }
+
+  let tableHtml = '<table style="width: 100%; border-collapse: collapse; margin: 1.5em 0; font-size: 0.95em;">';
+
+  tableLines.forEach((row, index) => {
+    // Skip separator row
+    if (index === separatorIndex) return;
+
+    const cells = row.split('|').slice(1, -1); // Remove first and last empty elements
+    if (cells.length === 0) return;
+
+    const isHeader = index < separatorIndex;
+    const tag = isHeader ? 'th' : 'td';
+    const bgColor = isHeader ? '#f5f5f5' : (index % 2 === 0 ? '#fafafa' : '#fff');
+    const fontWeight = isHeader ? 'font-weight: 600;' : '';
+
+    tableHtml += '<tr>';
+    cells.forEach(cell => {
+      const cellContent = cell.trim();
+      tableHtml += `<${tag} style="border: 1px solid #e0e0e0; padding: 0.75em 1em; text-align: left; ${fontWeight} background: ${bgColor};">${cellContent}</${tag}>`;
     });
-
-    tableHtml += '</table>';
-    return '\n' + tableHtml + '\n';
+    tableHtml += '</tr>';
   });
+
+  tableHtml += '</table>';
+  return tableHtml;
 }
 
 /**
@@ -798,8 +867,11 @@ function markdownToHtml(markdown) {
 
   let html = markdown;
 
-  // Remove image markers first (these are handled separately)
-  html = html.replace(/\[IMAGE:[^\]]+\]/g, '');
+  // Remove image markers that weren't replaced (but keep any remaining ones for cleanup)
+  // Only remove if there are no figure tags (meaning images were handled)
+  if (!html.includes('<figure')) {
+    html = html.replace(/\[IMAGE:[^\]]+\]/g, '');
+  }
 
   // STEP 0: Extract headings for Table of Contents
   const headings = [];

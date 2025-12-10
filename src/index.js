@@ -36,7 +36,8 @@ import {
   getOrCreateBlog,
   createArticle,
   getArticles,
-  uploadImageToFiles
+  uploadImageToFiles,
+  markdownToHtml
 } from './publishers/shopifyPublisher.js';
 
 /**
@@ -533,10 +534,11 @@ function getTagsForTopic(topic) {
 }
 
 /**
- * Prepare content - upload all images to Shopify Files and embed URLs
+ * Prepare content - upload images, embed URLs, then convert markdown to HTML
  * First image is also used as featured image (uploaded via REST API)
  */
 async function prepareContentWithImages(post, images, title) {
+  // Start with raw markdown body
   let content = post.body;
 
   // Get successful images
@@ -589,6 +591,10 @@ async function prepareContentWithImages(post, images, title) {
     // No more images available, remove the marker
     return '';
   });
+
+  // NOW convert markdown to HTML (images are already HTML, they'll be preserved)
+  console.log('Converting markdown to HTML...');
+  content = markdownToHtml(content);
 
   // Clean up any extra whitespace
   content = content.replace(/\n{3,}/g, '\n\n');

@@ -20,39 +20,105 @@ function getOpenAI() {
 }
 
 /**
+ * Programmatic fixes for common HTML issues
+ * Runs before AI review to handle predictable problems
+ */
+function programmaticFixes(html) {
+  let fixed = html;
+
+  // Remove empty paragraphs
+  fixed = fixed.replace(/<p[^>]*>\s*<\/p>/g, '');
+
+  // Remove broken image fragments (like 'png" alt="...' without proper tag)
+  fixed = fixed.replace(/(?<!\<img[^>]*)(?:png|jpg|jpeg|gif|webp)"\s*alt="[^"]*"[^>]*(?:style="[^"]*")?[^>]*(?:loading="[^"]*")?[^>]*>/gi, '');
+
+  // Remove orphaned image attributes
+  fixed = fixed.replace(/\s*alt="[^"]*"\s*style="[^"]*"\s*loading="[^"]*"\s*>/g, '');
+
+  // Remove leftover [IMAGE: ...] markers
+  fixed = fixed.replace(/\[IMAGE:[^\]]*\]/g, '');
+
+  // Remove broken table fragments (lines of just | and -)
+  fixed = fixed.replace(/^\|[-|\s]+\|$/gm, '');
+  fixed = fixed.replace(/^\|-+$/gm, '');
+  fixed = fixed.replace(/^-+\|$/gm, '');
+
+  // Remove lines that are just pipes and dashes
+  fixed = fixed.replace(/^[\|\-\s]+$/gm, '');
+
+  // Remove leftover markdown headers that weren't converted
+  fixed = fixed.replace(/^#{1,6}\s+/gm, '');
+
+  // Remove leftover bold/italic markdown
+  fixed = fixed.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  fixed = fixed.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+  // Fix excessive newlines (more than 2)
+  fixed = fixed.replace(/\n{3,}/g, '\n\n');
+
+  // Remove lines that are just whitespace
+  fixed = fixed.replace(/^\s+$/gm, '');
+
+  // Clean up multiple consecutive empty lines
+  fixed = fixed.replace(/(\n\s*){3,}/g, '\n\n');
+
+  // Remove any script tags that might have broken
+  fixed = fixed.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, (match) => {
+    // Keep valid JSON-LD scripts
+    if (match.includes('application/ld+json')) {
+      return match;
+    }
+    return '';
+  });
+
+  return fixed.trim();
+}
+
+/**
  * Review and fix HTML content before publishing
  * Checks for: empty spaces, formatting issues, broken HTML, readability
  */
 export async function reviewAndFixContent(htmlContent, title) {
   console.log('AI reviewing content for formatting issues...');
 
+  // First, do programmatic fixes for common issues
+  let fixedHtml = programmaticFixes(htmlContent);
+
+  // Then use AI for remaining issues
   const client = getOpenAI();
 
   const prompt = `You are a content editor reviewing HTML for a Shopify blog post.
 Review this HTML and fix any issues you find. Return ONLY the corrected HTML, no explanations.
 
-ISSUES TO FIX:
-1. Remove any empty paragraphs (<p></p> or <p> </p>)
-2. Remove excessive whitespace or empty lines
-3. Fix any broken or unclosed HTML tags
-4. Ensure paragraphs are properly separated (not run together)
-5. Remove any leftover markdown that wasn't converted (**, ##, etc.)
-6. Remove any [IMAGE: ...] markers that weren't replaced
-7. Fix any weird spacing around punctuation
-8. Ensure lists are properly formatted
-9. Remove any duplicate content or repeated sections
-10. Clean up any AI artifacts or placeholder text
+CRITICAL ISSUES TO FIX:
+1. Remove any empty paragraphs (<p></p> or <p> </p> or <p style="..."></p>)
+2. Remove excessive blank lines (more than one empty line between elements)
+3. Fix any broken HTML tags (unclosed tags, malformed tags like 'png" alt="...')
+4. Fix any broken image tags - if you see fragments like 'png" alt="...' or orphaned img attributes, remove them entirely
+5. Remove any leftover markdown: **, ##, |---|, [IMAGE: ...], etc.
+6. Remove any pipe characters | that look like broken table remnants
+7. Fix weird spacing around punctuation
+8. Ensure proper paragraph separation
+9. Remove any duplicate sentences or repeated content
+10. Clean up any random line breaks in the middle of sentences
+
+SPECIFIC PATTERNS TO REMOVE:
+- Lines that are just "---" or "-" repeated
+- Lines starting with "|" that aren't in a table
+- Text fragments like "png" or "jpg" appearing alone
+- Any "<img" tags that don't have proper src attributes
 
 IMPORTANT:
-- Keep all the existing inline styles
-- Don't change the content meaning, just fix formatting
-- Don't add new content
-- Return clean, valid HTML
+- Keep all properly formatted HTML elements with their inline styles
+- Keep all properly formed <figure> and <img> tags
+- Keep all <table> elements that are properly formatted
+- Don't change the content meaning
+- Return clean, valid HTML only
 
 TITLE: ${title}
 
 HTML TO REVIEW:
-${htmlContent}
+${fixedHtml}
 
 Return the fixed HTML:`;
 
