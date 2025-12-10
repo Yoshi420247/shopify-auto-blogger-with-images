@@ -501,27 +501,27 @@ function getTagsForTopic(topic) {
 }
 
 /**
- * Prepare content with embedded images
+ * Prepare content - remove image markers
+ * Note: Images are NOT embedded as base64 in the body (would exceed 1MB limit)
+ * Featured image is set separately via article creation
  */
 function prepareContentWithImages(post, images) {
   let content = post.body;
 
+  // Replace image markers with styled placeholders (no base64 embedding)
+  // The featured image is set via the article's image field separately
   images.forEach((img) => {
     const marker = img.originalMarker;
     if (marker && content.includes(marker)) {
-      if (img.success && img.imageData) {
-        const dataUrl = imageToDataUrl(img);
-        const imgHtml = `<figure class="blog-image">
-  <img src="${dataUrl}" alt="${img.altText}" loading="lazy" />
-  <figcaption>${img.description}</figcaption>
-</figure>`;
-        content = content.replace(marker, imgHtml);
-      } else {
-        content = content.replace(marker, `<!-- Image placeholder: ${img.description} -->`);
-      }
+      // Just add a visual break with description - no embedded image
+      const placeholder = `<div class="image-section" style="text-align: center; padding: 20px; margin: 20px 0; background: #f5f5f5; border-radius: 8px;">
+  <p style="color: #666; font-style: italic;">${img.description}</p>
+</div>`;
+      content = content.replace(marker, placeholder);
     }
   });
 
+  // Remove any remaining image markers
   content = content.replace(/\[IMAGE:[^\]]+\]/g, '');
   return content;
 }
