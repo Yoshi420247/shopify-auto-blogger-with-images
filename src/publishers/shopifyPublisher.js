@@ -495,17 +495,26 @@ export async function updateArticle(articleId, updates) {
 }
 
 /**
- * Convert basic markdown to HTML
+ * Convert basic markdown to HTML with proper styling
  */
 function markdownToHtml(markdown) {
   if (!markdown) return '';
 
   let html = markdown;
 
-  // Headers
-  html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
-  html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
-  html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+  // Remove image markers first
+  html = html.replace(/\[IMAGE:[^\]]+\]/g, '');
+
+  // Remove placeholder divs if present
+  html = html.replace(/<div class="image-section"[^>]*>[\s\S]*?<\/div>/g, '');
+
+  // Horizontal rules (--- or ***)
+  html = html.replace(/^[\-\*]{3,}\s*$/gm, '<hr style="margin: 30px 0; border: none; border-top: 2px solid #e0e0e0;">');
+
+  // Headers with styling
+  html = html.replace(/^### (.*$)/gim, '<h3 style="font-size: 1.3em; margin-top: 25px; margin-bottom: 15px; color: #333;">$1</h3>');
+  html = html.replace(/^## (.*$)/gim, '<h2 style="font-size: 1.6em; margin-top: 35px; margin-bottom: 20px; color: #222;">$1</h2>');
+  html = html.replace(/^# (.*$)/gim, '<h1 style="font-size: 2em; margin-top: 40px; margin-bottom: 25px; color: #111;">$1</h1>');
 
   // Bold and italic
   html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
@@ -513,30 +522,51 @@ function markdownToHtml(markdown) {
   html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
 
   // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #0066cc;">$1</a>');
 
-  // Unordered lists
-  html = html.replace(/^\s*[-*]\s+(.*)$/gim, '<li>$1</li>');
-  html = html.replace(/(<li>.*<\/li>)\n(<li>)/g, '$1$2');
-  html = html.replace(/(<li>.*<\/li>)(?!\n<li>)/gs, '<ul>$1</ul>');
+  // Process lists - find consecutive list items
+  const lines = html.split('\n');
+  const processedLines = [];
+  let inList = false;
 
-  // Paragraphs
-  html = html.split(/\n\n+/).map(para => {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const listMatch = line.match(/^\s*[-*]\s+(.*)$/);
+
+    if (listMatch) {
+      if (!inList) {
+        processedLines.push('<ul style="margin: 15px 0; padding-left: 25px;">');
+        inList = true;
+      }
+      processedLines.push(`<li style="margin-bottom: 8px;">${listMatch[1]}</li>`);
+    } else {
+      if (inList) {
+        processedLines.push('</ul>');
+        inList = false;
+      }
+      processedLines.push(line);
+    }
+  }
+  if (inList) {
+    processedLines.push('</ul>');
+  }
+
+  html = processedLines.join('\n');
+
+  // Convert double newlines to paragraph breaks
+  const paragraphs = html.split(/\n\n+/);
+  html = paragraphs.map(para => {
     para = para.trim();
     if (!para) return '';
-    if (para.startsWith('<h') || para.startsWith('<ul') || para.startsWith('<ol')) {
+    // Don't wrap if already an HTML element
+    if (para.startsWith('<h') || para.startsWith('<ul') || para.startsWith('<ol') ||
+        para.startsWith('<hr') || para.startsWith('<p') || para.startsWith('<div') ||
+        para.startsWith('<blockquote')) {
       return para;
     }
-    return `<p>${para}</p>`;
-  }).join('\n');
-
-  // Clean up newlines within paragraphs
-  html = html.replace(/<p>(.*?)\n(.*?)<\/p>/gs, (match, p1, p2) => {
-    return `<p>${p1} ${p2}</p>`;
-  });
-
-  // Remove image markers (they should be handled separately)
-  html = html.replace(/\[IMAGE:[^\]]+\]/g, '');
+    // Wrap in paragraph with styling
+    return `<p style="margin-bottom: 18px; line-height: 1.7;">${para.replace(/\n/g, ' ')}</p>`;
+  }).filter(p => p).join('\n');
 
   return html;
 }
