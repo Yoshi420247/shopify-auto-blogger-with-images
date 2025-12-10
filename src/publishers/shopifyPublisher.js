@@ -603,24 +603,25 @@ function markdownToHtml(markdown) {
   // Clean up multiple newlines
   html = html.replace(/\n{3,}/g, '\n\n');
 
-  // STEP 2: Convert horizontal rules
-  html = html.replace(/^---+\s*$/gm, '<hr>');
+  // STEP 2: Convert horizontal rules (with subtle styling)
+  html = html.replace(/^---+\s*$/gm, '<hr style="border: none; border-top: 1px solid #e0e0e0; margin: 2em 0;">');
 
   // Also handle inline --- that weren't on their own line
-  html = html.replace(/\s---\s/g, '\n<hr>\n');
+  html = html.replace(/\s---\s/g, '\n<hr style="border: none; border-top: 1px solid #e0e0e0; margin: 2em 0;">\n');
 
-  // STEP 3: Convert headers (no inline styles - let Shopify theme handle it)
-  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  // STEP 3: Convert headers (with inline styles to override Shopify theme's ALL CAPS)
+  // Use text-transform: none to prevent uppercase, and proper font styling for readability
+  html = html.replace(/^### (.+)$/gm, '<h3 style="text-transform: none; font-size: 1.25em; font-weight: 600; margin: 1.5em 0 0.75em 0; line-height: 1.4;">$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2 style="text-transform: none; font-size: 1.5em; font-weight: 700; margin: 2em 0 1em 0; line-height: 1.3;">$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1 style="text-transform: none; font-size: 2em; font-weight: 700; margin: 1em 0; line-height: 1.2;">$1</h1>');
 
   // STEP 4: Bold and italic
   html = html.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>');
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
 
-  // STEP 5: Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  // STEP 5: Links (with styling for visibility)
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #2563eb; text-decoration: underline;">$1</a>');
 
   // STEP 6: Process lists
   const lines = html.split('\n');
@@ -633,10 +634,10 @@ function markdownToHtml(markdown) {
 
     if (listMatch) {
       if (!inList) {
-        processedLines.push('<ul>');
+        processedLines.push('<ul style="margin: 1em 0; padding-left: 1.5em; line-height: 1.7;">');
         inList = true;
       }
-      processedLines.push(`<li>${listMatch[1]}</li>`);
+      processedLines.push(`<li style="margin: 0.5em 0;">${listMatch[1]}</li>`);
     } else {
       if (inList) {
         processedLines.push('</ul>');
@@ -686,11 +687,11 @@ function markdownToHtml(markdown) {
         chunks.push(currentChunk.trim());
       }
 
-      return chunks.map(chunk => `<p>${chunk}</p>`).join('\n');
+      return chunks.map(chunk => `<p style="margin: 1em 0; line-height: 1.7;">${chunk}</p>`).join('\n');
     }
 
-    // Wrap text in paragraph
-    return `<p>${text}</p>`;
+    // Wrap text in paragraph with proper spacing
+    return `<p style="margin: 1em 0; line-height: 1.7;">${text}</p>`;
   }).filter(p => p).join('\n\n');
 
   // Final cleanup
