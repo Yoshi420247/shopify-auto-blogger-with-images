@@ -342,40 +342,54 @@ function parseCompactContent(content) {
   // Try to find title by looking for common patterns
   let title = '';
   let body = text;
+  let matched = false;
+
+  // Pattern 0: Title ends with year (e.g., "in 2025") followed by capital letter
+  if (!matched) {
+    const yearMatch = text.match(/^(.{10,150}\b(?:in|for|of)\s+20\d{2})\s+([A-Z])/);
+    if (yearMatch) {
+      title = yearMatch[1].trim();
+      body = text.substring(yearMatch[1].length).trim();
+      matched = true;
+    }
+  }
 
   // Pattern 1: Title ends with ? or ! followed by space and more text
-  const questionMatch = text.match(/^([^?!]{10,150}[?!])\s+/);
-  if (questionMatch) {
-    title = questionMatch[1].trim();
-    body = text.substring(questionMatch[0].length).trim();
+  if (!matched) {
+    const questionMatch = text.match(/^([^?!]{10,150}[?!])\s+/);
+    if (questionMatch) {
+      title = questionMatch[1].trim();
+      body = text.substring(questionMatch[0].length).trim();
+      matched = true;
+    }
   }
+
   // Pattern 2: Title is before first [IMAGE:
-  else if (text.includes('[IMAGE:')) {
+  if (!matched && text.includes('[IMAGE:')) {
     const imageIdx = text.indexOf('[IMAGE:');
     if (imageIdx > 20 && imageIdx < 300) {
-      // Find sentence end before image marker
       const beforeImage = text.substring(0, imageIdx);
       const lastSentence = beforeImage.lastIndexOf('. ');
       if (lastSentence > 20) {
         title = beforeImage.substring(0, lastSentence + 1).trim();
-        // Further refine: take first sentence as title
         const firstSentenceEnd = title.search(/[.!?]/);
         if (firstSentenceEnd > 10 && firstSentenceEnd < 200) {
           title = title.substring(0, firstSentenceEnd + 1).trim();
         }
         body = text.substring(title.length).trim();
+        matched = true;
       }
     }
   }
+
   // Pattern 3: Look for --- or === separator
-  else if (text.includes('---') || text.includes('===')) {
+  if (!matched && (text.includes('---') || text.includes('==='))) {
     const sepIdx = Math.min(
       text.includes('---') ? text.indexOf('---') : 9999,
       text.includes('===') ? text.indexOf('===') : 9999
     );
     if (sepIdx > 20 && sepIdx < 500) {
       const beforeSep = text.substring(0, sepIdx).trim();
-      // First sentence/question is title
       const titleEnd = beforeSep.search(/[.!?]/);
       if (titleEnd > 10) {
         title = beforeSep.substring(0, titleEnd + 1).trim();
@@ -383,10 +397,12 @@ function parseCompactContent(content) {
         title = beforeSep.substring(0, 150).trim();
       }
       body = text.substring(sepIdx + 3).trim();
+      matched = true;
     }
   }
+
   // Pattern 4: First sentence as title (fallback)
-  else {
+  if (!matched) {
     const firstSentenceEnd = text.search(/[.!?]/);
     if (firstSentenceEnd > 10 && firstSentenceEnd < 200) {
       title = text.substring(0, firstSentenceEnd + 1).trim();
