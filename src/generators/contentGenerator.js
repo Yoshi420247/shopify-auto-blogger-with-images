@@ -62,7 +62,7 @@ export async function generateBlogPost(options) {
     const client = getOpenAI();
 
     // GPT-5.1 API call with adaptive reasoning
-    // Using 'medium' reasoning effort for creative content generation
+    // Note: GPT-5.1 with reasoning_effort does not support custom temperature
     const response = await client.chat.completions.create({
       model: config.openai.model, // gpt-5.1
       messages: [
@@ -70,7 +70,6 @@ export async function generateBlogPost(options) {
         { role: 'user', content: userPrompt }
       ],
       max_completion_tokens: config.openai.maxOutputTokens,
-      temperature: config.openai.temperature,
       // GPT-5.1 specific: reasoning effort controls how much "thinking" the model does
       // 'none' = fast responses, 'low'/'medium'/'high' = more reasoning
       reasoning_effort: config.openai.reasoningEffort || 'medium'
@@ -348,6 +347,7 @@ Format as JSON array.`;
 
   try {
     // GPT-5.1 with lower reasoning effort for faster topic generation
+    // Note: GPT-5.1 with reasoning_effort does not support custom temperature
     const response = await client.chat.completions.create({
       model: config.openai.model, // gpt-5.1
       messages: [
@@ -358,7 +358,6 @@ Format as JSON array.`;
         { role: 'user', content: prompt }
       ],
       max_completion_tokens: 2000,
-      temperature: 0.7,
       reasoning_effort: 'low' // Fast mode for simple task
     });
 

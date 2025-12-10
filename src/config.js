@@ -12,11 +12,11 @@ export const config = {
   },
 
   // OpenAI Configuration (GPT-5.1 - released November 2025)
+  // Note: GPT-5.1 with reasoning_effort does not support custom temperature
   openai: {
     apiKey: process.env.OPENAI_API_KEY,
     model: 'gpt-5.1', // GPT-5.1 with adaptive reasoning (Nov 2025)
     maxOutputTokens: 8192,
-    temperature: 0.8, // Higher for more creative, human-like output
     reasoningEffort: 'medium' // Options: 'none', 'low', 'medium', 'high'
   },
 
