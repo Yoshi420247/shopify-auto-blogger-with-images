@@ -25,7 +25,7 @@ export const config = {
     apiKey: process.env.GEMINI_API_KEY,
     imageModel: 'gemini-3-pro-image-preview', // Nano Banana Pro 3.0 (Gemini 3 Pro Image)
     textModel: 'gemini-3-pro',
-    imageSize: '2K', // Options: 1K, 2K, 4K
+    imageSize: '1K', // Use 1K for faster uploads and smaller file sizes (Options: 1K, 2K, 4K)
     aspectRatio: '16:9'
   },
 

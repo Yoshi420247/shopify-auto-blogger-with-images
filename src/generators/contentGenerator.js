@@ -137,24 +137,47 @@ CRITICAL RULES - YOUR CONTENT MUST:
 10. Express genuine opinions - don't hedge everything
 11. Be occasionally irreverent or use mild humor
 
-CONTENT STRUCTURE:
+TITLE REQUIREMENTS (VERY IMPORTANT):
+- Title MUST be 50-60 characters maximum (for SEO)
+- Title should be punchy, complete, and SEO-optimized
+- Good examples: "Best Dab Pads of 2025: Expert Picks" (35 chars), "How to Clean Your Dab Rig in 5 Minutes" (38 chars)
+- BAD: Long rambling titles with colons and subtitles
+
+CONTENT STRUCTURE (VERY IMPORTANT FOR READABILITY):
 - Write at least 1200 words, target 1500-1800
-- Use H2 (##) and H3 (###) headings to break up content - aim for a new H2 every 200-300 words
-- CRITICAL: Keep paragraphs SHORT - 2-4 sentences MAXIMUM. One idea per paragraph.
-- Include a compelling introduction that hooks the reader
+- Use ## for main section headings (H2) - aim for 5-7 major sections
+- Use ### for subsection headings (H3) within longer sections
+- CRITICAL: Keep paragraphs SHORT - 2-3 sentences MAXIMUM. One idea per paragraph.
+- Include a compelling 2-3 sentence introduction that hooks the reader
 - End with a genuine conclusion, NOT a formulaic summary
+
+CALLOUT BOXES (use these to highlight important info):
+- **Pro Tip:** [tip text] - for helpful advice
+- **Warning:** [warning text] - for things to avoid
+- **Note:** [note text] - for important clarifications
+- **Important:** [important text] - for critical information
+Use at least 2-3 callout boxes throughout the article.
+
+TABLES FOR LLM/AI SEARCH OPTIMIZATION:
+Include at least one markdown table to present structured data. Examples:
+| Feature | Budget Option | Premium Option |
+|---------|--------------|----------------|
+| Material | Silicone | Medical-grade silicone |
+| Heat resistance | 400°F | 600°F |
+| Price range | $15-25 | $40-60 |
 
 FORMATTING - THIS IS CRITICAL FOR READABILITY:
 - Output in clean Markdown format with PROPER LINE BREAKS
-- Start with a suggested title on the first line (just the title, no "Title:" prefix)
-- Include a suggested meta description on the second line (just the description, no prefix)
+- Start with a SHORT title (50-60 chars max) on the first line
+- Include a meta description (150-160 chars) on the second line
 - Then a BLANK LINE, then the article content
 - ALWAYS put a blank line BEFORE and AFTER each heading (## or ###)
 - ALWAYS put a blank line between paragraphs
-- ALWAYS put a blank line before and after lists
-- Use --- on its own line to create section dividers between major topics
-- Mark suggested image placements with: [IMAGE: description of what image should show] on its own line
+- ALWAYS put a blank line before and after lists and tables
+- Use --- on its own line sparingly for major topic transitions only
+- Mark EXACTLY 3 image placements with: [IMAGE: description] spread throughout the article
 - Lists should have each item on its own line starting with "- "
+- Use numbered lists (1. 2. 3.) for step-by-step instructions
 
 You are writing for real people who know their stuff. Don't talk down to them, but do explain technical concepts when needed.`;
 }
@@ -248,6 +271,7 @@ Now write the blog post:`;
 
 /**
  * Remove AI tells from generated content
+ * IMPORTANT: Preserve markdown formatting (newlines, headers, etc.)
  */
 function removeAiTells(content) {
   let cleaned = content;
@@ -262,15 +286,18 @@ function removeAiTells(content) {
     cleaned = cleaned.replace(regex, '');
   });
 
-  // Clean up any double spaces or punctuation issues
-  cleaned = cleaned.replace(/\s+/g, ' ');
+  // Clean up double spaces ONLY (NOT newlines - preserve markdown structure)
+  cleaned = cleaned.replace(/ {2,}/g, ' ');
   cleaned = cleaned.replace(/,\s*,/g, ',');
   cleaned = cleaned.replace(/\.\s*\./g, '.');
-  cleaned = cleaned.replace(/\s+\./g, '.');
-  cleaned = cleaned.replace(/\s+,/g, ',');
+  cleaned = cleaned.replace(/ +\./g, '.');
+  cleaned = cleaned.replace(/ +,/g, ',');
 
-  // Fix paragraph spacing
+  // Normalize line breaks - max 2 consecutive newlines
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+
+  // Ensure headers have proper spacing
+  cleaned = cleaned.replace(/\n*(#{1,3} [^\n]+)\n*/g, '\n\n$1\n\n');
 
   return cleaned.trim();
 }
@@ -448,53 +475,66 @@ function generateMetaDescription(title, body) {
 }
 
 /**
- * Clean up and truncate title to reasonable length
- * Separates main title from subtitle/meta description
+ * Clean up and truncate title for SEO (50-60 chars ideal)
+ * Makes titles punchy, complete, and search-optimized
  */
 function cleanupTitle(rawTitle) {
   if (!rawTitle) return '';
 
   let title = rawTitle.trim();
 
-  // If title contains a colon followed by a long description, take only the part before or including the subtitle
-  // Pattern: "Main Title: Short Subtitle Long description..."
+  // Remove any markdown formatting
+  title = title.replace(/^#+\s*/, '');
+  title = title.replace(/^\*\*/, '').replace(/\*\*$/, '');
+
+  // Remove "Title:" prefix if present
+  title = title.replace(/^Title:\s*/i, '');
+
+  // If title has a colon with long content after, evaluate
   const colonIdx = title.indexOf(':');
-  if (colonIdx > 5 && colonIdx < 80) {
-    // Check if there's more content after the colon
+  if (colonIdx > 5) {
+    const beforeColon = title.substring(0, colonIdx).trim();
     const afterColon = title.substring(colonIdx + 1).trim();
 
-    // If after colon has another sentence (contains period/question/exclamation), likely includes meta description
-    if (afterColon.length > 60 && /[.!?]/.test(afterColon)) {
-      // Look for natural break point in the subtitle
-      const subtitleEnd = afterColon.search(/[.!?]\s+[A-Z]/);
-      if (subtitleEnd > 0 && subtitleEnd < 60) {
-        title = title.substring(0, colonIdx + 1 + subtitleEnd + 1).trim();
-      } else {
-        // Take just up to 80 chars total
-        title = title.substring(0, 80).trim();
-      }
+    // If the part before colon is already a good length (30-55 chars), use it
+    if (beforeColon.length >= 30 && beforeColon.length <= 55) {
+      title = beforeColon;
+    }
+    // If before colon is short, try to include short subtitle
+    else if (beforeColon.length < 30 && afterColon.length < 25) {
+      title = `${beforeColon}: ${afterColon.split('.')[0].split(',')[0].trim()}`;
+    }
+    // If before colon is too short and after is long, keep before + truncated after
+    else if (beforeColon.length < 30) {
+      const shortAfter = afterColon.substring(0, 25).trim();
+      const lastSpace = shortAfter.lastIndexOf(' ');
+      title = `${beforeColon}: ${lastSpace > 10 ? shortAfter.substring(0, lastSpace) : shortAfter}`;
+    }
+    // Otherwise just use the part before colon
+    else {
+      title = beforeColon;
     }
   }
 
-  // If title is still too long, find a good break point
-  if (title.length > 80) {
-    // Try to break at colon if present
-    const colon = title.indexOf(':');
-    if (colon > 10 && colon < 70) {
-      title = title.substring(0, colon).trim();
+  // Hard limit: 60 characters for SEO
+  if (title.length > 60) {
+    // Try to find a natural break point
+    const lastSpace = title.lastIndexOf(' ', 57);
+    if (lastSpace > 25) {
+      title = title.substring(0, lastSpace).trim();
     } else {
-      // Break at last space before 80 chars
-      const lastSpace = title.lastIndexOf(' ', 75);
-      if (lastSpace > 30) {
-        title = title.substring(0, lastSpace).trim();
-      } else {
-        title = title.substring(0, 75).trim();
-      }
+      title = title.substring(0, 57).trim();
     }
   }
 
   // Remove trailing punctuation except ? or !
   title = title.replace(/[,;:\s]+$/, '');
+
+  // Ensure title is complete (ends with proper word)
+  if (title.length < 20) {
+    // Title too short, likely parsing issue - return as is for fallback handling
+    return title;
+  }
 
   return title;
 }

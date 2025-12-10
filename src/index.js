@@ -31,7 +31,8 @@ import {
   testConnection,
   getOrCreateBlog,
   createArticle,
-  getArticles
+  getArticles,
+  uploadImageToFiles
 } from './publishers/shopifyPublisher.js';
 
 /**
@@ -421,8 +422,8 @@ async function generateAndPublishBlog(plan, researchData) {
     console.log('No image markers found in content');
   }
 
-  // Prepare content
-  const finalContent = prepareContentWithImages(generatedPost, images);
+  // Prepare content - upload inline images to Shopify Files and embed by URL
+  const finalContent = await prepareContentWithImages(generatedPost, images, generatedPost.title);
 
   // Publish (unless dry run)
   if (config.blog.dryRun) {
@@ -509,17 +510,64 @@ function getTagsForTopic(topic) {
 }
 
 /**
- * Prepare content - clean up for publishing
- * Note: Images are NOT embedded in body (would exceed 1MB limit)
- * Featured image is set via article's image attachment field
+ * Prepare content - upload all images to Shopify Files and embed URLs
+ * First image is also used as featured image (uploaded via REST API)
  */
-function prepareContentWithImages(post, images) {
+async function prepareContentWithImages(post, images, title) {
   let content = post.body;
 
-  // Simply remove all image markers - featured image is uploaded separately
-  content = content.replace(/\[IMAGE:[^\]]+\]/g, '');
+  // Get successful images
+  const successfulImages = images.filter(img => img.success && img.imageData);
 
-  // Clean up any extra whitespace from removed markers
+  // Upload images to Shopify Files and get URLs
+  console.log('Uploading inline images to Shopify Files...');
+  const uploadedImages = [];
+
+  for (let i = 0; i < successfulImages.length; i++) {
+    const img = successfulImages[i];
+    const filename = `blog-image-${Date.now()}-${i + 1}.png`;
+
+    try {
+      const uploaded = await uploadImageToFiles(img.imageData, filename, img.altText || img.description);
+      if (uploaded && uploaded.url) {
+        uploadedImages.push({
+          url: uploaded.url,
+          altText: img.altText || img.description || `${title} image ${i + 1}`
+        });
+        console.log(`  Image ${i + 1}: Uploaded to ${uploaded.url.substring(0, 50)}...`);
+      } else {
+        console.log(`  Image ${i + 1}: Upload failed, skipping`);
+      }
+    } catch (err) {
+      console.log(`  Image ${i + 1}: Error - ${err.message}`);
+    }
+
+    // Small delay between uploads
+    if (i < successfulImages.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+
+  // Replace each [IMAGE: ...] marker with actual image HTML using URLs
+  let imageIndex = 0;
+  content = content.replace(/\[IMAGE:[^\]]+\]/g, (match) => {
+    if (imageIndex < uploadedImages.length) {
+      const img = uploadedImages[imageIndex];
+      imageIndex++;
+
+      // Create responsive image HTML with proper styling using CDN URL
+      return `
+<figure style="margin: 2em 0; text-align: center;">
+  <img src="${img.url}" alt="${img.altText}" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" loading="lazy">
+  <figcaption style="margin-top: 0.5em; font-size: 0.9em; color: #666; font-style: italic;">${img.altText}</figcaption>
+</figure>
+`;
+    }
+    // No more images available, remove the marker
+    return '';
+  });
+
+  // Clean up any extra whitespace
   content = content.replace(/\n{3,}/g, '\n\n');
 
   return content;

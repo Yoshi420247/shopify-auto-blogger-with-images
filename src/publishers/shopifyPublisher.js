@@ -198,7 +198,129 @@ export async function getArticles(blogId, limit = 50) {
 }
 
 /**
- * Upload an image to Shopify
+ * Upload an image to Shopify Files and get a permanent CDN URL
+ * Used for inline blog images that need to be embedded in content
+ */
+export async function uploadImageToFiles(imageData, filename, altText) {
+  if (!imageData) {
+    return null;
+  }
+
+  try {
+    // Clean base64 data
+    let cleanBase64 = imageData;
+    if (cleanBase64.includes('base64,')) {
+      cleanBase64 = cleanBase64.split('base64,')[1];
+    }
+
+    // Step 1: Create staged upload
+    const stageMutation = `
+      mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
+        stagedUploadsCreate(input: $input) {
+          stagedTargets {
+            url
+            resourceUrl
+            parameters {
+              name
+              value
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    const stageData = await graphqlQuery(stageMutation, {
+      input: [{
+        resource: 'FILE',
+        filename: filename,
+        mimeType: 'image/png',
+        httpMethod: 'POST',
+        fileSize: Buffer.from(cleanBase64, 'base64').length.toString()
+      }]
+    });
+
+    if (stageData.stagedUploadsCreate?.userErrors?.length > 0) {
+      throw new Error(stageData.stagedUploadsCreate.userErrors[0].message);
+    }
+
+    const target = stageData.stagedUploadsCreate?.stagedTargets?.[0];
+    if (!target) {
+      throw new Error('Failed to create staged upload');
+    }
+
+    // Step 2: Upload the file to staged URL
+    const formData = new FormData();
+    target.parameters.forEach(param => {
+      formData.append(param.name, param.value);
+    });
+
+    const buffer = Buffer.from(cleanBase64, 'base64');
+    const blob = new Blob([buffer], { type: 'image/png' });
+    formData.append('file', blob, filename);
+
+    await axios.post(target.url, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000
+    });
+
+    // Step 3: Create the file in Shopify to get permanent URL
+    const fileCreateMutation = `
+      mutation fileCreate($files: [FileCreateInput!]!) {
+        fileCreate(files: $files) {
+          files {
+            id
+            alt
+            createdAt
+            ... on MediaImage {
+              image {
+                url
+                originalSrc
+              }
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    const fileData = await graphqlQuery(fileCreateMutation, {
+      files: [{
+        alt: altText || filename,
+        contentType: 'IMAGE',
+        originalSource: target.resourceUrl
+      }]
+    });
+
+    if (fileData.fileCreate?.userErrors?.length > 0) {
+      console.warn('File create warning:', fileData.fileCreate.userErrors[0].message);
+    }
+
+    const createdFile = fileData.fileCreate?.files?.[0];
+    const imageUrl = createdFile?.image?.url || createdFile?.image?.originalSrc || target.resourceUrl;
+
+    console.log(`Uploaded image to Shopify Files: ${filename}`);
+
+    return {
+      url: imageUrl,
+      altText,
+      fileId: createdFile?.id
+    };
+
+  } catch (error) {
+    console.error('Error uploading to Shopify Files:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Upload an image to Shopify (legacy - for article featured images)
  */
 export async function uploadImage(imageData, filename, altText) {
   if (!imageData) {
@@ -291,7 +413,12 @@ export async function createArticle(blogId, article) {
   console.log(`Creating article: ${finalTitle}`);
 
   // Convert body markdown to HTML
-  const htmlBody = markdownToHtml(body);
+  let htmlBody = markdownToHtml(body);
+
+  // Add schema.org structured data for LLM/AI search optimization
+  const wordCount = body ? body.split(/\s+/).length : 1200;
+  const schemaMarkup = generateSchemaMarkup(finalTitle, metaDescription, author, new Date().toISOString(), wordCount);
+  htmlBody = schemaMarkup + '\n\n' + htmlBody;
 
   // Ensure title is not too long (Shopify max is 255 characters)
   const safeTitle = finalTitle.length > 250 ? finalTitle.substring(0, 247) + '...' : finalTitle;
@@ -577,16 +704,113 @@ export async function updateArticle(articleId, updates) {
 }
 
 /**
+ * Generate schema.org JSON-LD structured data for the article
+ * This helps with LLM/AI search engines and rich snippets
+ */
+function generateSchemaMarkup(title, description, author, publishDate, wordCount) {
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": title,
+    "description": description,
+    "author": {
+      "@type": "Person",
+      "name": author || "Oil Slick Pad"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Oil Slick Pad",
+      "url": "https://oilslickpad.com"
+    },
+    "datePublished": publishDate || new Date().toISOString(),
+    "dateModified": new Date().toISOString(),
+    "wordCount": wordCount || 1200,
+    "articleSection": "Cannabis Accessories",
+    "keywords": ["dab pad", "dabbing", "concentrate tools", "cannabis accessories"]
+  };
+
+  return `<script type="application/ld+json">${JSON.stringify(schema, null, 2)}</script>`;
+}
+
+/**
+ * Convert markdown tables to HTML tables
+ */
+function convertMarkdownTables(html) {
+  // Match markdown table patterns
+  const tableRegex = /(?:^|\n)((?:\|[^\n]+\|\n)+)/g;
+
+  return html.replace(tableRegex, (match, tableContent) => {
+    const rows = tableContent.trim().split('\n').filter(row => row.trim());
+    if (rows.length < 2) return match; // Need at least header + separator
+
+    // Check if second row is separator (|---|---|)
+    if (!rows[1].match(/^\|[\s\-:|]+\|$/)) return match;
+
+    let tableHtml = '<table style="width: 100%; border-collapse: collapse; margin: 1.5em 0; font-size: 0.95em;">';
+
+    rows.forEach((row, index) => {
+      // Skip separator row
+      if (index === 1) return;
+
+      const cells = row.split('|').filter(cell => cell.trim() !== '');
+      const tag = index === 0 ? 'th' : 'td';
+      const bgColor = index === 0 ? '#f5f5f5' : (index % 2 === 0 ? '#fafafa' : '#fff');
+      const fontWeight = index === 0 ? 'font-weight: 600;' : '';
+
+      tableHtml += '<tr>';
+      cells.forEach(cell => {
+        tableHtml += `<${tag} style="border: 1px solid #e0e0e0; padding: 0.75em 1em; text-align: left; ${fontWeight} background: ${bgColor};">${cell.trim()}</${tag}>`;
+      });
+      tableHtml += '</tr>';
+    });
+
+    tableHtml += '</table>';
+    return '\n' + tableHtml + '\n';
+  });
+}
+
+/**
+ * Generate Table of Contents HTML from headings
+ */
+function generateTableOfContents(headings) {
+  if (headings.length < 3) return ''; // Only add TOC if 3+ headings
+
+  let tocHtml = '<nav style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 1.5em; margin: 2em 0;">';
+  tocHtml += '<p style="font-weight: 700; margin: 0 0 1em 0; font-size: 1.1em;">📑 In This Article</p>';
+  tocHtml += '<ul style="margin: 0; padding-left: 1.5em; line-height: 1.8;">';
+
+  headings.forEach(h => {
+    const indent = h.level === 3 ? 'margin-left: 1em;' : '';
+    tocHtml += `<li style="${indent}"><a href="#${h.id}" style="color: #2563eb; text-decoration: none;">${h.text}</a></li>`;
+  });
+
+  tocHtml += '</ul></nav>';
+  return tocHtml;
+}
+
+/**
  * Convert markdown to HTML with proper styling
  * Handles both properly formatted markdown AND inline/compact content
+ * Includes: TOC generation, tables, callout boxes, semantic HTML
  */
 function markdownToHtml(markdown) {
   if (!markdown) return '';
 
   let html = markdown;
 
-  // Remove image markers first
+  // Remove image markers first (these are handled separately)
   html = html.replace(/\[IMAGE:[^\]]+\]/g, '');
+
+  // STEP 0: Extract headings for Table of Contents
+  const headings = [];
+  const headingRegex = /^(#{2,3})\s+(.+)$/gm;
+  let match;
+  while ((match = headingRegex.exec(markdown)) !== null) {
+    const level = match[1].length;
+    const text = match[2].trim();
+    const id = text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    headings.push({ level, text, id });
+  }
 
   // STEP 1: Normalize content - add line breaks around markdown markers
   // This handles content that comes as one long block without proper newlines
@@ -609,21 +833,40 @@ function markdownToHtml(markdown) {
   // Also handle inline --- that weren't on their own line
   html = html.replace(/\s---\s/g, '\n<hr style="border: none; border-top: 1px solid #e0e0e0; margin: 2em 0;">\n');
 
-  // STEP 3: Convert headers (with inline styles to override Shopify theme's ALL CAPS)
+  // STEP 3: Convert headers with anchor IDs for TOC navigation
   // Use text-transform: none to prevent uppercase, and proper font styling for readability
-  html = html.replace(/^### (.+)$/gm, '<h3 style="text-transform: none; font-size: 1.25em; font-weight: 600; margin: 1.5em 0 0.75em 0; line-height: 1.4;">$1</h3>');
-  html = html.replace(/^## (.+)$/gm, '<h2 style="text-transform: none; font-size: 1.5em; font-weight: 700; margin: 2em 0 1em 0; line-height: 1.3;">$1</h2>');
+  html = html.replace(/^### (.+)$/gm, (match, title) => {
+    const id = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    return `<h3 id="${id}" style="text-transform: none; font-size: 1.25em; font-weight: 600; margin: 1.5em 0 0.75em 0; line-height: 1.4;">${title}</h3>`;
+  });
+  html = html.replace(/^## (.+)$/gm, (match, title) => {
+    const id = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    return `<h2 id="${id}" style="text-transform: none; font-size: 1.5em; font-weight: 700; margin: 2em 0 1em 0; line-height: 1.3;">${title}</h2>`;
+  });
   html = html.replace(/^# (.+)$/gm, '<h1 style="text-transform: none; font-size: 2em; font-weight: 700; margin: 1em 0; line-height: 1.2;">$1</h1>');
 
-  // STEP 4: Bold and italic
+  // STEP 4: Convert callout boxes (Pro Tip, Warning, Note patterns)
+  html = html.replace(/\*\*Pro [Tt]ip:\*\*\s*([^\n]+)/g,
+    '<div style="background: #e8f5e9; border-left: 4px solid #4caf50; padding: 1em; margin: 1.5em 0; border-radius: 4px;"><strong style="color: #2e7d32;">💡 Pro Tip:</strong> $1</div>');
+  html = html.replace(/\*\*Warning:\*\*\s*([^\n]+)/g,
+    '<div style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 1em; margin: 1.5em 0; border-radius: 4px;"><strong style="color: #e65100;">⚠️ Warning:</strong> $1</div>');
+  html = html.replace(/\*\*Note:\*\*\s*([^\n]+)/g,
+    '<div style="background: #e3f2fd; border-left: 4px solid #2196f3; padding: 1em; margin: 1.5em 0; border-radius: 4px;"><strong style="color: #1565c0;">📝 Note:</strong> $1</div>');
+  html = html.replace(/\*\*Important:\*\*\s*([^\n]+)/g,
+    '<div style="background: #fce4ec; border-left: 4px solid #e91e63; padding: 1em; margin: 1.5em 0; border-radius: 4px;"><strong style="color: #c2185b;">❗ Important:</strong> $1</div>');
+
+  // STEP 5: Convert markdown tables to HTML
+  html = convertMarkdownTables(html);
+
+  // STEP 6: Bold and italic
   html = html.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>');
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
 
-  // STEP 5: Links (with styling for visibility)
+  // STEP 7: Links (with styling for visibility)
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #2563eb; text-decoration: underline;">$1</a>');
 
-  // STEP 6: Process lists
+  // STEP 8: Process lists
   const lines = html.split('\n');
   const processedLines = [];
   let inList = false;
@@ -698,6 +941,19 @@ function markdownToHtml(markdown) {
   html = html.replace(/<\/ul>\s*<\/ul>/g, '</ul>');
   html = html.replace(/<p[^>]*>\s*<\/p>/g, '');
 
+  // Add Table of Contents after first paragraph if we have enough headings
+  if (headings.length >= 3) {
+    const tocHtml = generateTableOfContents(headings);
+    // Insert TOC after the first paragraph
+    const firstPEnd = html.indexOf('</p>');
+    if (firstPEnd > 0) {
+      html = html.substring(0, firstPEnd + 4) + '\n\n' + tocHtml + '\n\n' + html.substring(firstPEnd + 4);
+    } else {
+      // No paragraph found, prepend TOC
+      html = tocHtml + '\n\n' + html;
+    }
+  }
+
   return html;
 }
 
@@ -720,6 +976,7 @@ export default {
   getOrCreateBlog,
   getArticles,
   uploadImage,
+  uploadImageToFiles,
   createArticle,
   updateArticle,
   testConnection,
