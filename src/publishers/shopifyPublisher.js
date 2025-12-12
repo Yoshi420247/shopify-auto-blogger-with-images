@@ -1043,7 +1043,7 @@ export async function testConnection() {
   }
 }
 
-export default {
+export {
   getBlogs,
   getOrCreateBlog,
   getArticles,
