@@ -251,7 +251,20 @@ export const aiTellsToAvoid = [
   'Definitely',
   'Absolutely',
   'Without a doubt',
-  'There\'s no denying'
+  'There\'s no denying',
+
+  // AI meta-commentary (internal thinking revealed)
+  'If I were writing',
+  'this is where I would',
+  'this is where linking to',
+  'For external references',
+  'for internal links',
+  'this is where dropping',
+  'I would drop',
+  'this is where you could link',
+  'content map for',
+  'link opportunity',
+  'linking opportunity'
 ];
 
 /**

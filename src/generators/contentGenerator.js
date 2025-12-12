@@ -271,6 +271,8 @@ FINAL REMINDERS:
 - Include specific recommendations and opinions
 - No em dashes (—), no en dashes (–)
 - Don't start the article with a question
+- NEVER include meta-commentary about your writing strategy (no "this is where I would link to...", "if I were writing...", "for internal links...", "content map", etc.)
+- Just write the actual content, don't comment on what you would do or where you would put links
 
 Now write the blog post:`;
 
@@ -287,6 +289,26 @@ function removeAiTells(content) {
   // Remove em dashes and en dashes
   cleaned = cleaned.replace(/—/g, ',');
   cleaned = cleaned.replace(/–/g, ',');
+
+  // Remove full sentences containing AI meta-commentary
+  // These are internal AI thoughts that shouldn't be in the final content
+  const metaCommentaryPatterns = [
+    /[^.!?\n]*If I were writing[^.!?\n]*[.!?\n]/gi,
+    /[^.!?\n]*this is where I would[^.!?\n]*[.!?\n]/gi,
+    /[^.!?\n]*this is where linking[^.!?\n]*[.!?\n]/gi,
+    /[^.!?\n]*For external references[^.!?\n]*[.!?\n]/gi,
+    /[^.!?\n]*for internal links[^.!?\n]*[.!?\n]/gi,
+    /[^.!?\n]*I would drop[^.!?\n]*[.!?\n]/gi,
+    /[^.!?\n]*content map for[^.!?\n]*[.!?\n]/gi,
+    /[^.!?\n]*link opportunity[^.!?\n]*[.!?\n]/gi,
+    /[^.!?\n]*linking opportunity[^.!?\n]*[.!?\n]/gi,
+    /[^.!?\n]*this is where you could link[^.!?\n]*[.!?\n]/gi,
+    /[^.!?\n]*where dropping[^.!?\n]*internal links[^.!?\n]*[.!?\n]/gi,
+  ];
+
+  metaCommentaryPatterns.forEach(pattern => {
+    cleaned = cleaned.replace(pattern, '');
+  });
 
   // Remove AI tell phrases
   aiTellsToAvoid.forEach(phrase => {

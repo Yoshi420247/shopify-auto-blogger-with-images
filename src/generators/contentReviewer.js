@@ -33,21 +33,34 @@ function programmaticFixes(html) {
   // Remove fragments like: 1);" loading="lazy">
   fixed = fixed.replace(/\d+\);\s*"\s*loading="lazy"\s*>/gi, '');
 
+  // Remove ANY orphaned closing > that looks like broken tag endings
+  fixed = fixed.replace(/[0-9.]+\);\s*"\s*>/gi, '');
+
   // Remove fragments like: png" alt="..." style="..." loading="lazy">
+  // This catches broken img tags where the opening part got stripped
   fixed = fixed.replace(/(?:png|jpg|jpeg|gif|webp|svg)"\s*alt="[^"]*"[^>]*>/gi, '');
 
-  // Remove orphaned image attributes without opening tag
-  fixed = fixed.replace(/\s*alt="[^"]*"\s*(?:style="[^"]*")?\s*(?:loading="[^"]*")?\s*>/g, '');
+  // Remove orphaned image attributes that start with alt=" (no opening tag)
+  // This catches: alt="description" style="..." loading="lazy">
+  fixed = fixed.replace(/^\s*alt="[^"]*"[^>]*>/gm, '');
+  fixed = fixed.replace(/\s+alt="[^"]*"\s*style="[^"]*"\s*(?:loading="[^"]*")?\s*>/g, '');
 
   // Remove orphaned loading="lazy">
   fixed = fixed.replace(/loading="lazy"\s*>/gi, '');
 
-  // Remove broken src fragments
-  fixed = fixed.replace(/src="[^"]*"\s*(?:alt="[^"]*")?\s*(?:style="[^"]*")?\s*(?:loading="[^"]*")?\s*>/g, (match) => {
-    // Only remove if it's not part of a proper img tag
-    if (!match.includes('<img')) return '';
-    return match;
+  // Remove orphaned style attributes followed by >
+  fixed = fixed.replace(/style="[^"]*"\s*(?:loading="[^"]*")?\s*>/g, (match) => {
+    // Only remove if not part of a proper tag
+    if (match.includes('<')) return match;
+    return '';
   });
+
+  // Remove broken src fragments not part of proper img tag
+  fixed = fixed.replace(/(?<!<img[^>]*)src="[^"]*"\s*(?:alt="[^"]*")?\s*(?:style="[^"]*")?\s*(?:loading="[^"]*")?\s*>/g, '');
+
+  // Catch any remaining broken image fragments
+  // Pattern: anything that looks like partial HTML attributes ending in >
+  fixed = fixed.replace(/(?<![<a-zA-Z])(?:max-width|height|border-radius|box-shadow)[^>]*loading="lazy"\s*>/gi, '');
 
   // Remove leftover [IMAGE: ...] markers
   fixed = fixed.replace(/\[IMAGE:[^\]]*\]/g, '');
@@ -73,6 +86,24 @@ function programmaticFixes(html) {
   fixed = fixed.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>');
   fixed = fixed.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   fixed = fixed.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+  // ============ REMOVE AI META-COMMENTARY ============
+  // Remove sentences/paragraphs that are AI thinking out loud about linking strategy
+  const metaPatterns = [
+    /[^<]*If I were writing[^<]*(?:<\/p>|<br|$)/gi,
+    /[^<]*this is where I would[^<]*(?:<\/p>|<br|$)/gi,
+    /[^<]*this is where linking[^<]*(?:<\/p>|<br|$)/gi,
+    /[^<]*For external references[^<]*(?:<\/p>|<br|$)/gi,
+    /[^<]*for internal links[^<]*(?:<\/p>|<br|$)/gi,
+    /[^<]*content map for[^<]*(?:<\/p>|<br|$)/gi,
+    /[^<]*where I would drop[^<]*(?:<\/p>|<br|$)/gi,
+    /<p[^>]*>[^<]*If I were writing[^<]*<\/p>/gi,
+    /<p[^>]*>[^<]*this is where[^<]*internal links[^<]*<\/p>/gi,
+    /<p[^>]*>[^<]*For external references[^<]*<\/p>/gi,
+  ];
+  metaPatterns.forEach(pattern => {
+    fixed = fixed.replace(pattern, '');
+  });
 
   // ============ FIX WHITESPACE ISSUES ============
   // Fix excessive newlines (more than 2)
