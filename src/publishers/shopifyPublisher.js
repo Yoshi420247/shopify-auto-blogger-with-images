@@ -73,7 +73,7 @@ async function graphqlQuery(query, variables = {}) {
 /**
  * Get all blogs in the store
  */
-export async function getBlogs() {
+async function getBlogs() {
   // First try GraphQL (2024-10+)
   try {
     const query = `
@@ -104,7 +104,7 @@ export async function getBlogs() {
 /**
  * Get or create the main blog
  */
-export async function getOrCreateBlog(blogTitle = 'News') {
+async function getOrCreateBlog(blogTitle = 'News') {
   const blogs = await getBlogs();
 
   // Find existing blog
@@ -161,7 +161,7 @@ export async function getOrCreateBlog(blogTitle = 'News') {
 /**
  * Get existing articles from a blog
  */
-export async function getArticles(blogId, limit = 50) {
+async function getArticles(blogId, limit = 50) {
   try {
     // Try GraphQL
     const query = `
@@ -201,7 +201,7 @@ export async function getArticles(blogId, limit = 50) {
  * Upload an image to Shopify Files and get a permanent CDN URL
  * Used for inline blog images that need to be embedded in content
  */
-export async function uploadImageToFiles(imageData, filename, altText) {
+async function uploadImageToFiles(imageData, filename, altText) {
   if (!imageData) {
     return null;
   }
@@ -322,7 +322,7 @@ export async function uploadImageToFiles(imageData, filename, altText) {
 /**
  * Upload an image to Shopify (legacy - for article featured images)
  */
-export async function uploadImage(imageData, filename, altText) {
+async function uploadImage(imageData, filename, altText) {
   if (!imageData) {
     return null;
   }
@@ -395,7 +395,7 @@ export async function uploadImage(imageData, filename, altText) {
 /**
  * Create a new blog article
  */
-export async function createArticle(blogId, article) {
+async function createArticle(blogId, article) {
   const {
     title,
     body,
@@ -650,7 +650,7 @@ async function updateArticleMetaDescription(articleId, description) {
 /**
  * Update an existing article
  */
-export async function updateArticle(articleId, updates) {
+async function updateArticle(articleId, updates) {
   const {
     title,
     body,
@@ -1032,7 +1032,7 @@ function markdownToHtml(markdown) {
 /**
  * Check connection to Shopify
  */
-export async function testConnection() {
+async function testConnection() {
   try {
     const blogs = await getBlogs();
     console.log(`Shopify connection successful. Found ${blogs.length} blog(s).`);
