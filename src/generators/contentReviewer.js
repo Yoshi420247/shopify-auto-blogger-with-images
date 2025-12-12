@@ -30,37 +30,19 @@ function programmaticFixes(html) {
   fixed = fixed.replace(/<p[^>]*>\s*<\/p>/g, '');
 
   // ============ FIX BROKEN IMAGE ARTIFACTS ============
-  // Remove fragments like: 1);" loading="lazy">
-  fixed = fixed.replace(/\d+\);\s*"\s*loading="lazy"\s*>/gi, '');
+  // IMPORTANT: Only remove BROKEN fragments, NOT valid <img> tags
 
-  // Remove ANY orphaned closing > that looks like broken tag endings
+  // Remove fragments like: 1);" loading="lazy"> (broken CSS values)
+  fixed = fixed.replace(/\d+\);\s*"\s*loading="lazy"\s*>/gi, '');
   fixed = fixed.replace(/[0-9.]+\);\s*"\s*>/gi, '');
 
-  // Remove fragments like: png" alt="..." style="..." loading="lazy">
-  // This catches broken img tags where the opening part got stripped
-  fixed = fixed.replace(/(?:png|jpg|jpeg|gif|webp|svg)"\s*alt="[^"]*"[^>]*>/gi, '');
+  // Remove fragments that START with a file extension (broken img tag where src got stripped)
+  // Only match if NOT preceded by a quote (which would indicate a valid src="...png")
+  fixed = fixed.replace(/(?<!")(?:png|jpg|jpeg|gif|webp|svg)"\s*alt="[^"]*"[^>]*>/gi, '');
 
-  // Remove orphaned image attributes that start with alt=" (no opening tag)
-  // This catches: alt="description" style="..." loading="lazy">
-  fixed = fixed.replace(/^\s*alt="[^"]*"[^>]*>/gm, '');
-  fixed = fixed.replace(/\s+alt="[^"]*"\s*style="[^"]*"\s*(?:loading="[^"]*")?\s*>/g, '');
-
-  // Remove orphaned loading="lazy">
-  fixed = fixed.replace(/loading="lazy"\s*>/gi, '');
-
-  // Remove orphaned style attributes followed by >
-  fixed = fixed.replace(/style="[^"]*"\s*(?:loading="[^"]*")?\s*>/g, (match) => {
-    // Only remove if not part of a proper tag
-    if (match.includes('<')) return match;
-    return '';
-  });
-
-  // Remove broken src fragments not part of proper img tag
-  fixed = fixed.replace(/(?<!<img[^>]*)src="[^"]*"\s*(?:alt="[^"]*")?\s*(?:style="[^"]*")?\s*(?:loading="[^"]*")?\s*>/g, '');
-
-  // Catch any remaining broken image fragments
-  // Pattern: anything that looks like partial HTML attributes ending in >
-  fixed = fixed.replace(/(?<![<a-zA-Z])(?:max-width|height|border-radius|box-shadow)[^>]*loading="lazy"\s*>/gi, '');
+  // Remove lines that are ONLY broken image attributes (no actual content)
+  // These start the line with alt=" which is never valid
+  fixed = fixed.replace(/^\s*alt="[^"]*"[^>]*>\s*$/gm, '');
 
   // Remove leftover [IMAGE: ...] markers
   fixed = fixed.replace(/\[IMAGE:[^\]]*\]/g, '');
