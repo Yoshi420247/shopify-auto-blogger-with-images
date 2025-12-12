@@ -158,13 +158,20 @@ CALLOUT BOXES (use these to highlight important info):
 - **Important:** [important text] - for critical information
 Use at least 2-3 callout boxes throughout the article.
 
-TABLES FOR LLM/AI SEARCH OPTIMIZATION:
-Include at least one markdown table to present structured data. Examples:
-| Feature | Budget Option | Premium Option |
-|---------|--------------|----------------|
-| Material | Silicone | Medical-grade silicone |
-| Heat resistance | 400°F | 600°F |
-| Price range | $15-25 | $40-60 |
+STRUCTURED DATA FOR LLM/AI SEARCH OPTIMIZATION:
+Use structured comparison lists instead of tables (tables render poorly). Format like this:
+
+**Budget Option ($15-25)**
+- Material: Silicone
+- Heat resistance: 400°F
+- Best for: Beginners
+
+**Premium Option ($40-60)**
+- Material: Medical-grade silicone
+- Heat resistance: 600°F
+- Best for: Heavy users
+
+This format is much more readable and LLM-friendly than tables.
 
 FORMATTING - THIS IS CRITICAL FOR READABILITY:
 - Output in clean Markdown format with PROPER LINE BREAKS
@@ -173,11 +180,12 @@ FORMATTING - THIS IS CRITICAL FOR READABILITY:
 - Then a BLANK LINE, then the article content
 - ALWAYS put a blank line BEFORE and AFTER each heading (## or ###)
 - ALWAYS put a blank line between paragraphs
-- ALWAYS put a blank line before and after lists and tables
+- ALWAYS put a blank line before and after lists
 - Use --- on its own line sparingly for major topic transitions only
 - Mark EXACTLY 3 image placements with: [IMAGE: description] spread throughout the article
 - Lists should have each item on its own line starting with "- "
 - Use numbered lists (1. 2. 3.) for step-by-step instructions
+- DO NOT use markdown tables (|---|) - they render poorly. Use structured lists instead.
 
 You are writing for real people who know their stuff. Don't talk down to them, but do explain technical concepts when needed.`;
 }

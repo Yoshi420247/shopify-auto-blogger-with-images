@@ -844,9 +844,9 @@ function convertTableLinesToHtml(tableLines) {
 function generateTableOfContents(headings) {
   if (headings.length < 3) return ''; // Only add TOC if 3+ headings
 
-  let tocHtml = '<nav style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 1.5em; margin: 2em 0;">';
-  tocHtml += '<p style="font-weight: 700; margin: 0 0 1em 0; font-size: 1.1em;">📑 In This Article</p>';
-  tocHtml += '<ul style="margin: 0; padding-left: 1.5em; line-height: 1.8;">';
+  let tocHtml = '<nav style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 1.5em; margin: 2em 0; text-align: left;">';
+  tocHtml += '<p style="font-weight: 700; margin: 0 0 1em 0; font-size: 1.1em; text-align: left;">📑 In This Article</p>';
+  tocHtml += '<ul style="margin: 0; padding-left: 1.5em; line-height: 1.8; text-align: left;">';
 
   headings.forEach(h => {
     const indent = h.level === 3 ? 'margin-left: 1em;' : '';
@@ -909,23 +909,23 @@ function markdownToHtml(markdown) {
   // Use text-transform: none to prevent uppercase, and proper font styling for readability
   html = html.replace(/^### (.+)$/gm, (match, title) => {
     const id = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    return `<h3 id="${id}" style="text-transform: none; font-size: 1.25em; font-weight: 600; margin: 1.5em 0 0.75em 0; line-height: 1.4;">${title}</h3>`;
+    return `<h3 id="${id}" style="text-transform: none; font-size: 1.25em; font-weight: 600; margin: 1.5em 0 0.75em 0; line-height: 1.4; text-align: left;">${title}</h3>`;
   });
   html = html.replace(/^## (.+)$/gm, (match, title) => {
     const id = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    return `<h2 id="${id}" style="text-transform: none; font-size: 1.5em; font-weight: 700; margin: 2em 0 1em 0; line-height: 1.3;">${title}</h2>`;
+    return `<h2 id="${id}" style="text-transform: none; font-size: 1.5em; font-weight: 700; margin: 2em 0 1em 0; line-height: 1.3; text-align: left;">${title}</h2>`;
   });
-  html = html.replace(/^# (.+)$/gm, '<h1 style="text-transform: none; font-size: 2em; font-weight: 700; margin: 1em 0; line-height: 1.2;">$1</h1>');
+  html = html.replace(/^# (.+)$/gm, '<h1 style="text-transform: none; font-size: 2em; font-weight: 700; margin: 1em 0; line-height: 1.2; text-align: left;">$1</h1>');
 
   // STEP 4: Convert callout boxes (Pro Tip, Warning, Note patterns)
   html = html.replace(/\*\*Pro [Tt]ip:\*\*\s*([^\n]+)/g,
-    '<div style="background: #e8f5e9; border-left: 4px solid #4caf50; padding: 1em; margin: 1.5em 0; border-radius: 4px;"><strong style="color: #2e7d32;">💡 Pro Tip:</strong> $1</div>');
+    '<div style="background: #e8f5e9; border-left: 4px solid #4caf50; padding: 1em; margin: 1.5em 0; border-radius: 4px; text-align: left;"><strong style="color: #2e7d32;">💡 Pro Tip:</strong> $1</div>');
   html = html.replace(/\*\*Warning:\*\*\s*([^\n]+)/g,
-    '<div style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 1em; margin: 1.5em 0; border-radius: 4px;"><strong style="color: #e65100;">⚠️ Warning:</strong> $1</div>');
+    '<div style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 1em; margin: 1.5em 0; border-radius: 4px; text-align: left;"><strong style="color: #e65100;">⚠️ Warning:</strong> $1</div>');
   html = html.replace(/\*\*Note:\*\*\s*([^\n]+)/g,
-    '<div style="background: #e3f2fd; border-left: 4px solid #2196f3; padding: 1em; margin: 1.5em 0; border-radius: 4px;"><strong style="color: #1565c0;">📝 Note:</strong> $1</div>');
+    '<div style="background: #e3f2fd; border-left: 4px solid #2196f3; padding: 1em; margin: 1.5em 0; border-radius: 4px; text-align: left;"><strong style="color: #1565c0;">📝 Note:</strong> $1</div>');
   html = html.replace(/\*\*Important:\*\*\s*([^\n]+)/g,
-    '<div style="background: #fce4ec; border-left: 4px solid #e91e63; padding: 1em; margin: 1.5em 0; border-radius: 4px;"><strong style="color: #c2185b;">❗ Important:</strong> $1</div>');
+    '<div style="background: #fce4ec; border-left: 4px solid #e91e63; padding: 1em; margin: 1.5em 0; border-radius: 4px; text-align: left;"><strong style="color: #c2185b;">❗ Important:</strong> $1</div>');
 
   // STEP 5: Convert markdown tables to HTML
   html = convertMarkdownTables(html);
@@ -949,7 +949,7 @@ function markdownToHtml(markdown) {
 
     if (listMatch) {
       if (!inList) {
-        processedLines.push('<ul style="margin: 1em 0; padding-left: 1.5em; line-height: 1.7;">');
+        processedLines.push('<ul style="margin: 1em 0; padding-left: 1.5em; line-height: 1.7; text-align: left;">');
         inList = true;
       }
       processedLines.push(`<li style="margin: 0.5em 0;">${listMatch[1]}</li>`);
@@ -1002,11 +1002,11 @@ function markdownToHtml(markdown) {
         chunks.push(currentChunk.trim());
       }
 
-      return chunks.map(chunk => `<p style="margin: 1em 0; line-height: 1.7;">${chunk}</p>`).join('\n');
+      return chunks.map(chunk => `<p style="margin: 1em 0; line-height: 1.7; text-align: left;">${chunk}</p>`).join('\n');
     }
 
     // Wrap text in paragraph with proper spacing
-    return `<p style="margin: 1em 0; line-height: 1.7;">${text}</p>`;
+    return `<p style="margin: 1em 0; line-height: 1.7; text-align: left;">${text}</p>`;
   }).filter(p => p).join('\n\n');
 
   // Final cleanup
@@ -1025,6 +1025,9 @@ function markdownToHtml(markdown) {
       html = tocHtml + '\n\n' + html;
     }
   }
+
+  // Wrap entire content in a div with left alignment to override theme center styles
+  html = `<div style="text-align: left; max-width: 100%;">${html}</div>`;
 
   return html;
 }

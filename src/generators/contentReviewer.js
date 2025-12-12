@@ -29,30 +29,52 @@ function programmaticFixes(html) {
   // Remove empty paragraphs
   fixed = fixed.replace(/<p[^>]*>\s*<\/p>/g, '');
 
-  // Remove broken image fragments (like 'png" alt="...' without proper tag)
-  fixed = fixed.replace(/(?<!\<img[^>]*)(?:png|jpg|jpeg|gif|webp)"\s*alt="[^"]*"[^>]*(?:style="[^"]*")?[^>]*(?:loading="[^"]*")?[^>]*>/gi, '');
+  // ============ FIX BROKEN IMAGE ARTIFACTS ============
+  // Remove fragments like: 1);" loading="lazy">
+  fixed = fixed.replace(/\d+\);\s*"\s*loading="lazy"\s*>/gi, '');
 
-  // Remove orphaned image attributes
-  fixed = fixed.replace(/\s*alt="[^"]*"\s*style="[^"]*"\s*loading="[^"]*"\s*>/g, '');
+  // Remove fragments like: png" alt="..." style="..." loading="lazy">
+  fixed = fixed.replace(/(?:png|jpg|jpeg|gif|webp|svg)"\s*alt="[^"]*"[^>]*>/gi, '');
+
+  // Remove orphaned image attributes without opening tag
+  fixed = fixed.replace(/\s*alt="[^"]*"\s*(?:style="[^"]*")?\s*(?:loading="[^"]*")?\s*>/g, '');
+
+  // Remove orphaned loading="lazy">
+  fixed = fixed.replace(/loading="lazy"\s*>/gi, '');
+
+  // Remove broken src fragments
+  fixed = fixed.replace(/src="[^"]*"\s*(?:alt="[^"]*")?\s*(?:style="[^"]*")?\s*(?:loading="[^"]*")?\s*>/g, (match) => {
+    // Only remove if it's not part of a proper img tag
+    if (!match.includes('<img')) return '';
+    return match;
+  });
 
   // Remove leftover [IMAGE: ...] markers
   fixed = fixed.replace(/\[IMAGE:[^\]]*\]/g, '');
 
-  // Remove broken table fragments (lines of just | and -)
-  fixed = fixed.replace(/^\|[-|\s]+\|$/gm, '');
-  fixed = fixed.replace(/^\|-+$/gm, '');
-  fixed = fixed.replace(/^-+\|$/gm, '');
+  // ============ FIX BROKEN TABLE ARTIFACTS ============
+  // Remove lines that are just pipes, dashes, colons, and spaces (broken tables)
+  fixed = fixed.replace(/^[\|\-:\s]+$/gm, '');
 
-  // Remove lines that are just pipes and dashes
-  fixed = fixed.replace(/^[\|\-\s]+$/gm, '');
+  // Remove table separator rows that got orphaned
+  fixed = fixed.replace(/^\|[-:|\s]+\|$/gm, '');
 
+  // Remove partial table rows (start with | but don't have content)
+  fixed = fixed.replace(/^\|\s*\|$/gm, '');
+
+  // Remove lines that are just dashes
+  fixed = fixed.replace(/^-{2,}$/gm, '');
+
+  // ============ FIX MARKDOWN LEFTOVERS ============
   // Remove leftover markdown headers that weren't converted
   fixed = fixed.replace(/^#{1,6}\s+/gm, '');
 
-  // Remove leftover bold/italic markdown
+  // Convert leftover bold/italic markdown
+  fixed = fixed.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>');
   fixed = fixed.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   fixed = fixed.replace(/\*([^*]+)\*/g, '<em>$1</em>');
 
+  // ============ FIX WHITESPACE ISSUES ============
   // Fix excessive newlines (more than 2)
   fixed = fixed.replace(/\n{3,}/g, '\n\n');
 
@@ -62,7 +84,10 @@ function programmaticFixes(html) {
   // Clean up multiple consecutive empty lines
   fixed = fixed.replace(/(\n\s*){3,}/g, '\n\n');
 
-  // Remove any script tags that might have broken
+  // Remove excessive <br> tags
+  fixed = fixed.replace(/(<br\s*\/?>\s*){3,}/gi, '<br><br>');
+
+  // ============ FIX SCRIPT TAGS ============
   fixed = fixed.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, (match) => {
     // Keep valid JSON-LD scripts
     if (match.includes('application/ld+json')) {
