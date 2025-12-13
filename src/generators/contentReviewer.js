@@ -204,16 +204,26 @@ export async function isTopicRecentlyCovered(proposedTopic, recentArticles, days
   }
 
   // Filter to articles within the threshold
+  // IMPORTANT: If article has no date, assume it's recent and INCLUDE it
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - daysThreshold);
 
   const recentTitles = recentArticles
     .filter(article => {
+      // If no date, assume it's recent (include it)
+      if (!article.publishedAt && !article.createdAt) {
+        return true;
+      }
       const articleDate = new Date(article.publishedAt || article.createdAt);
+      // Check if date is valid
+      if (isNaN(articleDate.getTime())) {
+        return true; // Invalid date, assume recent
+      }
       return articleDate >= cutoffDate;
     })
-    .map(a => a.title)
-    .slice(0, 20); // Check last 20 recent articles
+    .map(a => a.title || a.topic) // Also check 'topic' field for this-run tracking
+    .filter(t => t) // Remove nulls
+    .slice(0, 30); // Check last 30 articles
 
   if (recentTitles.length === 0) {
     return { covered: false };
