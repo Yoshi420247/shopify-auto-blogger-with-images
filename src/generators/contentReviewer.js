@@ -198,7 +198,7 @@ Return the fixed HTML:`;
  * Check if a topic has been recently covered
  * Returns true if topic is too similar to recent posts
  */
-export async function isTopicRecentlyCovered(proposedTopic, recentArticles, daysThreshold = 60) {
+export async function isTopicRecentlyCovered(proposedTopic, recentArticles, daysThreshold = 90) {
   if (!recentArticles || recentArticles.length === 0) {
     return { covered: false };
   }
@@ -223,24 +223,31 @@ export async function isTopicRecentlyCovered(proposedTopic, recentArticles, days
 
   const client = getOpenAI();
 
-  const prompt = `You are checking if a proposed blog topic has already been covered recently.
+  const prompt = `You are a STRICT content deduplication checker. Your job is to PREVENT duplicate blog posts.
 
 PROPOSED TOPIC: "${proposedTopic}"
 
-RECENT ARTICLE TITLES (last ${daysThreshold} days):
+EXISTING ARTICLES TO CHECK AGAINST:
 ${recentTitles.map((t, i) => `${i + 1}. ${t}`).join('\n')}
 
-Is the proposed topic too similar to any of these recent articles? Consider:
-- Same core subject matter
-- Very similar angles or approaches
-- Would create duplicate/redundant content
+BE VERY STRICT - Mark as "too similar" if:
+- The core subject is the same (e.g., "cleaning dab tools" and "how to clean dab tools" are THE SAME topic)
+- The articles would cover substantially overlapping information
+- A reader would think "I already read about this"
+- The topic is just rephrased or has a different angle on the SAME subject
+- Examples of TOO SIMILAR:
+  * "cleaning dab tools" vs "how to clean your dab tools" = TOO SIMILAR
+  * "best dab pads 2025" vs "top dab pads reviewed" = TOO SIMILAR
+  * "concentrate storage guide" vs "how to store concentrates" = TOO SIMILAR
+
+Mark as "unique" ONLY if the topic is genuinely DIFFERENT subject matter.
 
 Respond in JSON format only:
 {
   "isTooSimilar": true/false,
   "similarTo": "title of similar article if found, or null",
   "reason": "brief explanation",
-  "suggestedAlternative": "if too similar, suggest a different angle or related topic that hasn't been covered"
+  "suggestedAlternative": "if too similar, suggest a COMPLETELY DIFFERENT topic in the cannabis accessories space that hasn't been covered"
 }`;
 
   try {

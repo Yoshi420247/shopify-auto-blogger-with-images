@@ -89,6 +89,9 @@ async function main() {
     const contentPlans = planMultipleBlogs(researchData, config.blog.blogsPerRun);
     console.log(`Planned ${contentPlans.length} blog(s) to create`);
 
+    // Track topics used in this run to prevent duplicates
+    const topicsUsedThisRun = [];
+
     // Step 4: Generate and publish each blog
     for (let i = 0; i < contentPlans.length; i++) {
       const plan = contentPlans[i];
@@ -98,8 +101,20 @@ async function main() {
       console.log('='.repeat(60));
 
       try {
-        const result = await generateAndPublishBlog(plan, researchData);
+        // Pass topics used this run to the blog generator
+        const result = await generateAndPublishBlog(plan, researchData, topicsUsedThisRun);
         results.push(result);
+
+        // If successful, track this topic to prevent duplicates
+        if (result.success && result.title) {
+          topicsUsedThisRun.push({
+            title: result.title,
+            topic: plan.topic,
+            publishedAt: new Date().toISOString()
+          });
+          console.log(`Tracking topic "${result.title}" to prevent duplicates`);
+        }
+
         console.log(`Blog ${i + 1} completed: ${result.success ? 'SUCCESS' : 'FAILED'}`);
       } catch (blogError) {
         console.error(`Blog ${i + 1} failed:`, blogError.message);
@@ -389,16 +404,28 @@ function getAutoPlan(outdatedPosts, allBlogs, contentIdeas, contentGaps, trendin
 
 /**
  * Generate and publish a single blog
+ * @param {Object} plan - The content plan
+ * @param {Object} researchData - Research data from earlier phases
+ * @param {Array} topicsUsedThisRun - Topics already used in this run (to prevent duplicates)
  */
-async function generateAndPublishBlog(plan, researchData) {
+async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []) {
   const { trendingTopics, industryContext, existingBlogs, contentIdeas } = researchData;
 
   // STEP 1: Check if topic was recently covered (skip for updates)
   let finalTopic = plan.topic;
   if (plan.action !== 'update') {
     console.log('\n--- Checking Topic Uniqueness ---');
-    const recentArticles = existingBlogs?.blogs || [];
-    const topicCheck = await getUniqueTopic(plan.topic, recentArticles, contentIdeas);
+
+    // Combine existing articles with topics used in this run
+    const existingArticles = existingBlogs?.blogs || [];
+    const allRecentArticles = [
+      ...existingArticles,
+      ...topicsUsedThisRun  // Add topics from this run
+    ];
+
+    console.log(`Checking against ${existingArticles.length} existing + ${topicsUsedThisRun.length} from this run`);
+
+    const topicCheck = await getUniqueTopic(plan.topic, allRecentArticles, contentIdeas);
 
     if (topicCheck.wasChanged) {
       console.log(`Topic changed: "${plan.topic}" -> "${topicCheck.topic}"`);
