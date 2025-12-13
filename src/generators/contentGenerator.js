@@ -127,7 +127,7 @@ ${authorStyle.styleNotes}
 CRITICAL RULES - YOUR CONTENT MUST:
 1. Sound like a real human wrote it, not AI
 2. NEVER use em dashes (—) or en dashes (–). Use commas, periods, or rewrite sentences instead
-3. NEVER use these AI-tell phrases: ${authorStyle.avoidPatterns.slice(0, 10).join(', ')}
+3. NEVER use these AI-tell phrases: ${aiTellsToAvoid.slice(0, 15).join(', ')}
 4. Use contractions naturally (don't, won't, can't, it's)
 5. Include occasional sentence fragments. Like this.
 6. Vary sentence length dramatically
