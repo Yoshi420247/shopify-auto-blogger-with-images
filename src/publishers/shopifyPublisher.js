@@ -812,7 +812,8 @@ function convertTableLinesToHtml(tableLines) {
     return tableLines.join('\n');
   }
 
-  let tableHtml = '<table style="width: 100%; border-collapse: collapse; margin: 1.5em 0; font-size: 0.95em;">';
+  // Typography: 16px, line-height 1.55, cell-padding 0.55em 0.7em, header weight 650
+  let tableHtml = '<table style="width: 100%; border-collapse: collapse; margin: 1.1em 0; font-size: 16px; line-height: 1.55;">';
 
   tableLines.forEach((row, index) => {
     // Skip separator row
@@ -824,12 +825,12 @@ function convertTableLinesToHtml(tableLines) {
     const isHeader = index < separatorIndex;
     const tag = isHeader ? 'th' : 'td';
     const bgColor = isHeader ? '#f5f5f5' : (index % 2 === 0 ? '#fafafa' : '#fff');
-    const fontWeight = isHeader ? 'font-weight: 600;' : '';
+    const fontWeight = isHeader ? 'font-weight: 650;' : '';
 
     tableHtml += '<tr>';
     cells.forEach(cell => {
       const cellContent = cell.trim();
-      tableHtml += `<${tag} style="border: 1px solid #e0e0e0; padding: 0.75em 1em; text-align: left; ${fontWeight} background: ${bgColor};">${cellContent}</${tag}>`;
+      tableHtml += `<${tag} style="border: 1px solid #e0e0e0; padding: 0.55em 0.7em; text-align: left; ${fontWeight} background: ${bgColor};">${cellContent}</${tag}>`;
     });
     tableHtml += '</tr>';
   });
@@ -844,9 +845,9 @@ function convertTableLinesToHtml(tableLines) {
 function generateTableOfContents(headings) {
   if (headings.length < 3) return ''; // Only add TOC if 3+ headings
 
-  let tocHtml = '<nav style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 1.5em; margin: 2em 0; text-align: left;">';
-  tocHtml += '<p style="font-weight: 700; margin: 0 0 1em 0; font-size: 1.1em; text-align: left;">📑 In This Article</p>';
-  tocHtml += '<ul style="margin: 0; padding-left: 1.5em; line-height: 1.8; text-align: left;">';
+  let tocHtml = '<nav style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 12px; padding: 1.5em; margin: 1.6em 0; text-align: left;">';
+  tocHtml += '<p style="font-weight: 700; margin: 0 0 1em 0; font-size: 18px; text-align: left;">In This Article</p>';
+  tocHtml += '<ul style="margin: 0; padding-left: 1.2em; line-height: 1.7; font-size: 16px; text-align: left;">';
 
   headings.forEach(h => {
     const indent = h.level === 3 ? 'margin-left: 1em;' : '';
@@ -906,26 +907,30 @@ function markdownToHtml(markdown) {
   html = html.replace(/\s---\s/g, '\n<hr style="border: none; border-top: 1px solid #e0e0e0; margin: 2em 0;">\n');
 
   // STEP 3: Convert headers with anchor IDs for TOC navigation
-  // Use text-transform: none to prevent uppercase, and proper font styling for readability
+  // Typography: H1=42px, H2=30px, H3=22px with proper line-heights and margins
   html = html.replace(/^### (.+)$/gm, (match, title) => {
     const id = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    return `<h3 id="${id}" style="text-transform: none; font-size: 1.25em; font-weight: 600; margin: 1.5em 0 0.75em 0; line-height: 1.4; text-align: left;">${title}</h3>`;
+    return `<h3 id="${id}" style="text-transform: none; font-size: clamp(20px, 1.22em, 22px); font-weight: 650; margin: 1.2em 0 0.45em 0; line-height: 1.35; text-align: left;">${title}</h3>`;
   });
   html = html.replace(/^## (.+)$/gm, (match, title) => {
     const id = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    return `<h2 id="${id}" style="text-transform: none; font-size: 1.5em; font-weight: 700; margin: 2em 0 1em 0; line-height: 1.3; text-align: left;">${title}</h2>`;
+    return `<h2 id="${id}" style="text-transform: none; font-size: clamp(24px, 1.67em, 30px); font-weight: 700; margin: 1.6em 0 0.6em 0; line-height: 1.3; text-align: left;">${title}</h2>`;
   });
-  html = html.replace(/^# (.+)$/gm, '<h1 style="text-transform: none; font-size: 2em; font-weight: 700; margin: 1em 0; line-height: 1.2; text-align: left;">$1</h1>');
+  html = html.replace(/^# (.+)$/gm, (match, title) => {
+    const id = title ? title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : '';
+    return `<h1 id="${id}" style="text-transform: none; font-size: clamp(32px, 2.33em, 42px); font-weight: 750; margin: 0.2em 0 0.6em 0; line-height: 1.2; text-align: left;">${title}</h1>`;
+  });
 
   // STEP 4: Convert callout boxes (Pro Tip, Warning, Note patterns)
+  // Typography: 18px, line-height 1.7, margin similar to blockquote
   html = html.replace(/\*\*Pro [Tt]ip:\*\*\s*([^\n]+)/g,
-    '<div style="background: #e8f5e9; border-left: 4px solid #4caf50; padding: 1em; margin: 1.5em 0; border-radius: 4px; text-align: left;"><strong style="color: #2e7d32;">💡 Pro Tip:</strong> $1</div>');
+    '<div style="background: #e8f5e9; border-left: 4px solid #4caf50; padding: 1em 1em 1em 1.2em; margin: 1.1em 0; border-radius: 4px; font-size: 18px; line-height: 1.7; text-align: left;"><strong style="color: #2e7d32;">Pro Tip:</strong> $1</div>');
   html = html.replace(/\*\*Warning:\*\*\s*([^\n]+)/g,
-    '<div style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 1em; margin: 1.5em 0; border-radius: 4px; text-align: left;"><strong style="color: #e65100;">⚠️ Warning:</strong> $1</div>');
+    '<div style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 1em 1em 1em 1.2em; margin: 1.1em 0; border-radius: 4px; font-size: 18px; line-height: 1.7; text-align: left;"><strong style="color: #e65100;">Warning:</strong> $1</div>');
   html = html.replace(/\*\*Note:\*\*\s*([^\n]+)/g,
-    '<div style="background: #e3f2fd; border-left: 4px solid #2196f3; padding: 1em; margin: 1.5em 0; border-radius: 4px; text-align: left;"><strong style="color: #1565c0;">📝 Note:</strong> $1</div>');
+    '<div style="background: #e3f2fd; border-left: 4px solid #2196f3; padding: 1em 1em 1em 1.2em; margin: 1.1em 0; border-radius: 4px; font-size: 18px; line-height: 1.7; text-align: left;"><strong style="color: #1565c0;">Note:</strong> $1</div>');
   html = html.replace(/\*\*Important:\*\*\s*([^\n]+)/g,
-    '<div style="background: #fce4ec; border-left: 4px solid #e91e63; padding: 1em; margin: 1.5em 0; border-radius: 4px; text-align: left;"><strong style="color: #c2185b;">❗ Important:</strong> $1</div>');
+    '<div style="background: #fce4ec; border-left: 4px solid #e91e63; padding: 1em 1em 1em 1.2em; margin: 1.1em 0; border-radius: 4px; font-size: 18px; line-height: 1.7; text-align: left;"><strong style="color: #c2185b;">Important:</strong> $1</div>');
 
   // STEP 5: Convert markdown tables to HTML
   html = convertMarkdownTables(html);
@@ -935,8 +940,8 @@ function markdownToHtml(markdown) {
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
 
-  // STEP 7: Links (with styling for visibility)
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #2563eb; text-decoration: underline;">$1</a>');
+  // STEP 7: Links with proper styling (underline, offset, inherit weight)
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #2563eb; text-decoration: underline; text-underline-offset: 0.12em; font-weight: inherit;">$1</a>');
 
   // STEP 8: Process lists
   const lines = html.split('\n');
@@ -949,10 +954,10 @@ function markdownToHtml(markdown) {
 
     if (listMatch) {
       if (!inList) {
-        processedLines.push('<ul style="margin: 1em 0; padding-left: 1.5em; line-height: 1.7; text-align: left;">');
+        processedLines.push('<ul style="font-size: 18px; margin: 0.4em 0 1em 0; padding-left: 1.2em; line-height: 1.7; text-align: left;">');
         inList = true;
       }
-      processedLines.push(`<li style="margin: 0.5em 0;">${listMatch[1]}</li>`);
+      processedLines.push(`<li style="margin: 0.35em 0;">${listMatch[1]}</li>`);
     } else {
       if (inList) {
         processedLines.push('</ul>');
@@ -974,7 +979,7 @@ function markdownToHtml(markdown) {
     if (!para) return '';
 
     // Don't wrap if already an HTML element
-    if (/^<(h[1-6]|ul|ol|li|hr|p|div|blockquote|table)/i.test(para)) {
+    if (/^<(h[1-6]|ul|ol|li|hr|p|div|blockquote|table|figure|img|figcaption|nav|script)/i.test(para)) {
       return para;
     }
 
@@ -1002,11 +1007,11 @@ function markdownToHtml(markdown) {
         chunks.push(currentChunk.trim());
       }
 
-      return chunks.map(chunk => `<p style="margin: 1em 0; line-height: 1.7; text-align: left;">${chunk}</p>`).join('\n');
+      return chunks.map(chunk => `<p style="font-size: 18px; margin: 0 0 1.1em 0; line-height: 1.7; font-weight: 400; text-align: left;">${chunk}</p>`).join('\n');
     }
 
     // Wrap text in paragraph with proper spacing
-    return `<p style="margin: 1em 0; line-height: 1.7; text-align: left;">${text}</p>`;
+    return `<p style="font-size: 18px; margin: 0 0 1.1em 0; line-height: 1.7; font-weight: 400; text-align: left;">${text}</p>`;
   }).filter(p => p).join('\n\n');
 
   // Final cleanup
@@ -1026,8 +1031,9 @@ function markdownToHtml(markdown) {
     }
   }
 
-  // Wrap entire content in a div with left alignment to override theme center styles
-  html = `<div style="text-align: left; max-width: 100%;">${html}</div>`;
+  // Wrap entire content in a div with typography rules
+  // max-width: 720px for optimal line length (55-75 chars at 18px)
+  html = `<div style="text-align: left; max-width: 720px; margin: 0 auto; font-size: 18px; line-height: 1.7;">${html}</div>`;
 
   return html;
 }

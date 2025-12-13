@@ -580,11 +580,13 @@ async function prepareContentWithImages(post, images, title) {
       const img = uploadedImages[imageIndex];
       imageIndex++;
 
-      // Create responsive image HTML with proper styling using CDN URL
+      // Create responsive image HTML with typography rules
+      // Images: border-radius 12px, margin-top 1.2em, margin-bottom 0.6em
+      // Captions: 15px, line-height 1.5, margin-top 0.4em, margin-bottom 1.2em
       return `
-<figure style="margin: 2em 0; text-align: center;">
-  <img src="${img.url}" alt="${img.altText}" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" loading="lazy">
-  <figcaption style="margin-top: 0.5em; font-size: 0.9em; color: #666; font-style: italic;">${img.altText}</figcaption>
+<figure style="margin: 1.2em 0 0.6em 0; text-align: center;">
+  <img src="${img.url}" alt="${img.altText}" style="max-width: 100%; height: auto; border-radius: 12px;" loading="lazy">
+  <figcaption style="font-size: 15px; line-height: 1.5; font-weight: 400; color: #666; margin-top: 0.4em; margin-bottom: 1.2em; font-style: italic;">${img.altText}</figcaption>
 </figure>
 `;
     }
