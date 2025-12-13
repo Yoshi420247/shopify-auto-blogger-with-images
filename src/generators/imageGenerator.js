@@ -186,13 +186,22 @@ Focus on the tools, accessories, and lifestyle aspects rather than the plant mat
 Keep it clean, modern, and appealing to adult consumers.
 `;
 
+  // Oil Slick brand guidelines
+  const brandGuidelines = `
+BRAND GUIDELINES (IMPORTANT):
+- Any silicone dab mats or dab pads shown MUST have a bright green border/edge color (Pantone 355C, hex #00A84F)
+- The silicone mat surface can be any color, but the outer edge/border should be this specific green
+- If a logo appears, use a green yin-yang style circular logo with a droplet shape (Oil Slick brand)
+- Brand color is bright green (#00A84F) - use this for any branded elements
+`;
+
   const styleModifier = styleModifiers[style] || styleModifiers.photorealistic;
 
   return `${description}
 
 Style: ${styleModifier}
 ${safetyGuidance}
-
+${brandGuidelines}
 Technical specifications:
 - High resolution
 - Clean, modern aesthetic
