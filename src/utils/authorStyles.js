@@ -1,184 +1,283 @@
 /**
  * Author Style Profiles
  *
- * These profiles help generate content that mimics the writing style of
- * well-known authors appropriate for different topics. This creates more
- * natural, human-sounding content without AI tells.
+ * Multiple writing styles that rotate to keep content fresh and varied.
+ * Each style emulates a different approach to writing without being
+ * too extreme in any direction.
  */
 
 export const authorStyles = {
-  // For product reviews and gear guides
-  productReview: {
-    author: 'Anthony Bourdain',
-    description: 'Direct, irreverent, passionate about craft and quality',
+  // Style 1: Direct and passionate (like Anthony Bourdain)
+  passionateExpert: {
+    styleName: 'Passionate Expert',
+    description: 'Direct, honest, passionate about craft and quality',
     styleNotes: `
       - Write with unfiltered honesty and passion
-      - Use casual, conversational tone with occasional profanity-adjacent expressions (like "damn good")
+      - Use casual, conversational tone
       - Share personal anecdotes and experiences
       - Be direct about what works and what doesn't
       - Express genuine enthusiasm without corporate speak
       - Use short, punchy sentences mixed with longer flowing ones
-      - Avoid hedging language ("might", "perhaps", "could be")
-      - Take strong positions
+      - Take strong positions based on experience
     `,
-    avoidPatterns: [
-      'in conclusion',
-      'it is important to note',
-      'one might argue',
-      'this begs the question',
-      'without further ado',
-      'in today\'s world',
-      'at the end of the day'
-    ]
+    toneLevel: 'casual-professional'
   },
 
-  // For lifestyle and culture pieces
-  lifestyle: {
-    author: 'Hunter S. Thompson',
-    description: 'Gonzo journalism style - immersive, personal, countercultural',
+  // Style 2: Educational and engaging (like Alton Brown)
+  friendlyEducator: {
+    styleName: 'Friendly Educator',
+    description: 'Educational but entertaining, explains the why',
     styleNotes: `
-      - First-person narrative when appropriate
-      - Vivid, sometimes exaggerated descriptions
-      - Rebellious, anti-establishment undertones
-      - Mix of humor and serious commentary
-      - Stream of consciousness moments
-      - Cultural criticism woven into observations
-      - Unexpected tangents that circle back to the point
-    `,
-    avoidPatterns: [
-      'studies show',
-      'experts agree',
-      'the data suggests',
-      'moving forward',
-      'leverage',
-      'synergy'
-    ]
-  },
-
-  // For how-to guides and tutorials
-  howTo: {
-    author: 'Alton Brown',
-    description: 'Educational but entertaining, science meets practical application',
-    styleNotes: `
-      - Explain the "why" behind techniques
-      - Use analogies and comparisons
-      - Inject humor and personality
-      - Be precise without being boring
-      - Share tips from experience
+      - Explain the "why" behind techniques and choices
+      - Use analogies and comparisons to clarify
+      - Inject humor and personality naturally
+      - Be precise without being boring or condescending
+      - Share tips from real experience
       - Acknowledge common mistakes without judgment
       - Build knowledge progressively
     `,
-    avoidPatterns: [
-      'simply',
-      'just',
-      'obviously',
-      'clearly',
-      'needless to say',
-      'it goes without saying'
-    ]
+    toneLevel: 'professional-friendly'
   },
 
-  // For trend pieces and industry analysis
-  industry: {
-    author: 'Malcolm Gladwell',
-    description: 'Storytelling approach to trends, connecting dots others miss',
+  // Style 3: Storytelling approach (like Malcolm Gladwell)
+  insightfulStoryteller: {
+    styleName: 'Insightful Storyteller',
+    description: 'Connects dots others miss, narrative-driven',
     styleNotes: `
-      - Open with a compelling story or anecdote
+      - Open with a compelling story or observation
       - Make connections between seemingly unrelated things
-      - Use specific examples and case studies
+      - Use specific examples and real scenarios
       - Build to surprising insights
-      - Question conventional wisdom
-      - Use data to support narrative, not lead it
+      - Question conventional wisdom thoughtfully
+      - Use details to support narrative
       - Leave readers with something to think about
     `,
-    avoidPatterns: [
-      'in this article',
-      'we will explore',
-      'let\'s dive in',
-      'stay tuned',
-      'breaking down'
-    ]
+    toneLevel: 'thoughtful-engaging'
   },
 
-  // For community and culture pieces
-  community: {
-    author: 'David Foster Wallace',
-    description: 'Deep observation of subcultures with intellectual curiosity',
+  // Style 4: Witty observer (like David Sedaris)
+  wittyObserver: {
+    styleName: 'Witty Observer',
+    description: 'Observational humor, finds the funny in details',
     styleNotes: `
-      - Observe details others miss
-      - Show genuine curiosity about people
-      - Use footnote-style asides (in parentheses)
-      - Balance sincerity with self-awareness
-      - Long sentences that reward attention
-      - Empathy for subjects
-      - Find meaning in mundane details
-    `,
-    avoidPatterns: [
-      'the community',
-      'passionate individuals',
-      'like-minded people',
-      'brings people together'
-    ]
-  },
-
-  // For comparison and buyer's guide content
-  comparison: {
-    author: 'David Sedaris',
-    description: 'Witty, observational, finds humor in details',
-    styleNotes: `
-      - Self-deprecating humor
-      - Specific, quirky observations
+      - Self-deprecating humor when appropriate
+      - Notice specific, quirky details others miss
       - Personal stories that illustrate points
-      - Honest about preferences without being preachy
-      - Notice absurdities
-      - Conversational rhythm
-      - Unexpected comparisons
+      - Honest about preferences without preaching
+      - Notice absurdities in everyday things
+      - Conversational rhythm and timing
+      - Unexpected comparisons that land
     `,
-    avoidPatterns: [
-      'top X reasons',
-      'you won\'t believe',
-      'game changer',
-      'next level',
-      'ultimate guide'
-    ]
+    toneLevel: 'casual-humorous'
+  },
+
+  // Style 5: Knowledgeable friend
+  knowledgeableFriend: {
+    styleName: 'Knowledgeable Friend',
+    description: 'Like getting advice from a friend who knows their stuff',
+    styleNotes: `
+      - Write like you're talking to a friend
+      - Share what you've learned through trial and error
+      - Give honest recommendations without selling
+      - Admit when something isn't worth it
+      - Use "you" and "your" naturally
+      - Include the kind of details a friend would mention
+      - Be helpful without being preachy
+    `,
+    toneLevel: 'casual-helpful'
+  },
+
+  // Style 6: Laid-back enthusiast
+  laidBackEnthusiast: {
+    styleName: 'Laid-Back Enthusiast',
+    description: 'Relaxed, genuine enthusiasm without hype',
+    styleNotes: `
+      - Keep it chill and unpretentious
+      - Share genuine excitement without overselling
+      - Use relaxed, natural language
+      - Include practical wisdom from experience
+      - Don't take yourself too seriously
+      - Appreciate the simple things
+      - Be real about pros and cons
+    `,
+    toneLevel: 'casual-relaxed'
+  },
+
+  // Style 7: Practical minimalist
+  practicalMinimalist: {
+    styleName: 'Practical Minimalist',
+    description: 'Cut the fluff, just the useful stuff',
+    styleNotes: `
+      - Get to the point efficiently
+      - Focus on what actually matters
+      - No unnecessary embellishment
+      - Value clarity over cleverness
+      - Respect the reader's time
+      - Include only relevant details
+      - Strong opinions, loosely held
+    `,
+    toneLevel: 'direct-efficient'
+  },
+
+  // Style 8: Curious explorer
+  curiousExplorer: {
+    styleName: 'Curious Explorer',
+    description: 'Genuinely curious, discovering alongside the reader',
+    styleNotes: `
+      - Approach topics with genuine curiosity
+      - Share the discovery process
+      - Ask questions that make readers think
+      - Explore nuances and edge cases
+      - Admit what you don't know
+      - Find interesting angles on familiar topics
+      - Connect new information to existing knowledge
+    `,
+    toneLevel: 'thoughtful-curious'
+  },
+
+  // Style 9: Seasoned veteran
+  seasonedVeteran: {
+    styleName: 'Seasoned Veteran',
+    description: 'Been there, done that, sharing hard-won wisdom',
+    styleNotes: `
+      - Draw from years of experience
+      - Share lessons learned the hard way
+      - Cut through marketing hype
+      - Know what matters and what doesn't
+      - Confident but not arrogant
+      - Practical advice that comes from doing
+      - Acknowledge how things have changed over time
+    `,
+    toneLevel: 'experienced-wise'
+  },
+
+  // Style 10: Thoughtful analyst
+  thoughtfulAnalyst: {
+    styleName: 'Thoughtful Analyst',
+    description: 'Balanced perspective, weighs all angles',
+    styleNotes: `
+      - Consider multiple perspectives
+      - Present balanced analysis
+      - Use evidence and reasoning
+      - Acknowledge trade-offs honestly
+      - Help readers make informed decisions
+      - Avoid extreme positions without reason
+      - Synthesize information clearly
+    `,
+    toneLevel: 'professional-balanced'
   }
 };
 
+// Array of style keys for rotation
+const styleKeys = Object.keys(authorStyles);
+
+// Track recently used styles to ensure rotation
+let recentlyUsedStyles = [];
+const STYLE_HISTORY_LENGTH = 4; // Don't repeat within last 4 articles
+
 /**
- * Select the most appropriate author style based on blog topic
+ * Select a random author style, avoiding recent repeats
+ * This ensures variety across articles
  */
 export function selectAuthorStyle(topic) {
-  const topicLower = topic.toLowerCase();
+  // Filter out recently used styles
+  const availableStyles = styleKeys.filter(key => !recentlyUsedStyles.includes(key));
 
-  if (topicLower.includes('review') || topicLower.includes('best') || topicLower.includes('product')) {
-    return authorStyles.productReview;
+  // If all styles have been used recently, reset and use all
+  const stylesToChooseFrom = availableStyles.length > 0 ? availableStyles : styleKeys;
+
+  // Randomly select from available styles
+  const randomIndex = Math.floor(Math.random() * stylesToChooseFrom.length);
+  const selectedKey = stylesToChooseFrom[randomIndex];
+
+  // Update history
+  recentlyUsedStyles.push(selectedKey);
+  if (recentlyUsedStyles.length > STYLE_HISTORY_LENGTH) {
+    recentlyUsedStyles.shift();
   }
 
-  if (topicLower.includes('how to') || topicLower.includes('guide') || topicLower.includes('tutorial')) {
-    return authorStyles.howTo;
+  const style = authorStyles[selectedKey];
+  console.log(`Selected writing style: ${style.styleName}`);
+
+  return {
+    author: style.styleName,
+    description: style.description,
+    styleNotes: style.styleNotes,
+    toneLevel: style.toneLevel
+  };
+}
+
+/**
+ * Random pseudonyms for author bylines
+ * These are realistic-sounding names that aren't famous people
+ */
+const authorPseudonyms = [
+  // Mix of different name styles
+  'Jake Morrison',
+  'Sarah Chen',
+  'Marcus Webb',
+  'Riley Patterson',
+  'Devon Blackwell',
+  'Casey Malone',
+  'Jordan Reyes',
+  'Alex Thornton',
+  'Sam Deluca',
+  'Morgan Hayes',
+  'Chris Nakamura',
+  'Taylor Briggs',
+  'Jamie Oconnor',
+  'Drew Santana',
+  'Quinn Gallagher',
+  'Avery Marshall',
+  'Blake Winters',
+  'Cameron Diaz', // Common enough name
+  'Dana Sullivan',
+  'Ellis Park',
+  'Frankie Romano',
+  'Gray Mitchell',
+  'Harper Stone',
+  'Indigo James',
+  'Jules Brennan',
+  'Kai Andersen',
+  'Lane Cooper',
+  'Max Sterling',
+  'Nico Vance',
+  'Parker Reid'
+];
+
+// Track recently used pseudonyms
+let recentlyUsedPseudonyms = [];
+const PSEUDONYM_HISTORY_LENGTH = 10;
+
+/**
+ * Get a random author pseudonym, avoiding recent repeats
+ */
+export function getRandomPseudonym() {
+  const availablePseudonyms = authorPseudonyms.filter(
+    name => !recentlyUsedPseudonyms.includes(name)
+  );
+
+  const namesToChooseFrom = availablePseudonyms.length > 0
+    ? availablePseudonyms
+    : authorPseudonyms;
+
+  const randomIndex = Math.floor(Math.random() * namesToChooseFrom.length);
+  const selectedName = namesToChooseFrom[randomIndex];
+
+  // Update history
+  recentlyUsedPseudonyms.push(selectedName);
+  if (recentlyUsedPseudonyms.length > PSEUDONYM_HISTORY_LENGTH) {
+    recentlyUsedPseudonyms.shift();
   }
 
-  if (topicLower.includes('trend') || topicLower.includes('industry') || topicLower.includes('market')) {
-    return authorStyles.industry;
-  }
-
-  if (topicLower.includes('culture') || topicLower.includes('community') || topicLower.includes('scene')) {
-    return authorStyles.community;
-  }
-
-  if (topicLower.includes('vs') || topicLower.includes('compare') || topicLower.includes('difference')) {
-    return authorStyles.comparison;
-  }
-
-  // Default to lifestyle for general cannabis content
-  return authorStyles.lifestyle;
+  return selectedName;
 }
 
 /**
  * AI writing patterns to strictly avoid - these are "AI tells"
  */
 export const aiTellsToAvoid = [
-  // M-dashes and em-dashes (user specifically requested)
+  // M-dashes and em-dashes
   '—',
   '–',
 
@@ -253,7 +352,7 @@ export const aiTellsToAvoid = [
   'Without a doubt',
   'There\'s no denying',
 
-  // AI meta-commentary (internal thinking revealed)
+  // AI meta-commentary
   'If I were writing',
   'this is where I would',
   'this is where linking to',
@@ -291,7 +390,22 @@ export const naturalTransitions = [
   'Most people miss',
   'What nobody tells you is',
   'The secret is',
-  'Forget what you\'ve heard about'
+  'Forget what you\'ve heard about',
+  'Here\'s what I learned:',
+  'The short version:',
+  'Bottom line:',
+  'Fair warning:',
+  'Quick note:',
+  'One more thing:',
+  'Speaking of which,',
+  'On that note,',
+  'Worth mentioning:'
 ];
 
-export default { authorStyles, selectAuthorStyle, aiTellsToAvoid, naturalTransitions };
+export default {
+  authorStyles,
+  selectAuthorStyle,
+  getRandomPseudonym,
+  aiTellsToAvoid,
+  naturalTransitions
+};

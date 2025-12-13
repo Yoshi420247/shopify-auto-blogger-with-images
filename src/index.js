@@ -31,6 +31,7 @@ import {
   reviewAndFixContent,
   getUniqueTopic
 } from './generators/contentReviewer.js';
+import { getRandomPseudonym } from './utils/authorStyles.js';
 import {
   testConnection,
   getOrCreateBlog,
@@ -472,11 +473,15 @@ async function generateAndPublishBlog(plan, researchData) {
   // Get featured image data (first successful image)
   const featuredImage = images.find(img => img.success && img.imageData);
 
+  // Get a random author pseudonym for this article
+  const authorName = getRandomPseudonym();
+  console.log(`Author byline: ${authorName}`);
+
   const publishedArticle = await createArticle(blog.id, {
     title: generatedPost.title,
     body: finalContent,
     metaDescription: generatedPost.metaDescription,
-    author: 'Oil Slick Pad',
+    author: authorName,
     tags: getTagsForTopic(finalTopic),
     published: true,
     imageData: featuredImage?.imageData || null,
