@@ -32,6 +32,7 @@ import {
   getUniqueTopic
 } from './generators/contentReviewer.js';
 import { getRandomPseudonym } from './utils/authorStyles.js';
+import { injectHyperlinks, getLinkStats } from './utils/hyperlinkInjector.js';
 import {
   testConnection,
   getOrCreateBlog,
@@ -613,6 +614,12 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
   // STEP 5: AI Content Review - Fix formatting issues before publishing
   console.log('\n--- AI Content Review ---');
   finalContent = await reviewAndFixContent(finalContent, generatedPost.title);
+
+  // STEP 6: Inject SEO Hyperlinks
+  console.log('\n--- Injecting SEO Hyperlinks ---');
+  finalContent = injectHyperlinks(finalContent, generatedPost.title);
+  const linkStats = getLinkStats(finalContent);
+  console.log(`Link stats: ${linkStats.internalLinks} internal, ${linkStats.externalLinks} external (${linkStats.internalLinkDensity} per 1K words)`);
 
   // Publish (unless dry run)
   if (config.blog.dryRun) {
