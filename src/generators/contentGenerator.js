@@ -1,13 +1,13 @@
 /**
  * Content Generator Module
  *
- * Uses OpenAI GPT-5.1 (November 2025) to generate human-like blog content
+ * Uses OpenAI GPT-5.2 (current best model) to generate human-like blog content
  * with emphasis on avoiding AI tells and mimicking author styles.
  *
- * GPT-5.1 features:
+ * GPT-5.2 features:
  * - Adaptive reasoning with configurable effort levels
- * - Extended 24-hour prompt caching
- * - Improved agentic and coding capabilities
+ * - Extended prompt caching
+ * - Improved content generation and reasoning
  */
 
 import OpenAI from 'openai';
@@ -61,16 +61,16 @@ export async function generateBlogPost(options) {
   try {
     const client = getOpenAI();
 
-    // GPT-5.1 API call with adaptive reasoning
-    // Note: GPT-5.1 with reasoning_effort does not support custom temperature
+    // GPT-5.2 API call with adaptive reasoning
+    // Note: GPT-5.2 with reasoning_effort does not support custom temperature
     const response = await client.chat.completions.create({
-      model: config.openai.model, // gpt-5.1
+      model: config.openai.model, // gpt-5.2
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
       max_completion_tokens: config.openai.maxOutputTokens,
-      // GPT-5.1 specific: reasoning effort controls how much "thinking" the model does
+      // GPT-5.2 specific: reasoning effort controls how much "thinking" the model does
       // 'none' = fast responses, 'low'/'medium'/'high' = more reasoning
       reasoning_effort: config.openai.reasoningEffort || 'medium'
     });
@@ -86,6 +86,11 @@ export async function generateBlogPost(options) {
 
     // Parse the response into structured format
     const parsedPost = parseGeneratedContent(cleanedContent);
+
+    // Fix any incorrect years in the title specifically
+    if (parsedPost.title) {
+      parsedPost.title = fixTitleYear(parsedPost.title);
+    }
 
     // Ensure we have a valid title - fallback to topic if parsing failed
     if (!parsedPost.title || parsedPost.title.trim() === '') {
@@ -112,10 +117,34 @@ export async function generateBlogPost(options) {
 }
 
 /**
+ * Get current date info for content generation
+ */
+function getCurrentDateInfo() {
+  const now = new Date();
+  return {
+    year: now.getFullYear(),
+    month: now.toLocaleString('en-US', { month: 'long' }),
+    monthShort: now.toLocaleString('en-US', { month: 'short' }),
+    day: now.getDate(),
+    fullDate: now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  };
+}
+
+/**
  * Build the system prompt for human-like content generation
  */
 function buildSystemPrompt(authorStyle) {
+  const dateInfo = getCurrentDateInfo();
+
   return `You are a professional blog writer for a cannabis accessories company called Oil Slick Pad. You specialize in writing about dab pads, concentrate tools, and the dabbing community.
+
+CURRENT DATE INFORMATION (VERY IMPORTANT):
+- Today's date: ${dateInfo.fullDate}
+- Current year: ${dateInfo.year}
+- Current month: ${dateInfo.month}
+- ALWAYS use ${dateInfo.year} when referring to "this year", "best of [year]", "guide for [year]", etc.
+- NEVER use outdated years like 2024, 2023, etc. unless specifically discussing historical data
+- If writing "Best X of [year]" or "[year] Guide", ALWAYS use ${dateInfo.year}
 
 YOUR WRITING IDENTITY:
 You write in the style of ${authorStyle.author}.
@@ -236,7 +265,7 @@ FORMATTING - THIS IS CRITICAL FOR READABILITY:
 - ALWAYS put a blank line between paragraphs
 - ALWAYS put a blank line before and after lists
 - Use --- on its own line sparingly for major topic transitions only
-- Mark EXACTLY 3 image placements with: [IMAGE: description] spread throughout the article
+- Mark EXACTLY ${config.blog.imagesPerPost} image placements with: [IMAGE: description] spread throughout the article
 - Lists should have each item on its own line starting with "- "
 - Use numbered lists (1. 2. 3.) for step-by-step instructions
 - DO NOT use markdown tables (|---|) - they render poorly. Use structured lists instead.
@@ -315,11 +344,14 @@ ${naturalTransitions.slice(0, 10).join(', ')}
 
 `;
 
+  // Get current year for reminders
+  const currentYear = new Date().getFullYear();
+
   // Add final reminders
   prompt += `
 FINAL REMINDERS:
 - Write ${config.blog.minWords}+ words
-- Include 3 [IMAGE: ...] markers where images would enhance the content
+- Include ${config.blog.imagesPerPost} [IMAGE: ...] markers where images would enhance the content
 - Sound like ${authorStyle.author}, not like AI
 - Make it genuinely useful and interesting
 - Include specific recommendations and opinions
@@ -327,10 +359,77 @@ FINAL REMINDERS:
 - Don't start the article with a question
 - NEVER include meta-commentary about your writing strategy (no "this is where I would link to...", "if I were writing...", "for internal links...", "content map", etc.)
 - Just write the actual content, don't comment on what you would do or where you would put links
+- CRITICAL: The current year is ${currentYear}. Use ${currentYear} for any "best of", "guide for", or "top picks" references. NEVER use ${currentYear - 1} or earlier years unless discussing past events.
 
 Now write the blog post:`;
 
   return prompt;
+}
+
+/**
+ * Fix incorrect years in titles - very aggressive
+ * Any 4-digit year from 2020-currentYear-1 gets replaced with currentYear
+ */
+function fixTitleYear(title) {
+  if (!title) return title;
+
+  const currentYear = new Date().getFullYear();
+  let fixed = title;
+
+  // Replace any year from 2020 to last year with current year
+  for (let y = 2020; y < currentYear; y++) {
+    const yearPattern = new RegExp(`\\b${y}\\b`, 'g');
+    fixed = fixed.replace(yearPattern, currentYear.toString());
+  }
+
+  return fixed;
+}
+
+/**
+ * Fix incorrect years in content
+ * Replaces outdated years with the current year in common patterns
+ * This is aggressive - any year reference that's not current year gets replaced
+ */
+function fixIncorrectYears(content) {
+  const currentYear = new Date().getFullYear();
+  let fixed = content;
+
+  // Years that should be replaced (any year from 2020 to last year)
+  const outdatedYears = [];
+  for (let y = 2020; y < currentYear; y++) {
+    outdatedYears.push(y.toString());
+  }
+
+  // AGGRESSIVE REPLACEMENT: Replace ALL instances of outdated years
+  // Exception: Don't replace if it looks like a historical reference (e.g., "founded in 2019")
+  // or a specific date reference
+  outdatedYears.forEach(oldYear => {
+    // Pattern 1: Year in titles/headers - always replace
+    const headerPattern = new RegExp(`(^|\\n)(#{1,3}\\s+[^\\n]*?)\\b${oldYear}\\b`, 'gm');
+    fixed = fixed.replace(headerPattern, `$1$2${currentYear}`);
+
+    // Pattern 2: "in/for/of YEAR" - common in "best of 2024", "guide for 2024", "worth it in 2024"
+    const prepositionPattern = new RegExp(`\\b(in|for|of)\\s+${oldYear}\\b`, 'gi');
+    fixed = fixed.replace(prepositionPattern, `$1 ${currentYear}`);
+
+    // Pattern 3: "YEAR guide/picks/review/update/edition" at start
+    const prefixPattern = new RegExp(`\\b${oldYear}\\s+(guide|picks|review|trends?|essentials?|must-haves?|edition|update|roundup)\\b`, 'gi');
+    fixed = fixed.replace(prefixPattern, `${currentYear} $1`);
+
+    // Pattern 4: "best/top X YEAR" or "X YEAR" in title-like contexts
+    const suffixPattern = new RegExp(`\\b(best|top|new|latest|updated?)\\s+([^.!?\\n]{1,50})\\s+${oldYear}\\b`, 'gi');
+    fixed = fixed.replace(suffixPattern, `$1 $2 ${currentYear}`);
+
+    // Pattern 5: Standalone year that's clearly not a date (not preceded by month/day)
+    // Match year NOT preceded by month names or day numbers
+    const standalonePattern = new RegExp(
+      `(?<!January |February |March |April |May |June |July |August |September |October |November |December |\\d{1,2}[,\\s]+)\\b${oldYear}\\b(?!\\s*-\\s*\\d{4})`,
+      'gi'
+    );
+    fixed = fixed.replace(standalonePattern, currentYear.toString());
+  });
+
+  return fixed;
 }
 
 /**
@@ -339,6 +438,9 @@ Now write the blog post:`;
  */
 function removeAiTells(content) {
   let cleaned = content;
+
+  // First, fix any incorrect years
+  cleaned = fixIncorrectYears(cleaned);
 
   // Remove em dashes and en dashes
   cleaned = cleaned.replace(/—/g, ',');
@@ -388,7 +490,7 @@ function removeAiTells(content) {
 
 /**
  * Parse generated content into structured format
- * Handles various GPT-5.1 output formats
+ * Handles various GPT-5.2 output formats
  */
 function parseGeneratedContent(content) {
   // Split by double newlines or single newlines
@@ -708,10 +810,10 @@ For each idea, provide:
 Format as JSON array.`;
 
   try {
-    // GPT-5.1 with lower reasoning effort for faster topic generation
-    // Note: GPT-5.1 with reasoning_effort does not support custom temperature
+    // GPT-5.2 with lower reasoning effort for faster topic generation
+    // Note: GPT-5.2 with reasoning_effort does not support custom temperature
     const response = await client.chat.completions.create({
-      model: config.openai.model, // gpt-5.1
+      model: config.openai.model, // gpt-5.2
       messages: [
         {
           role: 'system',

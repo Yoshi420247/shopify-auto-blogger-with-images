@@ -3,7 +3,7 @@
  *
  * Main orchestrator that coordinates:
  * 1. Scraping existing blogs and competitor sites
- * 2. Generating new content with OpenAI GPT-5.1
+ * 2. Generating new content with OpenAI GPT-5.2
  * 3. Creating images with Gemini Nano Banana Pro 3.0
  * 4. Publishing to Shopify
  *
@@ -41,6 +41,7 @@ import {
   markdownToHtml,
   getProductsByVendor
 } from './publishers/shopifyPublisher.js';
+import { getCachedOrFetch, getCacheStatus } from './utils/researchCache.js';
 
 /**
  * Main execution function
@@ -172,31 +173,50 @@ function validateEnvironment() {
 
 /**
  * Do research phase - scrape blogs and competitors
+ * Uses caching to reduce API calls and web scraping
  */
 async function doResearch() {
-  // Analyze existing content
+  // Show cache status
+  const cacheStatus = getCacheStatus();
+  if (Object.keys(cacheStatus).length > 0) {
+    console.log('Cache status:', Object.entries(cacheStatus)
+      .map(([k, v]) => `${k}: ${v.fresh ? 'FRESH' : 'STALE'} (${v.ageMinutes}min)`)
+      .join(', '));
+  }
+
+  // Analyze existing content (cached for 6 hours)
   console.log('Analyzing existing blogs...');
-  const existingBlogs = await scrapeAllBlogs(15);
+  const existingBlogs = await getCachedOrFetch('existingBlogs', async () => {
+    return await scrapeAllBlogs(15);
+  });
   console.log(`Found ${existingBlogs.blogs.length} existing blog posts`);
 
-  // Analyze competitors
+  // Analyze competitors (cached for 12 hours)
   console.log('Analyzing competitors...');
-  const competitorData = await analyzeAllCompetitors();
-  const trendingTopics = extractTrendingTopics(competitorData);
-  const industryContext = buildIndustryContext(trendingTopics);
+  const competitorData = await getCachedOrFetch('competitorData', async () => {
+    return await analyzeAllCompetitors();
+  });
   console.log(`Analyzed ${competitorData.length} competitor sites`);
+
+  // Extract trending topics from competitor data (cached for 12 hours)
+  const trendingTopics = await getCachedOrFetch('trendingTopics', async () => {
+    return extractTrendingTopics(competitorData);
+  });
+  const industryContext = buildIndustryContext(trendingTopics);
   console.log(`Found ${trendingTopics.totalArticlesAnalyzed} competitor articles`);
 
-  // Generate content ideas
+  // Generate content ideas (cached for 24 hours)
   console.log('Generating content ideas...');
-  const contentIdeas = await generateTopicIdeas({
-    existingBlogAnalysis: existingBlogs.analysis,
-    competitorInsights: trendingTopics,
-    contentGaps: existingBlogs.analysis.contentGaps
+  const contentIdeas = await getCachedOrFetch('contentIdeas', async () => {
+    return await generateTopicIdeas({
+      existingBlogAnalysis: existingBlogs.analysis,
+      competitorInsights: trendingTopics,
+      contentGaps: existingBlogs.analysis.contentGaps
+    });
   });
   console.log(`Generated ${contentIdeas.length} content ideas`);
 
-  // Fetch vendor products if using "what_you_need" category
+  // Fetch vendor products if using "what_you_need" category (not cached - products change)
   let vendorProducts = [];
   const contentCategory = config.blog.contentCategory;
   const categoryConfig = config.contentCategories?.[contentCategory];
@@ -560,10 +580,22 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
   console.log(`Word count: ${generatedPost.wordCount}`);
   console.log(`Author style: ${generatedPost.authorStyle}`);
 
-  // STEP 3: Generate images
+  // STEP 3: Generate images (skip in dry-run mode to save API costs)
   console.log('\n--- Generating Images ---');
   let images = [];
-  if (generatedPost.imageMarkers && generatedPost.imageMarkers.length > 0) {
+  if (config.blog.dryRun) {
+    console.log('[DRY RUN] Skipping image generation to save API costs');
+    // Create placeholder entries so content flow works
+    if (generatedPost.imageMarkers && generatedPost.imageMarkers.length > 0) {
+      images = generatedPost.imageMarkers.map(marker => ({
+        success: false,
+        description: marker.description,
+        skipped: true,
+        reason: 'dry-run'
+      }));
+      console.log(`Would have generated ${images.length} images`);
+    }
+  } else if (generatedPost.imageMarkers && generatedPost.imageMarkers.length > 0) {
     images = await generateBlogImages(generatedPost.imageMarkers, generatedPost.title);
     const successfulImages = images.filter(i => i.success);
     console.log(`Generated ${successfulImages.length}/${images.length} images`);

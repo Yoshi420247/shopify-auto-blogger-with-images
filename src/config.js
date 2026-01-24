@@ -11,11 +11,11 @@ export const config = {
     apiVersion: '2024-10'
   },
 
-  // OpenAI Configuration (GPT-5.1 - released November 2025)
-  // Note: GPT-5.1 with reasoning_effort does not support custom temperature
+  // OpenAI Configuration (GPT-5.2 - current best model)
+  // Note: GPT-5.2 with reasoning_effort does not support custom temperature
   openai: {
     apiKey: process.env.OPENAI_API_KEY,
-    model: 'gpt-5.1', // GPT-5.1 with adaptive reasoning (Nov 2025)
+    model: 'gpt-5.2', // GPT-5.2 - current best model
     maxOutputTokens: 8192,
     reasoningEffort: 'medium' // Options: 'none', 'low', 'medium', 'high'
   },
@@ -33,7 +33,7 @@ export const config = {
   blog: {
     minWords: 1200,
     maxWords: 2000,
-    imagesPerPost: 3,
+    imagesPerPost: 2, // Reduced from 3 to save on Gemini API costs
     imageAspectRatio: '16:9',
 
     // ============ BEHAVIOR CONTROLS ============
