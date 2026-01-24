@@ -38,7 +38,8 @@ import {
   createArticle,
   getArticles,
   uploadImageToFiles,
-  markdownToHtml
+  markdownToHtml,
+  getProductsByVendor
 } from './publishers/shopifyPublisher.js';
 
 /**
@@ -55,6 +56,7 @@ async function main() {
   console.log('Configuration:');
   console.log(`  - Blogs per run: ${config.blog.blogsPerRun}`);
   console.log(`  - Mode: ${config.blog.mode}`);
+  console.log(`  - Content category: ${config.blog.contentCategory}`);
   console.log(`  - Dry run: ${config.blog.dryRun}`);
   console.log(`  - Custom topic: ${process.env.CUSTOM_TOPIC || 'None'}`);
   console.log('');
@@ -86,7 +88,7 @@ async function main() {
 
     // Step 3: Generate content plans
     console.log('\n--- STEP 3: Planning Content ---');
-    const contentPlans = planMultipleBlogs(researchData, config.blog.blogsPerRun);
+    const contentPlans = await planMultipleBlogs(researchData, config.blog.blogsPerRun);
     console.log(`Planned ${contentPlans.length} blog(s) to create`);
 
     // Track topics used in this run to prevent duplicates
@@ -194,21 +196,34 @@ async function doResearch() {
   });
   console.log(`Generated ${contentIdeas.length} content ideas`);
 
+  // Fetch vendor products if using "what_you_need" category
+  let vendorProducts = [];
+  const contentCategory = config.blog.contentCategory;
+  const categoryConfig = config.contentCategories?.[contentCategory];
+
+  if (categoryConfig?.vendor) {
+    console.log(`Fetching products from vendor: ${categoryConfig.vendor}...`);
+    vendorProducts = await getProductsByVendor(categoryConfig.vendor, 25);
+    console.log(`Found ${vendorProducts.length} products from vendor`);
+  }
+
   return {
     existingBlogs,
     competitorData,
     trendingTopics,
     industryContext,
-    contentIdeas
+    contentIdeas,
+    vendorProducts
   };
 }
 
 /**
- * Plan multiple blogs based on mode and count
+ * Plan multiple blogs based on mode, count, and content category
  */
-function planMultipleBlogs(researchData, count) {
-  const { existingBlogs, contentIdeas, trendingTopics } = researchData;
+async function planMultipleBlogs(researchData, count) {
+  const { existingBlogs, contentIdeas, trendingTopics, vendorProducts } = researchData;
   const mode = config.blog.mode;
+  const contentCategory = config.blog.contentCategory;
   const customTopic = process.env.CUSTOM_TOPIC;
 
   // If custom topic provided, just use that
@@ -227,22 +242,71 @@ function planMultipleBlogs(researchData, count) {
   const outdatedPosts = existingBlogs.analysis.outdatedPosts || [];
   const contentGaps = existingBlogs.analysis.contentGaps || [];
 
-  for (let i = 0; i < count; i++) {
+  // Check if we're using a specific content category
+  const categoryConfig = config.contentCategories?.[contentCategory];
+
+  if (categoryConfig) {
+    console.log(`Using content category: ${categoryConfig.name}`);
+
+    // Get existing blog titles to avoid duplicates
+    const existingTitles = (existingBlogs.blogs || []).map(b => b.title?.toLowerCase() || '');
+
+    // Build topic pool based on category
+    let topicPool = [...(categoryConfig.topicPool || [])];
+
+    // For "what_you_need" category, also add product-based topics
+    if (contentCategory === 'what_you_need' && vendorProducts && vendorProducts.length > 0) {
+      const productTopics = generateProductTopics(vendorProducts);
+      topicPool = [...productTopics, ...topicPool];
+      console.log(`Added ${productTopics.length} product-based topics`);
+    }
+
+    // Filter out topics that are too similar to existing blogs
+    topicPool = topicPool.filter(topic => {
+      const topicLower = topic.toLowerCase();
+      return !existingTitles.some(existing =>
+        existing.includes(topicLower.substring(0, 20)) ||
+        topicLower.includes(existing.substring(0, 20))
+      );
+    });
+
+    // Shuffle the topic pool for variety
+    topicPool = shuffleArray(topicPool);
+
+    // Generate plans from category topic pool
+    for (let i = 0; i < count && i < topicPool.length; i++) {
+      const topic = topicPool[i];
+      if (!usedTopics.has(topic.toLowerCase())) {
+        plans.push({
+          action: 'new',
+          topic,
+          reason: `Content category: ${categoryConfig.name}`,
+          category: contentCategory
+        });
+        usedTopics.add(topic.toLowerCase());
+      }
+    }
+
+    // If we still need more plans, fall back to generic selection
+    if (plans.length < count) {
+      console.log(`Need ${count - plans.length} more topics, falling back to generic selection`);
+    }
+  }
+
+  // Fill remaining slots with standard topic selection
+  for (let i = plans.length; i < count; i++) {
     let plan = null;
 
     switch (mode) {
       case 'update':
-        // Only update existing posts
         plan = getUpdatePlan(outdatedPosts, existingBlogs.blogs, usedTopics);
         break;
 
       case 'new':
-        // Only create new posts
         plan = getNewPlan(contentIdeas, contentGaps, trendingTopics, usedTopics);
         break;
 
       case 'mixed':
-        // Alternate between updates and new
         if (i % 2 === 0 && outdatedPosts.length > 0) {
           plan = getUpdatePlan(outdatedPosts, existingBlogs.blogs, usedTopics);
         } else {
@@ -252,7 +316,6 @@ function planMultipleBlogs(researchData, count) {
 
       case 'auto':
       default:
-        // Prioritize based on config.blog.priorities
         plan = getAutoPlan(outdatedPosts, existingBlogs.blogs, contentIdeas, contentGaps, trendingTopics, usedTopics);
         break;
     }
@@ -263,16 +326,58 @@ function planMultipleBlogs(researchData, count) {
     }
   }
 
-  // If no plans generated, add default
+  // If no plans generated, add default based on category
   if (plans.length === 0) {
+    const defaultTopic = categoryConfig?.topicPool?.[0] ||
+      'The Ultimate Guide to Choosing Your First Dab Pad';
     plans.push({
       action: 'new',
-      topic: 'The Ultimate Guide to Choosing Your First Dab Pad',
+      topic: defaultTopic,
       reason: 'Default evergreen topic'
     });
   }
 
   return plans;
+}
+
+/**
+ * Generate article topics based on vendor products
+ */
+function generateProductTopics(products) {
+  const topics = [];
+
+  for (const product of products) {
+    const title = product.title || '';
+    const type = product.productType || '';
+    const tags = product.tags || [];
+
+    // Generate various topic angles for each product
+    if (title) {
+      topics.push(`${title}: Complete Review and Guide`);
+      topics.push(`Is the ${title} Worth It? Honest Review`);
+    }
+
+    // Group products by type for comparison articles
+    if (type) {
+      topics.push(`Best ${type} for Beginners in 2025`);
+      topics.push(`How to Choose the Right ${type}`);
+    }
+  }
+
+  // Remove duplicates and limit
+  return [...new Set(topics)].slice(0, 15);
+}
+
+/**
+ * Shuffle array using Fisher-Yates algorithm
+ */
+function shuffleArray(array) {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
 }
 
 /**

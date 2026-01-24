@@ -275,6 +275,7 @@ export function getRandomPseudonym() {
 
 /**
  * AI writing patterns to strictly avoid - these are "AI tells"
+ * Based on Wikipedia's "Signs of AI writing" guide
  */
 export const aiTellsToAvoid = [
   // M-dashes and em-dashes
@@ -299,12 +300,90 @@ export const aiTellsToAvoid = [
   'In order to',
   'Due to the fact that',
   'For all intents and purposes',
+  'Additionally',
 
   // AI hedging language
   'might potentially',
   'could possibly',
   'may or may not',
   'it depends on various factors',
+  'could potentially possibly',
+
+  // Overused AI vocabulary words (from Wikipedia/humanizer)
+  'delve',
+  'delving',
+  'intricate',
+  'intricacies',
+  'tapestry',
+  'testament',
+  'underscore',
+  'underscores',
+  'underscoring',
+  'fostering',
+  'foster',
+  'garner',
+  'garnering',
+  'interplay',
+  'pivotal',
+  'crucial',
+  'vibrant',
+  'landscape', // figurative use
+  'enduring',
+  'showcase',
+  'showcasing',
+  'showcases',
+
+  // Inflated significance language
+  'stands as a testament',
+  'serves as a testament',
+  'is a testament to',
+  'marks a pivotal',
+  'pivotal moment',
+  'pivotal role',
+  'key turning point',
+  'evolving landscape',
+  'vital role',
+  'significant role',
+  'crucial role',
+  'indelible mark',
+  'deeply rooted',
+  'setting the stage',
+  'marking a shift',
+  'represents a shift',
+
+  // Promotional/advertisement language
+  'boasts',
+  'nestled',
+  'breathtaking',
+  'stunning',
+  'renowned',
+  'groundbreaking',
+  'in the heart of',
+  'natural beauty',
+  'rich heritage',
+  'rich history',
+  'rich tradition',
+
+  // Superficial -ing phrases
+  'highlighting its',
+  'emphasizing the',
+  'reflecting the',
+  'symbolizing the',
+  'contributing to the',
+  'fostering a sense',
+  'encompassing',
+
+  // Copula avoidance (serves as, stands as)
+  'serves as a',
+  'stands as a',
+  'marks a',
+  'represents a',
+  'features a',
+
+  // Negative parallelisms
+  'It\'s not just about',
+  'It\'s not merely',
+  'Not only... but also',
 
   // Corporate/marketing AI speak
   'leverage',
@@ -327,6 +406,8 @@ export const aiTellsToAvoid = [
   'unlock',
   'harness',
   'optimize',
+  'enhance',
+  'enhancing',
 
   // AI list/structure tells
   'Let\'s dive in',
@@ -344,6 +425,8 @@ export const aiTellsToAvoid = [
   'That\'s a great point',
   'I\'m excited to',
   'thrilled to share',
+  'I hope this helps',
+  'Let me know if',
 
   // AI certainty markers
   'Certainly',
@@ -351,6 +434,13 @@ export const aiTellsToAvoid = [
   'Absolutely',
   'Without a doubt',
   'There\'s no denying',
+
+  // Generic positive conclusions
+  'the future looks bright',
+  'exciting times lie ahead',
+  'continues to thrive',
+  'journey toward excellence',
+  'step in the right direction',
 
   // AI meta-commentary
   'If I were writing',

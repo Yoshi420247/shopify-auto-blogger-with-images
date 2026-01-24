@@ -1052,6 +1052,56 @@ async function testConnection() {
   }
 }
 
+/**
+ * Get products by vendor tag
+ * @param {string} vendor - The vendor name to filter by (e.g., "What You Need")
+ * @param {number} limit - Maximum number of products to return
+ */
+async function getProductsByVendor(vendor, limit = 20) {
+  try {
+    const query = `
+      query GetProductsByVendor($query: String!, $first: Int!) {
+        products(first: $first, query: $query) {
+          edges {
+            node {
+              id
+              title
+              handle
+              description
+              productType
+              vendor
+              tags
+              priceRange {
+                minVariantPrice {
+                  amount
+                  currencyCode
+                }
+              }
+              featuredImage {
+                url
+                altText
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    const data = await graphqlQuery(query, {
+      query: `vendor:"${vendor}"`,
+      first: limit
+    });
+
+    const products = data.products?.edges?.map(edge => edge.node) || [];
+    console.log(`Found ${products.length} products from vendor "${vendor}"`);
+    return products;
+
+  } catch (error) {
+    console.error(`Error fetching products by vendor "${vendor}":`, error.message);
+    return [];
+  }
+}
+
 export {
   getBlogs,
   getOrCreateBlog,
@@ -1061,5 +1111,6 @@ export {
   createArticle,
   updateArticle,
   testConnection,
-  markdownToHtml
+  markdownToHtml,
+  getProductsByVendor
 };

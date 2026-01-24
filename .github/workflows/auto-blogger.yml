@@ -3,15 +3,17 @@ name: Auto-Blogger with AI Images
 
 on:
   # ============ SCHEDULE: 5 BLOGS PER DAY ============
-  # Runs at 6 AM, 10 AM, 2 PM, 6 PM, and 10 PM UTC
-  # This spreads 5 posts evenly across a 16-hour window
+  # Split into two content categories:
+  # - Dabbing & Storage: 2 articles/day (6 AM, 10 AM UTC)
+  # - What You Need products (bongs, rigs): 3 articles/day (2 PM, 6 PM, 10 PM UTC)
   schedule:
-    - cron: '0 6,10,14,18,22 * * *'
-
-  # Other schedule options (uncomment to use instead):
-  # 3 blogs per day: cron: '0 9,14,19 * * *'
-  # Once daily: cron: '0 9 * * *'
-  # Every 8 hours: cron: '0 */8 * * *'
+    # Dabbing & Storage content - 6 AM and 10 AM UTC
+    - cron: '0 6 * * *'
+    - cron: '0 10 * * *'
+    # What You Need products - 2 PM, 6 PM, 10 PM UTC
+    - cron: '0 14 * * *'
+    - cron: '0 18 * * *'
+    - cron: '0 22 * * *'
 
   # Allow manual trigger with options
   workflow_dispatch:
@@ -37,6 +39,15 @@ on:
           - new
           - update
           - mixed
+      content_category:
+        description: 'Content category'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - dabbing_storage
+          - what_you_need
       topic:
         description: 'Specific topic to write about (optional, overrides mode)'
         required: false
@@ -86,6 +97,29 @@ jobs:
           fi
           echo "All required secrets are configured"
 
+      - name: Determine content category from schedule
+        id: determine-category
+        run: |
+          # Get current hour in UTC
+          HOUR=$(date -u +%H)
+          echo "Current UTC hour: $HOUR"
+
+          # Manual trigger takes precedence
+          if [ -n "${{ github.event.inputs.content_category }}" ] && [ "${{ github.event.inputs.content_category }}" != "auto" ]; then
+            echo "category=${{ github.event.inputs.content_category }}" >> $GITHUB_OUTPUT
+            echo "Using manual category: ${{ github.event.inputs.content_category }}"
+          # Schedule-based category selection
+          elif [ "$HOUR" = "06" ] || [ "$HOUR" = "10" ]; then
+            echo "category=dabbing_storage" >> $GITHUB_OUTPUT
+            echo "Schedule-based category: dabbing_storage (Dabbing & Storage)"
+          elif [ "$HOUR" = "14" ] || [ "$HOUR" = "18" ] || [ "$HOUR" = "22" ]; then
+            echo "category=what_you_need" >> $GITHUB_OUTPUT
+            echo "Schedule-based category: what_you_need (Bongs, Rigs & Accessories)"
+          else
+            echo "category=auto" >> $GITHUB_OUTPUT
+            echo "Using auto category selection"
+          fi
+
       - name: Run Auto-Blogger
         env:
           # API Keys from secrets
@@ -97,6 +131,7 @@ jobs:
           # Behavior controls (from workflow inputs or defaults)
           BLOGS_PER_RUN: ${{ github.event.inputs.blogs_count || '1' }}
           BLOG_MODE: ${{ github.event.inputs.mode || 'auto' }}
+          CONTENT_CATEGORY: ${{ steps.determine-category.outputs.category }}
           CUSTOM_TOPIC: ${{ github.event.inputs.topic || '' }}
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
         run: |
@@ -105,6 +140,7 @@ jobs:
           echo "=========================================="
           echo "Blogs to generate: $BLOGS_PER_RUN"
           echo "Mode: $BLOG_MODE"
+          echo "Content category: $CONTENT_CATEGORY"
           echo "Dry run: $DRY_RUN"
           if [ -n "$CUSTOM_TOPIC" ]; then
             echo "Custom topic: $CUSTOM_TOPIC"

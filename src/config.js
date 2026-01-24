@@ -48,6 +48,13 @@ export const config = {
     //   'auto'   - AI decides based on content analysis (default)
     mode: process.env.BLOG_MODE || 'auto',
 
+    // Content category - which type of content to generate
+    // Options:
+    //   'dabbing_storage' - Focus on dabbing techniques and storage solutions (2 per day)
+    //   'what_you_need'   - Focus on products with vendor tag "What You Need" like bongs, rigs (3 per day)
+    //   'auto'            - Let the system decide (default)
+    contentCategory: process.env.CONTENT_CATEGORY || 'auto',
+
     // Update threshold - how old (in days) before a post is considered for update
     updateThresholdDays: parseInt(process.env.UPDATE_THRESHOLD_DAYS) || 180, // 6 months
 
@@ -61,6 +68,67 @@ export const config = {
 
     // Skip publishing (dry run) - useful for testing
     dryRun: process.env.DRY_RUN === 'true' || false
+  },
+
+  // Content categories - topic focus areas for different article types
+  contentCategories: {
+    // Dabbing and storage focused content (2 articles per day)
+    dabbing_storage: {
+      name: 'Dabbing & Storage',
+      vendor: null, // No product vendor filtering
+      topicPool: [
+        'The Ultimate Guide to Storing Concentrates',
+        'How to Keep Your Dabs Fresh Longer',
+        'Best Storage Containers for Wax and Shatter',
+        'Temperature Control: Storing Concentrates Safely',
+        'Silicone vs Glass Storage: Pros and Cons',
+        'Dabbing 101: A Beginner\'s Complete Guide',
+        'Low Temp Dabs vs High Temp: Which is Better?',
+        'How to Clean Your Dab Rig Like a Pro',
+        'The Science of Terpene Preservation',
+        'Setting Up the Perfect Dab Station',
+        'Essential Dab Tools Every Enthusiast Needs',
+        'How to Prevent Concentrate Waste',
+        'Travel-Friendly Storage Solutions for Concentrates',
+        'Humidity and Your Concentrates: What You Need to Know',
+        'The Art of Cold Start Dabbing',
+        'Maintaining Your Dab Pad: Tips and Tricks',
+        'Concentrate Types Explained: Wax, Shatter, Budder, and More',
+        'Why Your Dabs Taste Bad and How to Fix It',
+        'The Benefits of Silicone Dab Mats',
+        'Organizing Your Concentrate Collection'
+      ],
+      keywords: ['storage', 'dabbing', 'dab pad', 'concentrate storage', 'dab mat', 'dab station', 'oil slick']
+    },
+
+    // Products with vendor tag "What You Need" (3 articles per day)
+    what_you_need: {
+      name: 'Bongs, Rigs & Accessories',
+      vendor: 'What You Need', // Filter products by this vendor tag
+      topicPool: [
+        'Choosing Your First Bong: A Complete Guide',
+        'Dab Rigs vs Bongs: Understanding the Difference',
+        'The Best Glass Rigs for Flavor Chasers',
+        'Mini Rigs: Why Smaller Can Be Better',
+        'Recycler Rigs Explained: How They Work',
+        'Percolator Types: Which is Right for You?',
+        'How to Season a New Glass Piece',
+        'Quartz Bangers: The Ultimate Guide',
+        'Carb Caps: Why You Need One',
+        'E-Rigs vs Traditional Rigs: Pros and Cons',
+        'The Best Rig Sizes for Home Use',
+        'Travel Rigs: Portable Options That Don\'t Suck',
+        'Understanding Glass Thickness in Bongs',
+        'Terp Slurpers: Are They Worth the Hype?',
+        'How to Choose the Right Nail for Your Rig',
+        'Bong Accessories That Actually Matter',
+        'Scientific Glass vs Heady Glass: What\'s the Difference?',
+        'Maintaining Your Glass Collection',
+        'The Rise of Puffco and Electronic Rigs',
+        'Budget Rigs That Don\'t Compromise on Quality'
+      ],
+      keywords: ['bong', 'dab rig', 'glass rig', 'percolator', 'quartz banger', 'carb cap', 'recycler']
+    }
   },
 
   // Your website and niche
