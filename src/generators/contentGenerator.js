@@ -112,10 +112,34 @@ export async function generateBlogPost(options) {
 }
 
 /**
+ * Get current date info for content generation
+ */
+function getCurrentDateInfo() {
+  const now = new Date();
+  return {
+    year: now.getFullYear(),
+    month: now.toLocaleString('en-US', { month: 'long' }),
+    monthShort: now.toLocaleString('en-US', { month: 'short' }),
+    day: now.getDate(),
+    fullDate: now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  };
+}
+
+/**
  * Build the system prompt for human-like content generation
  */
 function buildSystemPrompt(authorStyle) {
+  const dateInfo = getCurrentDateInfo();
+
   return `You are a professional blog writer for a cannabis accessories company called Oil Slick Pad. You specialize in writing about dab pads, concentrate tools, and the dabbing community.
+
+CURRENT DATE INFORMATION (VERY IMPORTANT):
+- Today's date: ${dateInfo.fullDate}
+- Current year: ${dateInfo.year}
+- Current month: ${dateInfo.month}
+- ALWAYS use ${dateInfo.year} when referring to "this year", "best of [year]", "guide for [year]", etc.
+- NEVER use outdated years like 2024, 2023, etc. unless specifically discussing historical data
+- If writing "Best X of [year]" or "[year] Guide", ALWAYS use ${dateInfo.year}
 
 YOUR WRITING IDENTITY:
 You write in the style of ${authorStyle.author}.
@@ -315,6 +339,9 @@ ${naturalTransitions.slice(0, 10).join(', ')}
 
 `;
 
+  // Get current year for reminders
+  const currentYear = new Date().getFullYear();
+
   // Add final reminders
   prompt += `
 FINAL REMINDERS:
@@ -327,10 +354,63 @@ FINAL REMINDERS:
 - Don't start the article with a question
 - NEVER include meta-commentary about your writing strategy (no "this is where I would link to...", "if I were writing...", "for internal links...", "content map", etc.)
 - Just write the actual content, don't comment on what you would do or where you would put links
+- CRITICAL: The current year is ${currentYear}. Use ${currentYear} for any "best of", "guide for", or "top picks" references. NEVER use ${currentYear - 1} or earlier years unless discussing past events.
 
 Now write the blog post:`;
 
   return prompt;
+}
+
+/**
+ * Fix incorrect years in content
+ * Replaces outdated years with the current year in common patterns
+ */
+function fixIncorrectYears(content) {
+  const currentYear = new Date().getFullYear();
+  let fixed = content;
+
+  // Patterns where year should be current year
+  const yearPatterns = [
+    // "Best X of 2024" -> "Best X of 2025"
+    /\b(best|top|guide|picks|review|trends?|favorites?|essentials?|must-haves?)\s+(.*?)\s+(of|for|in)\s+(20[0-2][0-9])\b/gi,
+    // "2024 Guide" -> "2025 Guide"
+    /\b(20[0-2][0-9])\s+(guide|picks|review|trends?|essentials?|must-haves?|edition|update|roundup)\b/gi,
+    // "in 2024" at end of title-like phrases
+    /\b(in|for)\s+(20[0-2][0-9])\b(?=\s*[.!?\n]|$)/gi,
+  ];
+
+  // Years that should be replaced (previous years)
+  const outdatedYears = [];
+  for (let y = 2020; y < currentYear; y++) {
+    outdatedYears.push(y.toString());
+  }
+
+  // Replace outdated years in common patterns
+  yearPatterns.forEach(pattern => {
+    fixed = fixed.replace(pattern, (match, ...groups) => {
+      // Check if any group contains an outdated year
+      for (let i = 0; i < groups.length; i++) {
+        const group = groups[i];
+        if (typeof group === 'string' && outdatedYears.includes(group)) {
+          return match.replace(group, currentYear.toString());
+        }
+      }
+      return match;
+    });
+  });
+
+  // Direct replacement for standalone year references in titles/headers
+  // "Best Dab Pads 2024" -> "Best Dab Pads 2025"
+  outdatedYears.forEach(oldYear => {
+    // Only replace years that appear in title-like contexts
+    const titleYearPattern = new RegExp(
+      `(^|\\n)(#{1,3}\\s+[^\\n]*?)\\b${oldYear}\\b([^\\n]*)`,
+      'gm'
+    );
+    fixed = fixed.replace(titleYearPattern, `$1$2${currentYear}$3`);
+  });
+
+  return fixed;
 }
 
 /**
@@ -339,6 +419,9 @@ Now write the blog post:`;
  */
 function removeAiTells(content) {
   let cleaned = content;
+
+  // First, fix any incorrect years
+  cleaned = fixIncorrectYears(cleaned);
 
   // Remove em dashes and en dashes
   cleaned = cleaned.replace(/—/g, ',');
