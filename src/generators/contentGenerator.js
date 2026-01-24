@@ -260,7 +260,7 @@ FORMATTING - THIS IS CRITICAL FOR READABILITY:
 - ALWAYS put a blank line between paragraphs
 - ALWAYS put a blank line before and after lists
 - Use --- on its own line sparingly for major topic transitions only
-- Mark EXACTLY 3 image placements with: [IMAGE: description] spread throughout the article
+- Mark EXACTLY ${config.blog.imagesPerPost} image placements with: [IMAGE: description] spread throughout the article
 - Lists should have each item on its own line starting with "- "
 - Use numbered lists (1. 2. 3.) for step-by-step instructions
 - DO NOT use markdown tables (|---|) - they render poorly. Use structured lists instead.
@@ -346,7 +346,7 @@ ${naturalTransitions.slice(0, 10).join(', ')}
   prompt += `
 FINAL REMINDERS:
 - Write ${config.blog.minWords}+ words
-- Include 3 [IMAGE: ...] markers where images would enhance the content
+- Include ${config.blog.imagesPerPost} [IMAGE: ...] markers where images would enhance the content
 - Sound like ${authorStyle.author}, not like AI
 - Make it genuinely useful and interesting
 - Include specific recommendations and opinions

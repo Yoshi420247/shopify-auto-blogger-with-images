@@ -33,7 +33,7 @@ export const config = {
   blog: {
     minWords: 1200,
     maxWords: 2000,
-    imagesPerPost: 3,
+    imagesPerPost: 2, // Reduced from 3 to save on Gemini API costs
     imageAspectRatio: '16:9',
 
     // ============ BEHAVIOR CONTROLS ============
