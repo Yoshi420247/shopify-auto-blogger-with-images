@@ -87,6 +87,11 @@ export async function generateBlogPost(options) {
     // Parse the response into structured format
     const parsedPost = parseGeneratedContent(cleanedContent);
 
+    // Fix any incorrect years in the title specifically
+    if (parsedPost.title) {
+      parsedPost.title = fixTitleYear(parsedPost.title);
+    }
+
     // Ensure we have a valid title - fallback to topic if parsing failed
     if (!parsedPost.title || parsedPost.title.trim() === '') {
       console.log('Warning: Title extraction failed, using topic as fallback');
@@ -362,52 +367,66 @@ Now write the blog post:`;
 }
 
 /**
+ * Fix incorrect years in titles - very aggressive
+ * Any 4-digit year from 2020-currentYear-1 gets replaced with currentYear
+ */
+function fixTitleYear(title) {
+  if (!title) return title;
+
+  const currentYear = new Date().getFullYear();
+  let fixed = title;
+
+  // Replace any year from 2020 to last year with current year
+  for (let y = 2020; y < currentYear; y++) {
+    const yearPattern = new RegExp(`\\b${y}\\b`, 'g');
+    fixed = fixed.replace(yearPattern, currentYear.toString());
+  }
+
+  return fixed;
+}
+
+/**
  * Fix incorrect years in content
  * Replaces outdated years with the current year in common patterns
+ * This is aggressive - any year reference that's not current year gets replaced
  */
 function fixIncorrectYears(content) {
   const currentYear = new Date().getFullYear();
   let fixed = content;
 
-  // Patterns where year should be current year
-  const yearPatterns = [
-    // "Best X of 2024" -> "Best X of 2025"
-    /\b(best|top|guide|picks|review|trends?|favorites?|essentials?|must-haves?)\s+(.*?)\s+(of|for|in)\s+(20[0-2][0-9])\b/gi,
-    // "2024 Guide" -> "2025 Guide"
-    /\b(20[0-2][0-9])\s+(guide|picks|review|trends?|essentials?|must-haves?|edition|update|roundup)\b/gi,
-    // "in 2024" at end of title-like phrases
-    /\b(in|for)\s+(20[0-2][0-9])\b(?=\s*[.!?\n]|$)/gi,
-  ];
-
-  // Years that should be replaced (previous years)
+  // Years that should be replaced (any year from 2020 to last year)
   const outdatedYears = [];
   for (let y = 2020; y < currentYear; y++) {
     outdatedYears.push(y.toString());
   }
 
-  // Replace outdated years in common patterns
-  yearPatterns.forEach(pattern => {
-    fixed = fixed.replace(pattern, (match, ...groups) => {
-      // Check if any group contains an outdated year
-      for (let i = 0; i < groups.length; i++) {
-        const group = groups[i];
-        if (typeof group === 'string' && outdatedYears.includes(group)) {
-          return match.replace(group, currentYear.toString());
-        }
-      }
-      return match;
-    });
-  });
-
-  // Direct replacement for standalone year references in titles/headers
-  // "Best Dab Pads 2024" -> "Best Dab Pads 2025"
+  // AGGRESSIVE REPLACEMENT: Replace ALL instances of outdated years
+  // Exception: Don't replace if it looks like a historical reference (e.g., "founded in 2019")
+  // or a specific date reference
   outdatedYears.forEach(oldYear => {
-    // Only replace years that appear in title-like contexts
-    const titleYearPattern = new RegExp(
-      `(^|\\n)(#{1,3}\\s+[^\\n]*?)\\b${oldYear}\\b([^\\n]*)`,
-      'gm'
+    // Pattern 1: Year in titles/headers - always replace
+    const headerPattern = new RegExp(`(^|\\n)(#{1,3}\\s+[^\\n]*?)\\b${oldYear}\\b`, 'gm');
+    fixed = fixed.replace(headerPattern, `$1$2${currentYear}`);
+
+    // Pattern 2: "in/for/of YEAR" - common in "best of 2024", "guide for 2024", "worth it in 2024"
+    const prepositionPattern = new RegExp(`\\b(in|for|of)\\s+${oldYear}\\b`, 'gi');
+    fixed = fixed.replace(prepositionPattern, `$1 ${currentYear}`);
+
+    // Pattern 3: "YEAR guide/picks/review/update/edition" at start
+    const prefixPattern = new RegExp(`\\b${oldYear}\\s+(guide|picks|review|trends?|essentials?|must-haves?|edition|update|roundup)\\b`, 'gi');
+    fixed = fixed.replace(prefixPattern, `${currentYear} $1`);
+
+    // Pattern 4: "best/top X YEAR" or "X YEAR" in title-like contexts
+    const suffixPattern = new RegExp(`\\b(best|top|new|latest|updated?)\\s+([^.!?\\n]{1,50})\\s+${oldYear}\\b`, 'gi');
+    fixed = fixed.replace(suffixPattern, `$1 $2 ${currentYear}`);
+
+    // Pattern 5: Standalone year that's clearly not a date (not preceded by month/day)
+    // Match year NOT preceded by month names or day numbers
+    const standalonePattern = new RegExp(
+      `(?<!January |February |March |April |May |June |July |August |September |October |November |December |\\d{1,2}[,\\s]+)\\b${oldYear}\\b(?!\\s*-\\s*\\d{4})`,
+      'gi'
     );
-    fixed = fixed.replace(titleYearPattern, `$1$2${currentYear}$3`);
+    fixed = fixed.replace(standalonePattern, currentYear.toString());
   });
 
   return fixed;
