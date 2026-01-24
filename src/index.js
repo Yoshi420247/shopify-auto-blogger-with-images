@@ -3,7 +3,7 @@
  *
  * Main orchestrator that coordinates:
  * 1. Scraping existing blogs and competitor sites
- * 2. Generating new content with OpenAI GPT-5.1
+ * 2. Generating new content with OpenAI GPT-5.2
  * 3. Creating images with Gemini Nano Banana Pro 3.0
  * 4. Publishing to Shopify
  *

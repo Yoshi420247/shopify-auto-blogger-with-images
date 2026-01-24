@@ -1,13 +1,13 @@
 /**
  * Content Generator Module
  *
- * Uses OpenAI GPT-5.1 (November 2025) to generate human-like blog content
+ * Uses OpenAI GPT-5.2 (current best model) to generate human-like blog content
  * with emphasis on avoiding AI tells and mimicking author styles.
  *
- * GPT-5.1 features:
+ * GPT-5.2 features:
  * - Adaptive reasoning with configurable effort levels
- * - Extended 24-hour prompt caching
- * - Improved agentic and coding capabilities
+ * - Extended prompt caching
+ * - Improved content generation and reasoning
  */
 
 import OpenAI from 'openai';
@@ -61,16 +61,16 @@ export async function generateBlogPost(options) {
   try {
     const client = getOpenAI();
 
-    // GPT-5.1 API call with adaptive reasoning
-    // Note: GPT-5.1 with reasoning_effort does not support custom temperature
+    // GPT-5.2 API call with adaptive reasoning
+    // Note: GPT-5.2 with reasoning_effort does not support custom temperature
     const response = await client.chat.completions.create({
-      model: config.openai.model, // gpt-5.1
+      model: config.openai.model, // gpt-5.2
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
       max_completion_tokens: config.openai.maxOutputTokens,
-      // GPT-5.1 specific: reasoning effort controls how much "thinking" the model does
+      // GPT-5.2 specific: reasoning effort controls how much "thinking" the model does
       // 'none' = fast responses, 'low'/'medium'/'high' = more reasoning
       reasoning_effort: config.openai.reasoningEffort || 'medium'
     });
@@ -471,7 +471,7 @@ function removeAiTells(content) {
 
 /**
  * Parse generated content into structured format
- * Handles various GPT-5.1 output formats
+ * Handles various GPT-5.2 output formats
  */
 function parseGeneratedContent(content) {
   // Split by double newlines or single newlines
@@ -791,10 +791,10 @@ For each idea, provide:
 Format as JSON array.`;
 
   try {
-    // GPT-5.1 with lower reasoning effort for faster topic generation
-    // Note: GPT-5.1 with reasoning_effort does not support custom temperature
+    // GPT-5.2 with lower reasoning effort for faster topic generation
+    // Note: GPT-5.2 with reasoning_effort does not support custom temperature
     const response = await client.chat.completions.create({
-      model: config.openai.model, // gpt-5.1
+      model: config.openai.model, // gpt-5.2
       messages: [
         {
           role: 'system',
