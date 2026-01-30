@@ -44,6 +44,39 @@ function programmaticFixes(html) {
   // These start the line with alt=" which is never valid
   fixed = fixed.replace(/^\s*alt="[^"]*"[^>]*>\s*$/gm, '');
 
+  // Remove broken img tag endings like: dab mat" style="max-width: 100%; height: auto; border-radius: 12px;" loading="lazy">
+  // Pattern: text followed by " style= ... loading="lazy">
+  fixed = fixed.replace(/[a-zA-Z\s]+"\s*style="[^"]*"\s*loading="lazy"\s*>/gi, '');
+
+  // More aggressive: catch any orphaned style/loading attributes ending with >
+  // Pattern: anything" style="..." loading="...">  (without a proper <img opening)
+  fixed = fixed.replace(/(?<!<img[^>]*)"\s*style="max-width:\s*100%[^"]*"\s*loading="lazy"\s*>/gi, '');
+
+  // Catch fragments that look like: [text]" style="[anything]">
+  fixed = fixed.replace(/[^<>"]+"\s*style="[^"]+"\s*>/gi, (match, offset, string) => {
+    // Only remove if NOT part of a valid tag (no < before it within reasonable distance)
+    const preceding = string.substring(Math.max(0, offset - 100), offset);
+    if (!preceding.includes('<img') && !preceding.includes('<figure')) {
+      return '';
+    }
+    return match;
+  });
+
+  // Catch: [text]" loading="lazy"> without proper img tag
+  fixed = fixed.replace(/[a-zA-Z0-9\s]+"\s*loading="lazy"\s*>/gi, (match, offset, string) => {
+    const preceding = string.substring(Math.max(0, offset - 100), offset);
+    if (!preceding.includes('<img') && !preceding.includes('<figure')) {
+      return '';
+    }
+    return match;
+  });
+
+  // Remove orphaned closing fragments: height: auto; border-radius: 12px;" loading="lazy">
+  fixed = fixed.replace(/(?:height|width|border-radius|margin|padding)[^>]*loading="lazy"\s*>/gi, '');
+
+  // Remove any line that's ONLY image styling attributes (no real content)
+  fixed = fixed.replace(/^\s*(?:style|loading|alt|src|class)="[^"]*"[^>]*>\s*$/gm, '');
+
   // Remove leftover [IMAGE: ...] markers
   fixed = fixed.replace(/\[IMAGE:[^\]]*\]/g, '');
 
