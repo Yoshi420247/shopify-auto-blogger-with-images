@@ -13,55 +13,99 @@ const PRIORITY_COLLECTIONS = [
   {
     name: 'Glass Jars',
     url: '/collections/glass-jars',
-    keywords: ['glass jar', 'concentrate jar', 'storage jar', 'extract jar', 'child resistant jar', 'CR jar', 'packaging jar', 'dispensary jar', 'cannabis jar', 'wax jar']
+    keywords: ['glass jar', 'concentrate jar', 'storage jar', 'extract jar', 'child resistant jar', 'CR jar', 'packaging jar', 'dispensary jar', 'cannabis jar', 'wax jar', 'glass container']
   },
   {
     name: 'PTFE Sheets',
     url: '/collections/ptfe-sheets',
-    keywords: ['PTFE', 'teflon', 'nonstick sheet', 'purging sheet', 'extraction sheet', 'slab paper']
+    keywords: ['PTFE', 'teflon', 'nonstick sheet', 'purging sheet', 'extraction sheet', 'slab paper', 'PTFE paper']
   },
   {
     name: 'FEP Sheets',
     url: '/collections/fep-sheets',
-    keywords: ['FEP', 'FEP film', 'clear nonstick', 'transparent nonstick']
+    keywords: ['FEP', 'FEP film', 'clear nonstick', 'transparent nonstick', 'FEP sheet']
   },
   {
     name: 'Parchment Paper',
     url: '/collections/parchment-paper',
-    keywords: ['parchment', 'parchment paper', 'release paper', 'rosin paper', 'rosin parchment', 'pressing paper', 'foil backed', 'extraction paper']
+    keywords: ['parchment', 'parchment paper', 'release paper', 'rosin paper', 'rosin parchment', 'pressing paper', 'foil backed', 'extraction paper', 'press paper']
   },
   {
     name: 'Silicone Pads',
     url: '/collections/silicone-pads',
-    keywords: ['silicone pad', 'silicone mat', 'dab mat', 'dab pad', 'Oil Slick pad', 'nonstick mat', 'work mat']
+    keywords: ['silicone pad', 'silicone mat', 'dab mat', 'dab pad', 'Oil Slick pad', 'nonstick mat', 'work mat', 'silicone work surface']
   },
   {
     name: 'Extraction & Packaging',
     url: '/collections/extraction-packaging',
-    keywords: ['extraction supplies', 'cannabis packaging', 'processor supplies', 'extract supplies']
+    keywords: ['extraction supplies', 'cannabis packaging', 'processor supplies', 'extract supplies', 'extraction equipment']
+  },
+  {
+    name: 'Rosin Extraction',
+    url: '/collections/rosin-extraction',
+    keywords: ['rosin', 'rosin press', 'rosin extraction', 'solventless', 'rosin tech', 'pressing rosin', 'rosin supplies']
+  },
+  {
+    name: 'Bulk PTFE & FEP',
+    url: '/collections/bulk-ptfe-fep',
+    keywords: ['bulk PTFE', 'bulk FEP', 'wholesale sheets', 'bulk nonstick', 'commercial extraction']
+  },
+  {
+    name: 'Custom Packaging',
+    url: '/collections/custom-packaging-options',
+    keywords: ['custom packaging', 'custom labels', 'branded packaging', 'custom jars', 'dispensary packaging']
   }
 ];
 
 // Secondary collections (link when relevant)
 const SECONDARY_COLLECTIONS = [
-  // Dabbing
-  { name: 'Dab Rigs', url: '/collections/dab-rigs', keywords: ['dab rig', 'oil rig', 'concentrate rig'] },
-  { name: 'Quartz Bangers', url: '/collections/quartz-bangers', keywords: ['quartz banger', 'banger', 'quartz nail'] },
-  { name: 'Carb Caps', url: '/collections/carb-caps', keywords: ['carb cap', 'directional cap', 'bubble cap'] },
-  { name: 'Dab Tools', url: '/collections/dab-tools', keywords: ['dab tool', 'dabber'] },
-  { name: 'Nectar Collectors', url: '/collections/nectar-collectors', keywords: ['nectar collector', 'honey straw', 'dab straw'] },
-  { name: 'Torches', url: '/collections/torches', keywords: ['torch', 'butane torch', 'dab torch'] },
-  // Smoking
-  { name: 'Bongs', url: '/collections/bongs', keywords: ['bong', 'water pipe', 'glass bong'] },
-  { name: 'Hand Pipes', url: '/collections/hand-pipes', keywords: ['hand pipe', 'glass pipe', 'spoon pipe'] },
-  { name: 'Bubblers', url: '/collections/bubblers', keywords: ['bubbler'] },
-  { name: 'Grinders', url: '/collections/grinders', keywords: ['grinder', 'herb grinder'] },
+  // Dabbing - Glass
+  { name: 'Dab Rigs', url: '/collections/dab-rigs', keywords: ['dab rig', 'oil rig', 'concentrate rig', 'rig'] },
+  { name: 'Quartz Bangers', url: '/collections/quartz-bangers', keywords: ['quartz banger', 'banger', 'quartz nail', 'quartz bucket'] },
+  { name: 'Carb Caps', url: '/collections/carb-caps', keywords: ['carb cap', 'directional cap', 'bubble cap', 'spinner cap'] },
+  { name: 'Dab Tools', url: '/collections/dab-tools', keywords: ['dab tool', 'dabber', 'dab pick', 'wax tool'] },
+  { name: 'Nectar Collectors', url: '/collections/nectar-collectors', keywords: ['nectar collector', 'honey straw', 'dab straw', 'vertical dab'] },
+  { name: 'Torches', url: '/collections/torches', keywords: ['torch', 'butane torch', 'dab torch', 'torch lighter'] },
+
+  // Smoking - Glass
+  { name: 'Bongs & Water Pipes', url: '/collections/bongs-water-pipes', keywords: ['bong', 'water pipe', 'glass bong', 'water bong', 'beaker bong', 'straight tube'] },
+  { name: 'Hand Pipes', url: '/collections/hand-pipes', keywords: ['hand pipe', 'glass pipe', 'spoon pipe', 'dry pipe'] },
+  { name: 'Bubblers', url: '/collections/bubblers', keywords: ['bubbler', 'glass bubbler', 'hammer bubbler', 'sherlock bubbler'] },
+  { name: 'One Hitters & Chillums', url: '/collections/one-hitters-chillums', keywords: ['one hitter', 'chillum', 'bat', 'taster', 'dugout'] },
+  { name: 'Novelty Pipes', url: '/collections/novelty-character-pipes', keywords: ['novelty pipe', 'character pipe', 'fun pipe', 'unique pipe'] },
+
+  // Silicone Products
+  { name: 'Silicone Pipes', url: '/collections/silicone-pipes', keywords: ['silicone pipe', 'unbreakable pipe', 'flexible pipe'] },
+  { name: 'Silicone Bubblers', url: '/collections/silicone-bubblers', keywords: ['silicone bubbler', 'unbreakable bubbler'] },
+  { name: 'Silicone Hand Pipes', url: '/collections/silicone-hand-pipes', keywords: ['silicone hand pipe', 'silicone spoon'] },
+  { name: 'Silicone Nectar Collectors', url: '/collections/silicone-nectar-collectors', keywords: ['silicone nectar collector', 'silicone dab straw'] },
+  { name: 'Silicone Rigs & Bongs', url: '/collections/silicone-rigs-bongs', keywords: ['silicone bong', 'silicone rig', 'silicone dab rig', 'unbreakable bong'] },
+
+  // Accessories
+  { name: 'Flower Bowls', url: '/collections/flower-bowls', keywords: ['flower bowl', 'bowl piece', 'slide', 'glass bowl'] },
+  { name: 'Ash Catchers', url: '/collections/ash-catchers', keywords: ['ash catcher', 'ashcatcher', 'precooler'] },
+  { name: 'Downstems', url: '/collections/downstems', keywords: ['downstem', 'down stem', 'diffuser'] },
+  { name: 'Ashtrays', url: '/collections/ashtrays', keywords: ['ashtray', 'ash tray', 'debowler'] },
+  { name: 'Grinders', url: '/collections/grinders', keywords: ['grinder', 'herb grinder', 'weed grinder', '4 piece grinder'] },
+
   // Storage
-  { name: 'Concentrate Containers', url: '/collections/concentrate-containers', keywords: ['concentrate container', 'dab container', 'wax container'] },
-  { name: 'Mylar Bags', url: '/collections/mylar-bags', keywords: ['mylar bag', 'smell proof bag'] },
+  { name: 'Concentrate Containers', url: '/collections/concentrate-containers', keywords: ['concentrate container', 'dab container', 'wax container', 'silicone container'] },
+  { name: 'Storage Containers', url: '/collections/storage-containers', keywords: ['storage container', 'stash jar', 'storage jar', 'airtight container'] },
+
   // Rolling
-  { name: 'Rolling Papers', url: '/collections/rolling-papers', keywords: ['rolling paper', 'papers'] },
-  { name: 'Cones', url: '/collections/rolling-papers-cones', keywords: ['cone', 'pre-roll', 'pre-rolled cone'] }
+  { name: 'Rolling Papers', url: '/collections/rolling-papers', keywords: ['rolling paper', 'papers', 'hemp papers', 'rice papers'] },
+  { name: 'Cones', url: '/collections/rolling-papers-cones', keywords: ['cone', 'pre-roll', 'pre-rolled cone', 'preroll'] }
+];
+
+// Brand collections (link when mentioning these brands)
+const BRAND_COLLECTIONS = [
+  { name: '710 Sci', url: '/collections/710-sci', keywords: ['710 Sci', '710Sci', '710 Science'] },
+  { name: 'Zig Zag', url: '/collections/zig-zag', keywords: ['Zig Zag', 'Zig-Zag', 'ZigZag'] },
+  { name: 'Vibes', url: '/collections/vibes', keywords: ['Vibes', 'Vibes papers', 'Vibes rolling'] },
+  { name: 'Cookies', url: '/collections/cookies', keywords: ['Cookies', 'Cookies brand'] },
+  { name: 'Maven', url: '/collections/maven', keywords: ['Maven', 'Maven torch'] },
+  { name: 'Monark', url: '/collections/monark', keywords: ['Monark', 'Monark glass'] },
+  { name: 'Made in USA', url: '/collections/made-in-usa', keywords: ['Made in USA', 'American made', 'USA made', 'domestic'] }
 ];
 
 // External authoritative sources by topic
@@ -117,8 +161,8 @@ export function injectHyperlinks(htmlContent, articleTitle = '') {
   const linkPositions = [];
   let internalLinksAdded = 0;
 
-  // Process priority collections first
-  const allCollections = [...PRIORITY_COLLECTIONS, ...SECONDARY_COLLECTIONS];
+  // Process priority collections first, then secondary, then brands
+  const allCollections = [...PRIORITY_COLLECTIONS, ...SECONDARY_COLLECTIONS, ...BRAND_COLLECTIONS];
 
   for (const collection of allCollections) {
     if (internalLinksAdded >= targetInternalLinks) break;
@@ -329,5 +373,6 @@ export default {
   injectHyperlinks,
   getLinkStats,
   PRIORITY_COLLECTIONS,
-  SECONDARY_COLLECTIONS
+  SECONDARY_COLLECTIONS,
+  BRAND_COLLECTIONS
 };
