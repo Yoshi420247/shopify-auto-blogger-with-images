@@ -131,20 +131,46 @@ function getCurrentDateInfo() {
 }
 
 /**
+ * Determine if this blog should use a year-based title
+ * Only ~15% of blogs should have year in the title
+ * Uses day of month + hour to create predictable but varied distribution
+ */
+function shouldUseYearInTitle() {
+  const now = new Date();
+  const dayOfMonth = now.getDate();
+  const hour = now.getHours();
+
+  // Use day + hour to create a pseudo-random but deterministic value
+  // This ensures about 1 in 7 blogs (roughly every 3-4 days) gets a year title
+  const value = (dayOfMonth + hour) % 7;
+  return value === 0; // Only true for ~14% of runs
+}
+
+/**
  * Build the system prompt for human-like content generation
  */
 function buildSystemPrompt(authorStyle) {
   const dateInfo = getCurrentDateInfo();
+  const useYearInTitle = shouldUseYearInTitle();
+
+  // Title instructions vary based on whether we want a year-based title
+  const titleYearInstructions = useYearInTitle
+    ? `- You MAY include "${dateInfo.year}" in the title if it fits naturally (e.g., "Best Dab Rigs of ${dateInfo.year}")`
+    : `- DO NOT include the year in the title. Write evergreen titles that don't reference specific years.
+- BAD: "Best Dab Pads of ${dateInfo.year}", "Top Picks for ${dateInfo.year}", "${dateInfo.year} Guide"
+- GOOD: "Best Dab Pads for Serious Collectors", "How to Choose the Right Dab Rig", "Ultimate Guide to Concentrate Storage"`;
 
   return `You are a professional blog writer for a cannabis accessories company called Oil Slick Pad. You specialize in writing about dab pads, concentrate tools, and the dabbing community.
 
-CURRENT DATE INFORMATION (VERY IMPORTANT):
+CURRENT DATE INFORMATION:
 - Today's date: ${dateInfo.fullDate}
 - Current year: ${dateInfo.year}
 - Current month: ${dateInfo.month}
-- ALWAYS use ${dateInfo.year} when referring to "this year", "best of [year]", "guide for [year]", etc.
+- If you need to reference the current year in the BODY content, use ${dateInfo.year}
 - NEVER use outdated years like 2024, 2023, etc. unless specifically discussing historical data
-- If writing "Best X of [year]" or "[year] Guide", ALWAYS use ${dateInfo.year}
+
+TITLE YEAR POLICY:
+${titleYearInstructions}
 
 YOUR WRITING IDENTITY:
 You write in the style of ${authorStyle.author}.
@@ -223,7 +249,8 @@ Write like someone who actually uses this stuff, not a marketer who googled it.
 TITLE REQUIREMENTS (VERY IMPORTANT):
 - Title MUST be 50-60 characters maximum (for SEO)
 - Title should be punchy, complete, and SEO-optimized
-- Good examples: "Best Dab Pads of 2025: Expert Picks" (35 chars), "How to Clean Your Dab Rig in 5 Minutes" (38 chars)
+- Prefer EVERGREEN titles that don't date themselves
+- Good examples: "Best Dab Pads for Daily Use", "How to Clean Your Dab Rig Fast", "Choosing the Right Quartz Banger"
 - BAD: Long rambling titles with colons and subtitles
 
 CONTENT STRUCTURE (VERY IMPORTANT FOR READABILITY):
@@ -369,6 +396,7 @@ Now write the blog post:`;
 /**
  * Fix incorrect years in titles - very aggressive
  * Any 4-digit year from 2020-currentYear-1 gets replaced with currentYear
+ * If shouldUseYearInTitle() is false, removes years entirely
  */
 function fixTitleYear(title) {
   if (!title) return title;
@@ -376,11 +404,54 @@ function fixTitleYear(title) {
   const currentYear = new Date().getFullYear();
   let fixed = title;
 
-  // Replace any year from 2020 to last year with current year
+  // First, replace any outdated year with current year
   for (let y = 2020; y < currentYear; y++) {
     const yearPattern = new RegExp(`\\b${y}\\b`, 'g');
     fixed = fixed.replace(yearPattern, currentYear.toString());
   }
+
+  // If we shouldn't use year in title, strip it out entirely
+  if (!shouldUseYearInTitle()) {
+    fixed = stripYearFromTitle(fixed);
+  }
+
+  return fixed;
+}
+
+/**
+ * Strip year references from a title to make it evergreen
+ */
+function stripYearFromTitle(title) {
+  if (!title) return title;
+
+  const currentYear = new Date().getFullYear();
+  let fixed = title;
+
+  // Remove common year patterns:
+  // "Best X of 2026" -> "Best X"
+  fixed = fixed.replace(new RegExp(`\\s+of\\s+${currentYear}`, 'gi'), '');
+
+  // "Best X for 2026" -> "Best X"
+  fixed = fixed.replace(new RegExp(`\\s+for\\s+${currentYear}`, 'gi'), '');
+
+  // "Best X in 2026" -> "Best X"
+  fixed = fixed.replace(new RegExp(`\\s+in\\s+${currentYear}`, 'gi'), '');
+
+  // "2026 Guide to X" -> "Guide to X"
+  fixed = fixed.replace(new RegExp(`^${currentYear}\\s+`, 'gi'), '');
+
+  // "X: 2026 Edition" -> "X"
+  fixed = fixed.replace(new RegExp(`:\\s*${currentYear}\\s*(edition|guide|update)?`, 'gi'), '');
+
+  // "X (2026)" -> "X"
+  fixed = fixed.replace(new RegExp(`\\s*\\(${currentYear}\\)`, 'gi'), '');
+
+  // Standalone year at end "X 2026" -> "X"
+  fixed = fixed.replace(new RegExp(`\\s+${currentYear}$`, 'gi'), '');
+
+  // Clean up any double spaces or trailing punctuation
+  fixed = fixed.replace(/\s{2,}/g, ' ').trim();
+  fixed = fixed.replace(/[:\s]+$/, '').trim();
 
   return fixed;
 }

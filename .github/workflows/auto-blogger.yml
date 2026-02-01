@@ -2,18 +2,15 @@
 name: Auto-Blogger with AI Images
 
 on:
-  # ============ SCHEDULE: 5 BLOGS PER DAY ============
-  # Split into two content categories:
-  # - Dabbing & Storage: 2 articles/day (6 AM, 10 AM UTC)
-  # - What You Need products (bongs, rigs): 3 articles/day (2 PM, 6 PM, 10 PM UTC)
+  # ============ SCHEDULE: 2 BLOGS PER DAY ============
+  # Split into two content categories (1 each):
+  # - Dabbing & Storage: 1 article/day (9 AM UTC)
+  # - What You Need products (bongs, rigs): 1 article/day (3 PM UTC)
   schedule:
-    # Dabbing & Storage content - 6 AM and 10 AM UTC
-    - cron: '0 6 * * *'
-    - cron: '0 10 * * *'
-    # What You Need products - 2 PM, 6 PM, 10 PM UTC
-    - cron: '0 14 * * *'
-    - cron: '0 18 * * *'
-    - cron: '0 22 * * *'
+    # Dabbing & Storage content - 9 AM UTC
+    - cron: '0 9 * * *'
+    # What You Need products - 3 PM UTC
+    - cron: '0 15 * * *'
 
   # Allow manual trigger with options
   workflow_dispatch:
@@ -108,11 +105,11 @@ jobs:
           if [ -n "${{ github.event.inputs.content_category }}" ] && [ "${{ github.event.inputs.content_category }}" != "auto" ]; then
             echo "category=${{ github.event.inputs.content_category }}" >> $GITHUB_OUTPUT
             echo "Using manual category: ${{ github.event.inputs.content_category }}"
-          # Schedule-based category selection
-          elif [ "$HOUR" = "06" ] || [ "$HOUR" = "10" ]; then
+          # Schedule-based category selection (2 blogs/day)
+          elif [ "$HOUR" = "09" ]; then
             echo "category=dabbing_storage" >> $GITHUB_OUTPUT
             echo "Schedule-based category: dabbing_storage (Dabbing & Storage)"
-          elif [ "$HOUR" = "14" ] || [ "$HOUR" = "18" ] || [ "$HOUR" = "22" ]; then
+          elif [ "$HOUR" = "15" ]; then
             echo "category=what_you_need" >> $GITHUB_OUTPUT
             echo "Schedule-based category: what_you_need (Bongs, Rigs & Accessories)"
           else
