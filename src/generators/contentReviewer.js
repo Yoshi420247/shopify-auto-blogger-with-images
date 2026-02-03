@@ -30,45 +30,49 @@ function programmaticFixes(html) {
   fixed = fixed.replace(/<p[^>]*>\s*<\/p>/g, '');
 
   // ============ FIX BROKEN IMAGE ARTIFACTS ============
-  // IMPORTANT: Only remove BROKEN fragments, NOT valid <img> tags
+  // IMPORTANT: These patterns catch broken img tag fragments appearing as visible text
+  // The issue: img tag content gets duplicated outside the tag as plain text
 
   // Remove fragments like: 1);" loading="lazy"> (broken CSS values)
   fixed = fixed.replace(/\d+\);\s*"\s*loading="lazy"\s*>/gi, '');
   fixed = fixed.replace(/[0-9.]+\);\s*"\s*>/gi, '');
 
   // Remove fragments that START with a file extension (broken img tag where src got stripped)
-  // Only match if NOT preceded by a quote (which would indicate a valid src="...png")
   fixed = fixed.replace(/(?<!")(?:png|jpg|jpeg|gif|webp|svg)"\s*alt="[^"]*"[^>]*>/gi, '');
 
   // Remove lines that are ONLY broken image attributes (no actual content)
-  // These start the line with alt=" which is never valid
   fixed = fixed.replace(/^\s*alt="[^"]*"[^>]*>\s*$/gm, '');
 
-  // Remove broken img tag endings like: dab mat" style="max-width: 100%; height: auto; border-radius: 12px;" loading="lazy">
-  // Pattern: text followed by " style= ... loading="lazy">
-  fixed = fixed.replace(/[a-zA-Z\s]+"\s*style="[^"]*"\s*loading="lazy"\s*>/gi, '');
+  // CRITICAL FIX: Remove duplicate img attributes appearing AFTER a valid img tag
+  // Pattern: >followed by text like: silicone mat" style="max-width: 100%..." loading="lazy">
+  // This catches the exact artifact pattern seen in screenshots
+  fixed = fixed.replace(/>\s*\n?\s*[a-zA-Z][a-zA-Z\s]{0,50}"\s*style="[^"]*"\s*loading="lazy"\s*>/gi, '>');
 
-  // More aggressive: catch any orphaned style/loading attributes ending with >
-  // Pattern: anything" style="..." loading="...">  (without a proper <img opening)
-  fixed = fixed.replace(/(?<!<img[^>]*)"\s*style="max-width:\s*100%[^"]*"\s*loading="lazy"\s*>/gi, '');
-
-  // Catch fragments that look like: [text]" style="[anything]">
-  fixed = fixed.replace(/[^<>"]+"\s*style="[^"]+"\s*>/gi, (match, offset, string) => {
-    // Only remove if NOT part of a valid tag (no < before it within reasonable distance)
-    const preceding = string.substring(Math.max(0, offset - 100), offset);
-    if (!preceding.includes('<img') && !preceding.includes('<figure')) {
-      return '';
-    }
-    return match;
+  // Also catch when it appears after closing tags like </figure> or </img>
+  fixed = fixed.replace(/<\/[a-z]+>\s*[a-zA-Z][a-zA-Z\s]{0,50}"\s*style="[^"]*"\s*loading="lazy"\s*>/gi, (match) => {
+    // Keep just the closing tag
+    const closingTag = match.match(/<\/[a-z]+>/i);
+    return closingTag ? closingTag[0] : '';
   });
 
-  // Catch: [text]" loading="lazy"> without proper img tag
-  fixed = fixed.replace(/[a-zA-Z0-9\s]+"\s*loading="lazy"\s*>/gi, (match, offset, string) => {
-    const preceding = string.substring(Math.max(0, offset - 100), offset);
-    if (!preceding.includes('<img') && !preceding.includes('<figure')) {
-      return '';
+  // Remove standalone lines that look like broken img attributes
+  // Pattern: starts with word(s) followed by " style="..." loading="lazy">
+  fixed = fixed.replace(/^\s*[a-zA-Z][a-zA-Z\s]{0,50}"\s*style="max-width:\s*100%[^"]*"\s*loading="lazy"\s*>\s*$/gm, '');
+
+  // More aggressive: ANY text followed by " style="max-width: 100%..." loading="lazy">
+  // that appears on its own line or after >
+  fixed = fixed.replace(/(?:^|\n|>)\s*([a-zA-Z][^<\n]{0,60})"\s*style="max-width:\s*100%[^"]*"[^>]*>/gim, (match, text, offset, string) => {
+    // Check if this looks like it's inside a valid <img tag
+    const startOfMatch = string.lastIndexOf('<', offset);
+    const tagCheck = string.substring(startOfMatch, offset + 10);
+    if (tagCheck.match(/<img[^>]*$/i)) {
+      // This is inside a valid img tag, keep it
+      return match;
     }
-    return match;
+    // This is broken text, remove it (but keep newline/> if present)
+    if (match.startsWith('\n')) return '\n';
+    if (match.startsWith('>')) return '>';
+    return '';
   });
 
   // Remove orphaned closing fragments: height: auto; border-radius: 12px;" loading="lazy">
@@ -76,6 +80,9 @@ function programmaticFixes(html) {
 
   // Remove any line that's ONLY image styling attributes (no real content)
   fixed = fixed.replace(/^\s*(?:style|loading|alt|src|class)="[^"]*"[^>]*>\s*$/gm, '');
+
+  // Final cleanup: remove any remaining orphaned > at start of lines
+  fixed = fixed.replace(/^\s*>\s*$/gm, '');
 
   // Remove leftover [IMAGE: ...] markers
   fixed = fixed.replace(/\[IMAGE:[^\]]*\]/g, '');
