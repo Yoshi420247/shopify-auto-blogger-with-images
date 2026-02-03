@@ -29,6 +29,7 @@ import {
 } from './generators/imageGenerator.js';
 import {
   reviewAndFixContent,
+  programmaticFixes,
   getUniqueTopic
 } from './generators/contentReviewer.js';
 import { getRandomPseudonym } from './utils/authorStyles.js';
@@ -621,6 +622,12 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
   const linkStats = getLinkStats(finalContent);
   console.log(`Link stats: ${linkStats.internalLinks} internal, ${linkStats.externalLinks} external (${linkStats.internalLinkDensity} per 1K words)`);
 
+  // STEP 7: Final cleanup - run programmatic fixes one last time
+  // This catches any broken HTML artifacts that survived AI review or were introduced after
+  console.log('\n--- Final Cleanup ---');
+  finalContent = programmaticFixes(finalContent);
+  console.log('Final programmatic cleanup complete');
+
   // Publish (unless dry run)
   if (config.blog.dryRun) {
     console.log('\n[DRY RUN] Skipping publish. Would have published:');
@@ -757,14 +764,10 @@ async function prepareContentWithImages(post, images, title) {
       imageIndex++;
 
       // Create responsive image HTML with typography rules
+      // IMPORTANT: Keep as single line to prevent markdown converter from splitting the tag
       // Images: border-radius 12px, margin-top 1.2em, margin-bottom 0.6em
       // Captions: 15px, line-height 1.5, margin-top 0.4em, margin-bottom 1.2em
-      return `
-<figure style="margin: 1.2em 0 0.6em 0; text-align: center;">
-  <img src="${img.url}" alt="${img.altText}" style="max-width: 100%; height: auto; border-radius: 12px;" loading="lazy">
-  <figcaption style="font-size: 15px; line-height: 1.5; font-weight: 400; color: #666; margin-top: 0.4em; margin-bottom: 1.2em; font-style: italic;">${img.altText}</figcaption>
-</figure>
-`;
+      return `<figure style="margin: 1.2em 0 0.6em 0; text-align: center;"><img src="${img.url}" alt="${img.altText}" style="max-width: 100%; height: auto; border-radius: 12px;" loading="lazy"><figcaption style="font-size: 15px; line-height: 1.5; font-weight: 400; color: #666; margin-top: 0.4em; margin-bottom: 1.2em; font-style: italic;">${img.altText}</figcaption></figure>`;
     }
     // No more images available, remove the marker
     return '';

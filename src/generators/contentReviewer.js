@@ -21,9 +21,10 @@ function getOpenAI() {
 
 /**
  * Programmatic fixes for common HTML issues
- * Runs before AI review to handle predictable problems
+ * Runs before AI review AND as final cleanup before publishing
+ * Exported so it can be called independently as last step
  */
-function programmaticFixes(html) {
+export function programmaticFixes(html) {
   let fixed = html;
 
   // Remove empty paragraphs
@@ -393,6 +394,7 @@ export async function getUniqueTopic(originalTopic, recentArticles, contentIdeas
 
 export default {
   reviewAndFixContent,
+  programmaticFixes,
   isTopicRecentlyCovered,
   getUniqueTopic
 };
