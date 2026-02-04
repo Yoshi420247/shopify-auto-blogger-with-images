@@ -274,6 +274,9 @@ function generateAltText(description, blogTitle) {
   // Create concise, descriptive alt text
   const cleanDescription = description
     .replace(/showing|displaying|featuring|image of|picture of/gi, '')
+    .replace(/"/g, '\'')       // Remove double quotes (break HTML attributes)
+    .replace(/<[^>]*>/g, '')   // Strip any HTML tags
+    .replace(/\s+/g, ' ')     // Normalize whitespace
     .trim();
 
   // Keep under 125 characters

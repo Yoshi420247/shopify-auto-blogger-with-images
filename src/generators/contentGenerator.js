@@ -256,6 +256,16 @@ Use structured comparison lists instead of tables (tables render poorly). Format
 
 This format is much more readable and LLM-friendly than tables.
 
+BOLD TEXT RULES (VERY IMPORTANT):
+- Do NOT bold random keywords or phrases in your writing. It looks spammy and hurts readability.
+- BAD: "A good **dab pad** or **concentrate pad** protects your table"
+- GOOD: "A good dab pad or concentrate pad protects your table"
+- ONLY use bold (**text**) for these specific purposes:
+  1. Callout box prefixes: **Pro Tip:**, **Warning:**, **Note:**, **Important:**
+  2. Structured comparison headings (e.g., **Budget Option ($15-25)**)
+- Never bold product names, keywords, or phrases inline in paragraphs
+- Let hyperlinks handle emphasis for SEO keywords instead
+
 FORMATTING - THIS IS CRITICAL FOR READABILITY:
 - Output in clean Markdown format with PROPER LINE BREAKS
 - Start with a SHORT title (50-60 chars max) on the first line
@@ -269,6 +279,7 @@ FORMATTING - THIS IS CRITICAL FOR READABILITY:
 - Lists should have each item on its own line starting with "- "
 - Use numbered lists (1. 2. 3.) for step-by-step instructions
 - DO NOT use markdown tables (|---|) - they render poorly. Use structured lists instead.
+- Do NOT use double quotes (") in [IMAGE: description] markers - use single quotes if needed
 
 You are writing for real people who know their stuff. Don't talk down to them, but do explain technical concepts when needed.`;
 }

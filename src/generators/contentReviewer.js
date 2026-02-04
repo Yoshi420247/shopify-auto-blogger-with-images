@@ -44,6 +44,21 @@ function programmaticFixes(html) {
   // These start the line with alt=" which is never valid
   fixed = fixed.replace(/^\s*alt="[^"]*"[^>]*>\s*$/gm, '');
 
+  // Remove orphaned img attribute fragments that leak as visible text
+  // e.g.: ...some text" style="max-width: 100%; height: auto; border-radius: 12px;" loading="lazy">
+  fixed = fixed.replace(/"\s*style="[^"]*(?:max-width|border-radius|height)[^"]*"\s*(?:loading="lazy"\s*)?>/gi, '');
+
+  // Remove any visible text that is just HTML attributes (from broken tags)
+  // e.g.: style="max-width: 100%; height: auto;" loading="lazy">
+  fixed = fixed.replace(/^\s*style="[^"]*"\s*(?:loading="[^"]*"\s*)?>\s*$/gm, '');
+
+  // Remove fragments ending with loading="lazy">
+  fixed = fixed.replace(/[^<\n]*"\s*loading="lazy"\s*>/gi, (match) => {
+    // Only remove if this doesn't look like a valid img tag
+    if (match.includes('<img')) return match;
+    return '';
+  });
+
   // Remove leftover [IMAGE: ...] markers
   fixed = fixed.replace(/\[IMAGE:[^\]]*\]/g, '');
 
@@ -68,6 +83,15 @@ function programmaticFixes(html) {
   fixed = fixed.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>');
   fixed = fixed.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   fixed = fixed.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+  // ============ REMOVE UNNECESSARY BOLD FROM PARAGRAPHS ============
+  // Strip <strong> tags from within <p> tags UNLESS they are part of callout patterns
+  // This removes spammy keyword bolding like <strong>dab pad</strong>
+  fixed = fixed.replace(/<p([^>]*)>([\s\S]*?)<\/p>/gi, (match, attrs, content) => {
+    // Remove <strong> wrappers from inline text within paragraphs
+    const cleaned = content.replace(/<strong>([^<]+)<\/strong>/g, '$1');
+    return `<p${attrs}>${cleaned}</p>`;
+  });
 
   // ============ REMOVE AI META-COMMENTARY ============
   // Remove sentences/paragraphs that are AI thinking out loud about linking strategy

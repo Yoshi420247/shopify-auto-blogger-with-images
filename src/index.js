@@ -756,13 +756,21 @@ async function prepareContentWithImages(post, images, title) {
       const img = uploadedImages[imageIndex];
       imageIndex++;
 
+      // Sanitize alt text for safe HTML attribute insertion
+      // Remove double quotes, HTML tags, and excessive whitespace
+      const safeAltText = (img.altText || '')
+        .replace(/"/g, '\'')
+        .replace(/<[^>]*>/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
       // Create responsive image HTML with typography rules
       // Images: border-radius 12px, margin-top 1.2em, margin-bottom 0.6em
       // Captions: 15px, line-height 1.5, margin-top 0.4em, margin-bottom 1.2em
       return `
 <figure style="margin: 1.2em 0 0.6em 0; text-align: center;">
-  <img src="${img.url}" alt="${img.altText}" style="max-width: 100%; height: auto; border-radius: 12px;" loading="lazy">
-  <figcaption style="font-size: 15px; line-height: 1.5; font-weight: 400; color: #666; margin-top: 0.4em; margin-bottom: 1.2em; font-style: italic;">${img.altText}</figcaption>
+  <img src="${img.url}" alt="${safeAltText}" style="max-width: 100%; height: auto; border-radius: 12px;" loading="lazy">
+  <figcaption style="font-size: 15px; line-height: 1.5; font-weight: 400; color: #666; margin-top: 0.4em; margin-bottom: 1.2em; font-style: italic;">${safeAltText}</figcaption>
 </figure>
 `;
     }
