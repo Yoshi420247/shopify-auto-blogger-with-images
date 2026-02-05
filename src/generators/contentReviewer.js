@@ -171,26 +171,27 @@ Return the fixed HTML:`;
       reasoning_effort: 'low'
     });
 
-    const fixedHtml = response.choices[0]?.message?.content;
+    const reviewedHtml = response.choices[0]?.message?.content;
 
-    if (!fixedHtml) {
-      console.log('AI review returned empty, using original content');
-      return htmlContent;
+    if (!reviewedHtml) {
+      console.log('AI review returned empty, using programmatically-fixed content');
+      return fixedHtml;
     }
 
     // Basic validation - make sure we got HTML back
-    if (!fixedHtml.includes('<') || fixedHtml.length < 100) {
-      console.log('AI review returned invalid content, using original');
-      return htmlContent;
+    if (!reviewedHtml.includes('<') || reviewedHtml.length < 100) {
+      console.log('AI review returned invalid content, using programmatically-fixed content');
+      return fixedHtml;
     }
 
     console.log('AI review complete - formatting issues fixed');
-    return fixedHtml.trim();
+    return reviewedHtml.trim();
 
   } catch (error) {
     console.error('AI review failed:', error.message);
-    // Return original content if review fails
-    return htmlContent;
+    // Return programmatically-fixed content if AI review fails
+    // (still better than raw input since programmatic fixes already ran)
+    return fixedHtml;
   }
 }
 

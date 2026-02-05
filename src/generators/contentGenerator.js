@@ -763,10 +763,8 @@ function createTitleFromTopic(topic) {
     title = `${prefix} ${title}`;
   }
 
-  // Ensure it's not too long
-  if (title.length > 200) {
-    title = title.substring(0, 197) + '...';
-  }
+  // Run through cleanupTitle to enforce SEO length limits (50-60 chars)
+  title = cleanupTitle(title);
 
   return title;
 }

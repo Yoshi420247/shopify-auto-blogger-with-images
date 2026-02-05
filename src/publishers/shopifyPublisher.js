@@ -665,7 +665,12 @@ async function updateArticle(articleId, updates) {
   const articleInput = {};
 
   if (title) articleInput.title = title;
-  if (body) articleInput.body = markdownToHtml(body);
+  if (body) {
+    // Check if body is already HTML (from prepareContentWithImages)
+    const isAlreadyHtml = body.includes('<figure') || body.includes('<p style=') ||
+      body.includes('<h2 id=') || body.includes('<table style=');
+    articleInput.body = isAlreadyHtml ? body : markdownToHtml(body);
+  }
   if (tags) articleInput.tags = tags;
   if (imageUrl) {
     articleInput.image = {
@@ -943,36 +948,61 @@ function markdownToHtml(markdown) {
   // STEP 7: Links with proper styling (underline, offset, inherit weight)
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #2563eb; text-decoration: underline; text-underline-offset: 0.12em; font-weight: inherit;">$1</a>');
 
-  // STEP 8: Process lists
+  // STEP 8: Process lists (unordered and ordered)
   const lines = html.split('\n');
   const processedLines = [];
-  let inList = false;
+  let inUnorderedList = false;
+  let inOrderedList = false;
 
   for (const line of lines) {
     const trimmed = line.trim();
-    const listMatch = trimmed.match(/^[-*]\s+(.+)$/);
+    const unorderedMatch = trimmed.match(/^[-*]\s+(.+)$/);
+    const orderedMatch = trimmed.match(/^\d+\.\s+(.+)$/);
 
-    if (listMatch) {
-      if (!inList) {
-        processedLines.push('<ul style="font-size: 18px; margin: 0.4em 0 1em 0; padding-left: 1.2em; line-height: 1.7; text-align: left;">');
-        inList = true;
+    if (unorderedMatch) {
+      // Close ordered list if open
+      if (inOrderedList) {
+        processedLines.push('</ol>');
+        inOrderedList = false;
       }
-      processedLines.push(`<li style="margin: 0.35em 0;">${listMatch[1]}</li>`);
-    } else {
-      if (inList) {
+      if (!inUnorderedList) {
+        processedLines.push('<ul style="font-size: 18px; margin: 0.4em 0 1em 0; padding-left: 1.2em; line-height: 1.7; text-align: left;">');
+        inUnorderedList = true;
+      }
+      processedLines.push(`<li style="margin: 0.35em 0;">${unorderedMatch[1]}</li>`);
+    } else if (orderedMatch) {
+      // Close unordered list if open
+      if (inUnorderedList) {
         processedLines.push('</ul>');
-        inList = false;
+        inUnorderedList = false;
+      }
+      if (!inOrderedList) {
+        processedLines.push('<ol style="font-size: 18px; margin: 0.4em 0 1em 0; padding-left: 1.2em; line-height: 1.7; text-align: left;">');
+        inOrderedList = true;
+      }
+      processedLines.push(`<li style="margin: 0.35em 0;">${orderedMatch[1]}</li>`);
+    } else {
+      if (inUnorderedList) {
+        processedLines.push('</ul>');
+        inUnorderedList = false;
+      }
+      if (inOrderedList) {
+        processedLines.push('</ol>');
+        inOrderedList = false;
       }
       processedLines.push(line);
     }
   }
-  if (inList) {
+  if (inUnorderedList) {
     processedLines.push('</ul>');
+  }
+  if (inOrderedList) {
+    processedLines.push('</ol>');
   }
 
   html = processedLines.join('\n');
 
-  // STEP 7: Convert paragraphs
+  // STEP 9: Convert paragraphs
   const paragraphs = html.split(/\n\n+/);
   html = paragraphs.map(para => {
     para = para.trim();
@@ -1016,6 +1046,7 @@ function markdownToHtml(markdown) {
 
   // Final cleanup
   html = html.replace(/<\/ul>\s*<\/ul>/g, '</ul>');
+  html = html.replace(/<\/ol>\s*<\/ol>/g, '</ol>');
   html = html.replace(/<p[^>]*>\s*<\/p>/g, '');
 
   // Add Table of Contents after first paragraph if we have enough headings

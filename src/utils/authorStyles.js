@@ -230,7 +230,7 @@ const authorPseudonyms = [
   'Quinn Gallagher',
   'Avery Marshall',
   'Blake Winters',
-  'Cameron Diaz', // Common enough name
+  'Cameron Blake',
   'Dana Sullivan',
   'Ellis Park',
   'Frankie Romano',

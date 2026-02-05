@@ -1,7 +1,7 @@
 /**
  * SEO Optimizer for AI and Traditional Search
  *
- * Implements latest SEO best practices for 2024/2025 including:
+ * Implements latest SEO best practices including:
  * - Traditional Google SEO
  * - AI Overview optimization (Google SGE)
  * - LLM/ChatGPT search optimization
@@ -93,7 +93,7 @@ export function generateTitleVariations(topic, keyword) {
     `${topic}: What Nobody Tells You`
   ];
 
-  return templates.map(t => t.replace('${topic}', topic));
+  return templates;
 }
 
 /**
@@ -124,7 +124,7 @@ SEO REQUIREMENTS (Follow these naturally without making content feel keyword-stu
    - Be honest about limitations or situations where something isn't ideal
 
 5. CONTENT FRESHNESS:
-   - Reference current year (2024/2025)
+   - Reference the current year (${new Date().getFullYear()})
    - Mention recent developments or trends in the space
    - Include current pricing or availability context
 

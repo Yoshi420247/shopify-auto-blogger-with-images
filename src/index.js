@@ -24,8 +24,7 @@ import {
   rewriteExistingPost
 } from './generators/contentGenerator.js';
 import {
-  generateBlogImages,
-  imageToDataUrl
+  generateBlogImages
 } from './generators/imageGenerator.js';
 import {
   reviewAndFixContent,
@@ -380,7 +379,7 @@ function generateProductTopics(products) {
 
     // Group products by type for comparison articles
     if (type) {
-      topics.push(`Best ${type} for Beginners in 2025`);
+      topics.push(`Best ${type} for Beginners in ${new Date().getFullYear()}`);
       topics.push(`How to Choose the Right ${type}`);
     }
   }
@@ -637,7 +636,7 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
     };
   }
 
-  // STEP 6: Publish to Shopify
+  // STEP 7: Publish to Shopify
   console.log('\n--- Publishing to Shopify ---');
   const blog = await getOrCreateBlog('News');
 
