@@ -936,8 +936,10 @@ function markdownToHtml(markdown) {
   html = convertMarkdownTables(html);
 
   // STEP 6: Bold and italic
-  html = html.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>');
-  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  // Callout boxes (**Pro Tip:**, **Warning:**, etc.) are already handled in STEP 4.
+  // Remaining **text** is just random keyword bolding which looks spammy - strip the markers.
+  html = html.replace(/\*\*\*([^*]+)\*\*\*/g, '<em>$1</em>');
+  html = html.replace(/\*\*([^*]+)\*\*/g, '$1');
   html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
 
   // STEP 7: Links with proper styling (underline, offset, inherit weight)

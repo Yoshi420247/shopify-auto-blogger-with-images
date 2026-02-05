@@ -79,18 +79,21 @@ function programmaticFixes(html) {
   // Remove leftover markdown headers that weren't converted
   fixed = fixed.replace(/^#{1,6}\s+/gm, '');
 
-  // Convert leftover bold/italic markdown
-  fixed = fixed.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>');
-  fixed = fixed.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  // Strip leftover bold/italic markdown markers (don't convert to <strong>)
+  fixed = fixed.replace(/\*\*\*([^*]+)\*\*\*/g, '<em>$1</em>');
+  fixed = fixed.replace(/\*\*([^*]+)\*\*/g, '$1');
   fixed = fixed.replace(/\*([^*]+)\*/g, '<em>$1</em>');
 
-  // ============ REMOVE UNNECESSARY BOLD FROM PARAGRAPHS ============
-  // Strip <strong> tags from within <p> tags UNLESS they are part of callout patterns
-  // This removes spammy keyword bolding like <strong>dab pad</strong>
-  fixed = fixed.replace(/<p([^>]*)>([\s\S]*?)<\/p>/gi, (match, attrs, content) => {
-    // Remove <strong> wrappers from inline text within paragraphs
-    const cleaned = content.replace(/<strong>([^<]+)<\/strong>/g, '$1');
-    return `<p${attrs}>${cleaned}</p>`;
+  // ============ REMOVE ALL UNNECESSARY BOLD ============
+  // Strip <strong> tags everywhere EXCEPT inside callout boxes (div elements with colored backgrounds)
+  // This catches bold from any source: AI generation, markdown conversion, or AI reviewer
+  fixed = fixed.replace(/<strong>([^<]*)<\/strong>/g, (match, content) => {
+    // Keep bold for callout box prefixes (Pro Tip:, Warning:, Note:, Important:)
+    if (/^(Pro Tip|Warning|Note|Important):$/i.test(content.trim())) {
+      return match;
+    }
+    // Strip bold from everything else
+    return content;
   });
 
   // ============ REMOVE AI META-COMMENTARY ============
@@ -169,10 +172,23 @@ SPECIFIC PATTERNS TO REMOVE:
 - Lines starting with "|" that aren't in a table
 - Text fragments like "png" or "jpg" appearing alone
 - Any "<img" tags that don't have proper src attributes
+- Any visible text that looks like leaked HTML attributes (e.g. style="..." loading="lazy">)
+- Any text containing " style=" or " loading=" that isn't inside an HTML tag
+
+BOLD TEXT - VERY IMPORTANT:
+- Remove ALL <strong> and </strong> tags from the content
+- The ONLY exception is inside callout boxes (div elements with colored backgrounds) where <strong>Pro Tip:</strong>, <strong>Warning:</strong>, <strong>Note:</strong>, or <strong>Important:</strong> should be kept
+- Do NOT add any new <strong> tags
+- Do NOT bold any keywords, product names, or phrases
+
+FIGURE/IMAGE TAGS:
+- Do NOT modify <figure>, <img>, or <figcaption> tags that are properly formed
+- Do NOT split or reformat the attributes of <img> tags
+- If you see broken img attributes appearing as visible text (like: style="max-width: 100%..." loading="lazy">), remove that visible text entirely
 
 IMPORTANT:
 - Keep all properly formatted HTML elements with their inline styles
-- Keep all properly formed <figure> and <img> tags
+- Keep all properly formed <figure> and <img> tags EXACTLY as they are
 - Keep all <table> elements that are properly formatted
 - Don't change the content meaning
 - Return clean, valid HTML only
@@ -209,12 +225,16 @@ Return the fixed HTML:`;
     }
 
     console.log('AI review complete - formatting issues fixed');
-    return fixedHtml.trim();
+
+    // Run programmatic fixes AGAIN after AI review as a safety net
+    // The AI reviewer can sometimes introduce new artifacts or re-add bold tags
+    const finalHtml = programmaticFixes(fixedHtml.trim());
+    return finalHtml;
 
   } catch (error) {
     console.error('AI review failed:', error.message);
-    // Return original content if review fails
-    return htmlContent;
+    // Return programmatically-fixed content if AI review fails
+    return fixedHtml;
   }
 }
 
