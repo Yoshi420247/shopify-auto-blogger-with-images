@@ -3,17 +3,22 @@ name: Auto-Blogger with AI Images
 
 on:
   # ============ SCHEDULE: 5 BLOGS PER DAY ============
-  # Split into two content categories:
-  # - Dabbing & Storage: 2 articles/day (6 AM, 10 AM UTC)
-  # - What You Need products (bongs, rigs): 3 articles/day (2 PM, 6 PM, 10 PM UTC)
+  # Uses 'auto' category which rotates through 7 content niches by day of week:
+  #   Sunday:    dabbing_storage -> rosin_extraction -> rolling_culture
+  #   Monday:    glass_and_rigs -> packaging_supply -> accessories_tools
+  #   Tuesday:   rosin_extraction -> silicone_travel -> dabbing_storage
+  #   Wednesday: rolling_culture -> glass_and_rigs -> packaging_supply
+  #   Thursday:  accessories_tools -> dabbing_storage -> silicone_travel
+  #   Friday:    packaging_supply -> rosin_extraction -> glass_and_rigs
+  #   Saturday:  silicone_travel -> accessories_tools -> rolling_culture
+  #
+  # Hour-based rotation picks from today's 3 categories (8-hour segments)
   schedule:
-    # Dabbing & Storage content - 6 AM and 10 AM UTC
-    - cron: '0 6 * * *'
-    - cron: '0 10 * * *'
-    # What You Need products - 2 PM, 6 PM, 10 PM UTC
-    - cron: '0 14 * * *'
-    - cron: '0 18 * * *'
-    - cron: '0 22 * * *'
+    - cron: '0 6 * * *'    # 6 AM UTC  - first category of the day
+    - cron: '0 10 * * *'   # 10 AM UTC - first category of the day
+    - cron: '0 14 * * *'   # 2 PM UTC  - second category of the day
+    - cron: '0 18 * * *'   # 6 PM UTC  - third category of the day
+    - cron: '0 22 * * *'   # 10 PM UTC - third category of the day
 
   # Allow manual trigger with options
   workflow_dispatch:
@@ -47,7 +52,12 @@ on:
         options:
           - auto
           - dabbing_storage
-          - what_you_need
+          - glass_and_rigs
+          - rosin_extraction
+          - rolling_culture
+          - packaging_supply
+          - silicone_travel
+          - accessories_tools
       topic:
         description: 'Specific topic to write about (optional, overrides mode)'
         required: false
@@ -97,27 +107,17 @@ jobs:
           fi
           echo "All required secrets are configured"
 
-      - name: Determine content category from schedule
+      - name: Determine content category
         id: determine-category
         run: |
-          # Get current hour in UTC
-          HOUR=$(date -u +%H)
-          echo "Current UTC hour: $HOUR"
-
           # Manual trigger takes precedence
           if [ -n "${{ github.event.inputs.content_category }}" ] && [ "${{ github.event.inputs.content_category }}" != "auto" ]; then
             echo "category=${{ github.event.inputs.content_category }}" >> $GITHUB_OUTPUT
             echo "Using manual category: ${{ github.event.inputs.content_category }}"
-          # Schedule-based category selection
-          elif [ "$HOUR" = "06" ] || [ "$HOUR" = "10" ]; then
-            echo "category=dabbing_storage" >> $GITHUB_OUTPUT
-            echo "Schedule-based category: dabbing_storage (Dabbing & Storage)"
-          elif [ "$HOUR" = "14" ] || [ "$HOUR" = "18" ] || [ "$HOUR" = "22" ]; then
-            echo "category=what_you_need" >> $GITHUB_OUTPUT
-            echo "Schedule-based category: what_you_need (Bongs, Rigs & Accessories)"
           else
+            # Use 'auto' - the Node.js app handles day-of-week + hour rotation
             echo "category=auto" >> $GITHUB_OUTPUT
-            echo "Using auto category selection"
+            echo "Using auto category (rotation by day of week + hour)"
           fi
 
       - name: Run Auto-Blogger

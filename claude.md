@@ -26,9 +26,27 @@ The main orchestrator runs 7 sequential steps:
 6. Quality assurance (AI review + hyperlink injection)
 7. Publishing (GraphQL first, REST fallback)
 
-### Two Content Categories
-- **dabbing_storage**: Storage, cleaning, dabbing technique guides (6 AM, 10 AM UTC)
-- **what_you_need**: Product-focused content for bongs, rigs, accessories (2 PM, 6 PM, 10 PM UTC)
+### Seven Content Categories (Full Product Scope)
+All categories rotate automatically by day of week (3 categories per day, each day different):
+1. **dabbing_storage**: Dabbing techniques, concentrate storage, dab station setups
+2. **glass_and_rigs**: Bongs, dab rigs, bubblers, water pipes, hand pipes, nectar collectors
+3. **rosin_extraction**: Rosin pressing, PTFE/FEP/parchment, solventless extraction
+4. **rolling_culture**: Rolling papers, cones, wraps, trays, RAW/Zig Zag/Vibes/Blazy Susan
+5. **packaging_supply**: Glass jars, mylar bags, joint tubes, dispensary/B2B supply
+6. **silicone_travel**: Silicone pipes/bongs/bubblers, travel-friendly, unbreakable gear
+7. **accessories_tools**: Quartz bangers, carb caps, torches, grinders, e-rigs, vaporizers
+
+### Category Rotation Schedule
+Each day of the week maps to 3 categories. Hour-based segments (8h each) pick which one:
+- Sunday: dabbing_storage -> rosin_extraction -> rolling_culture
+- Monday: glass_and_rigs -> packaging_supply -> accessories_tools
+- Tuesday: rosin_extraction -> silicone_travel -> dabbing_storage
+- Wednesday: rolling_culture -> glass_and_rigs -> packaging_supply
+- Thursday: accessories_tools -> dabbing_storage -> silicone_travel
+- Friday: packaging_supply -> rosin_extraction -> glass_and_rigs
+- Saturday: silicone_travel -> accessories_tools -> rolling_culture
+
+Every category appears 3x per week. Full rotation covers all 7 niches every week.
 
 ### Image Generation Fallback Chain
 1. Gemini 3 Pro Image (gemini-3-pro-image-preview) - primary
@@ -47,7 +65,7 @@ The main orchestrator runs 7 sequential steps:
 | File | Lines | Purpose |
 |------|-------|---------|
 | `src/index.js` | ~820 | Main orchestrator - runs the full pipeline |
-| `src/config.js` | ~170 | Central config from env vars (API keys, categories, settings) |
+| `src/config.js` | ~345 | Central config - 7 content categories, rotation schedule, SEO keywords |
 | `src/generators/contentGenerator.js` | ~900 | GPT-5.2 content generation, AI tell removal, year fixing |
 | `src/generators/imageGenerator.js` | ~340 | Gemini image gen with fallback chain |
 | `src/generators/contentReviewer.js` | ~360 | AI content review, topic deduplication |
@@ -118,6 +136,42 @@ Add a new object to `authorStyles` in `src/utils/authorStyles.js`
 - Added documentation for manual trigger options, content modes, cost optimization
 - Added `read_products` to required Shopify API scopes
 
+## Full Product Scope Expansion (Feb 2026)
+
+### Problem
+Store has 1,300+ products across 90+ collections in 10+ niches, but blog system only covered 2 categories (dabbing_storage with 20 topics, what_you_need with 20 topics). Missing entirely: rosin/extraction, rolling papers, cannabis packaging, silicone/travel, and accessories.
+
+### Changes Made
+
+**config.js - 7 content categories (was 2)**
+Expanded from 2 categories (40 topics) to 7 categories (148 topics total):
+- `dabbing_storage` (24 topics) - kept and expanded
+- `glass_and_rigs` (24 topics) - replaces `what_you_need`, broader scope
+- `rosin_extraction` (20 topics) - NEW: PTFE, FEP, parchment, rosin pressing
+- `rolling_culture` (20 topics) - NEW: papers, cones, wraps, RAW, Zig Zag, Vibes
+- `packaging_supply` (20 topics) - NEW: glass jars, mylar bags, dispensary B2B
+- `silicone_travel` (20 topics) - NEW: silicone pipes/bongs, travel, outdoor
+- `accessories_tools` (20 topics) - NEW: bangers, caps, torches, grinders, vapes
+
+Added `categoryRotation` array: 7-day rotation schedule, 3 categories per day, every niche gets covered 3x/week.
+
+**hyperlinkInjector.js - 38 collections (was 20)**
+- Priority: Added mylar bags, joint tubes (high-margin Oil Slick brand products)
+- Secondary: Added ash catchers, bowls/downstems, one hitters, heady glass, silicone pipes/bongs/bubblers/nectar collectors, rolling supplies, vapes/electronics, bulk PTFE/FEP, custom packaging, heat press supplies, craft supplies, travel friendly, made in USA
+- External sources: Added extraction (High Times) and culture categories
+- External link patterns: Added solventless, cannabis law, dispensary, cannabis culture
+
+**index.js - Smart rotation + category-aware keywords/tags**
+- `planMultipleBlogs()` now resolves 'auto' category using day-of-week + hour-of-day rotation
+- `doResearch()` pre-fetches vendor products for all vendor-linked categories
+- `getKeywordsForTopic()` rewritten with 7 niche-aware keyword groups
+- `getTagsForTopic()` rewritten with 11 niche patterns instead of 5 generic ones
+
+**auto-blogger.yml - Updated workflow**
+- Simplified: category selection is now handled by the Node.js rotation logic
+- Manual trigger includes all 7 categories as options
+- Comments document the full rotation schedule
+
 ## Known Limitations & Future Considerations
 
 ### Things That Work But Could Be Better
@@ -129,7 +183,7 @@ Add a new object to `authorStyles` in `src/utils/authorStyles.js`
 ### Edge Cases
 - If all topics in a category have been covered, deduplication adds a year suffix (e.g., "Topic Name 2026") which is a workaround, not a long-term solution.
 - The `markdownToHtml` converter doesn't handle nested lists.
-- External link injection is limited to 4 topic patterns (terpenes, cannabinoids, cannabis industry, health). Content about other topics won't get external links.
+- External link injection now covers 8 topic patterns (up from 4) but still won't match every topic.
 
 ## Environment Variables
 
@@ -141,7 +195,7 @@ Add a new object to `authorStyles` in `src/utils/authorStyles.js`
 | `GEMINI_API_KEY` | Yes | Google Gemini API key |
 | `BLOGS_PER_RUN` | No | Number of blogs per execution (1-10, default 1) |
 | `BLOG_MODE` | No | new, update, mixed, or auto (default auto) |
-| `CONTENT_CATEGORY` | No | dabbing_storage, what_you_need, or auto |
+| `CONTENT_CATEGORY` | No | Any of the 7 categories, or auto for rotation (default auto) |
 | `UPDATE_THRESHOLD_DAYS` | No | Days before post is considered outdated (default 180) |
 | `DRY_RUN` | No | true to skip publishing (default false) |
 | `CUSTOM_TOPIC` | No | Override topic selection with specific topic |

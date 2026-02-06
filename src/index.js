@@ -216,15 +216,21 @@ async function doResearch() {
   });
   console.log(`Generated ${contentIdeas.length} content ideas`);
 
-  // Fetch vendor products if using "what_you_need" category (not cached - products change)
+  // Fetch vendor products for any vendor-linked categories
+  // Pre-fetch for all categories that have a vendor, so it's available during planning
   let vendorProducts = [];
-  const contentCategory = config.blog.contentCategory;
-  const categoryConfig = config.contentCategories?.[contentCategory];
+  const allCategories = Object.values(config.contentCategories || {});
+  const vendorCategories = allCategories.filter(c => c.vendor);
 
-  if (categoryConfig?.vendor) {
-    console.log(`Fetching products from vendor: ${categoryConfig.vendor}...`);
-    vendorProducts = await getProductsByVendor(categoryConfig.vendor, 25);
-    console.log(`Found ${vendorProducts.length} products from vendor`);
+  if (vendorCategories.length > 0) {
+    // Get unique vendors
+    const uniqueVendors = [...new Set(vendorCategories.map(c => c.vendor))];
+    for (const vendor of uniqueVendors) {
+      console.log(`Fetching products from vendor: ${vendor}...`);
+      const products = await getProductsByVendor(vendor, 25);
+      vendorProducts.push(...products);
+      console.log(`Found ${products.length} products from "${vendor}"`);
+    }
   }
 
   return {
@@ -262,8 +268,26 @@ async function planMultipleBlogs(researchData, count) {
   const outdatedPosts = existingBlogs.analysis.outdatedPosts || [];
   const contentGaps = existingBlogs.analysis.contentGaps || [];
 
+  // Resolve 'auto' category using day-of-week rotation schedule
+  let resolvedCategory = contentCategory;
+  if (contentCategory === 'auto' && config.categoryRotation) {
+    const dayOfWeek = new Date().getUTCDay(); // 0=Sunday
+    const hour = new Date().getUTCHours();
+    const todayCategories = config.categoryRotation[dayOfWeek] || [];
+
+    // Pick category based on hour of day (rotate through the day's categories)
+    if (todayCategories.length > 0) {
+      // Split the day into segments based on number of categories
+      const segmentSize = Math.floor(24 / todayCategories.length);
+      const segmentIndex = Math.min(Math.floor(hour / segmentSize), todayCategories.length - 1);
+      resolvedCategory = todayCategories[segmentIndex];
+      console.log(`Auto-rotation: Day ${dayOfWeek} (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dayOfWeek]}), Hour ${hour} -> Category "${resolvedCategory}" (segment ${segmentIndex + 1}/${todayCategories.length})`);
+      console.log(`Today's rotation: ${todayCategories.join(' -> ')}`);
+    }
+  }
+
   // Check if we're using a specific content category
-  const categoryConfig = config.contentCategories?.[contentCategory];
+  const categoryConfig = config.contentCategories?.[resolvedCategory];
 
   if (categoryConfig) {
     console.log(`Using content category: ${categoryConfig.name}`);
@@ -274,8 +298,8 @@ async function planMultipleBlogs(researchData, count) {
     // Build topic pool based on category
     let topicPool = [...(categoryConfig.topicPool || [])];
 
-    // For "what_you_need" category, also add product-based topics
-    if (contentCategory === 'what_you_need' && vendorProducts && vendorProducts.length > 0) {
+    // For vendor-linked categories, also add product-based topics
+    if (categoryConfig.vendor && vendorProducts && vendorProducts.length > 0) {
       const productTopics = generateProductTopics(vendorProducts);
       topicPool = [...productTopics, ...topicPool];
       console.log(`Added ${productTopics.length} product-based topics`);
@@ -670,42 +694,83 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
 }
 
 /**
- * Get relevant keywords for a topic
+ * Get relevant keywords for a topic based on its content niche
  */
 function getKeywordsForTopic(topic) {
   const topicLower = topic.toLowerCase();
-  const keywords = [...config.seo.focusKeywords];
 
-  if (topicLower.includes('guide') || topicLower.includes('how')) {
-    keywords.unshift('dabbing guide', 'how to dab');
+  // Start with category-specific keywords, then add general ones
+  const keywords = [];
+
+  // Rosin & Extraction
+  if (topicLower.match(/rosin|extraction|ptfe|fep|parchment|pressing|solventless|purging/)) {
+    keywords.push('rosin press', 'PTFE sheets', 'FEP sheets', 'parchment paper', 'extraction supplies', 'solventless', 'nonstick');
   }
-  if (topicLower.includes('clean')) {
-    keywords.unshift('clean dab tools', 'dab maintenance');
+  // Rolling
+  if (topicLower.match(/rolling|paper|cone|wrap|joint|blunt|raw |zig zag|vibes|hemp wick/)) {
+    keywords.push('rolling papers', 'pre-rolled cones', 'hemp wraps', 'rolling tray', 'joint rolling');
   }
-  if (topicLower.includes('temperature') || topicLower.includes('temp')) {
-    keywords.unshift('dab temperature', 'low temp dabs');
+  // Glass & Rigs
+  if (topicLower.match(/bong|rig|bubbler|water pipe|percolator|recycler|glass|ash catcher|nectar collector|pipe/)) {
+    keywords.push('dab rig', 'glass bong', 'water pipe', 'bubbler', 'hand pipe');
   }
-  if (topicLower.includes('beginner')) {
-    keywords.unshift('beginner dabbing', 'first dab rig');
+  // Packaging & Supply
+  if (topicLower.match(/packaging|jar|mylar|dispensary|child.?resistant|joint tube|smell.?proof|bulk/)) {
+    keywords.push('glass jars', 'mylar bags', 'cannabis packaging', 'dispensary supply', 'child resistant');
+  }
+  // Silicone & Travel
+  if (topicLower.match(/silicone|travel|portable|unbreakable|festival|outdoor|camping/)) {
+    keywords.push('silicone pipe', 'silicone bong', 'travel pipe', 'unbreakable', 'portable');
+  }
+  // Accessories & Tools
+  if (topicLower.match(/banger|carb cap|torch|grinder|dab tool|dabber|e-?rig|vaporizer|terp slurper/)) {
+    keywords.push('quartz banger', 'carb cap', 'dab tools', 'grinder', 'torch');
+  }
+  // Dabbing & Storage (default fallback)
+  if (topicLower.match(/dab|concentrate|storage|terpene|wax|shatter|budder/)) {
+    keywords.push('dab pad', 'concentrate storage', 'dab mat', 'dabbing accessories');
   }
 
-  return keywords.slice(0, 10);
+  // Always include broad store keywords
+  keywords.push('cannabis accessories', 'oil slick pad', 'smoke shop');
+
+  // Contextual keywords
+  if (topicLower.includes('guide') || topicLower.includes('how')) keywords.push('guide', 'how to');
+  if (topicLower.includes('beginner')) keywords.push('beginner guide', 'getting started');
+  if (topicLower.includes('clean')) keywords.push('cleaning guide', 'maintenance');
+  if (topicLower.includes('review') || topicLower.includes('compare')) keywords.push('review', 'comparison');
+
+  return [...new Set(keywords)].slice(0, 10);
 }
 
 /**
- * Get tags for a topic
+ * Get tags for a topic based on its content niche
  */
 function getTagsForTopic(topic) {
-  const baseTags = ['dabbing', 'cannabis accessories', 'dab pads'];
+  const tags = ['cannabis accessories'];
   const topicLower = topic.toLowerCase();
 
-  if (topicLower.includes('guide')) baseTags.push('guide', 'how-to');
-  if (topicLower.includes('review')) baseTags.push('review', 'product review');
-  if (topicLower.includes('clean')) baseTags.push('maintenance', 'cleaning');
-  if (topicLower.includes('silicone')) baseTags.push('silicone', 'dab mat');
-  if (topicLower.includes('beginner')) baseTags.push('beginners', 'getting started');
+  // Category-specific tags
+  if (topicLower.match(/dab|concentrate|wax|shatter|budder|terpene/)) tags.push('dabbing', 'concentrates');
+  if (topicLower.match(/storage|container|jar|store|fresh/)) tags.push('storage');
+  if (topicLower.match(/rosin|extraction|ptfe|fep|parchment|pressing|solventless/)) tags.push('extraction', 'rosin', 'solventless');
+  if (topicLower.match(/rolling|paper|cone|wrap|joint|blunt/)) tags.push('rolling', 'papers');
+  if (topicLower.match(/bong|rig|water pipe|bubbler|recycler|percolator/)) tags.push('glass', 'rigs');
+  if (topicLower.match(/pipe|hand pipe|spoon|sherlock|chillum|one hitter/)) tags.push('pipes');
+  if (topicLower.match(/packaging|dispensary|mylar|child.?resistant|bulk/)) tags.push('packaging', 'dispensary supply');
+  if (topicLower.match(/silicone|travel|portable|unbreakable/)) tags.push('silicone', 'travel');
+  if (topicLower.match(/banger|carb cap|torch|grinder|tool|e-?rig|vaporizer/)) tags.push('accessories', 'tools');
+  if (topicLower.match(/nectar collector|straw/)) tags.push('nectar collectors');
+  if (topicLower.match(/heat press|sublimation|craft/)) tags.push('craft supplies', 'heat press');
 
-  return [...new Set(baseTags)].slice(0, 8);
+  // Content type tags
+  if (topicLower.includes('guide')) tags.push('guide');
+  if (topicLower.includes('review')) tags.push('review');
+  if (topicLower.includes('how to') || topicLower.includes('how-to')) tags.push('how-to');
+  if (topicLower.includes('beginner')) tags.push('beginners');
+  if (topicLower.includes('compare') || topicLower.includes(' vs ')) tags.push('comparison');
+
+  return [...new Set(tags)].slice(0, 8);
 }
 
 /**

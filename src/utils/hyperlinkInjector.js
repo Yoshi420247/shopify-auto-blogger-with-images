@@ -8,7 +8,7 @@
 // Base URL for all internal links
 const BASE_URL = 'https://oilslickpad.com';
 
-// Priority collections (highest margin - link these first)
+// Priority collections (highest margin Oil Slick brand products - link these first)
 const PRIORITY_COLLECTIONS = [
   {
     name: 'Glass Jars',
@@ -18,12 +18,12 @@ const PRIORITY_COLLECTIONS = [
   {
     name: 'PTFE Sheets',
     url: '/collections/ptfe-sheets',
-    keywords: ['PTFE', 'teflon', 'nonstick sheet', 'purging sheet', 'extraction sheet', 'slab paper']
+    keywords: ['PTFE', 'teflon sheet', 'nonstick sheet', 'purging sheet', 'extraction sheet', 'slab paper', 'virgin PTFE']
   },
   {
     name: 'FEP Sheets',
     url: '/collections/fep-sheets',
-    keywords: ['FEP', 'FEP film', 'clear nonstick', 'transparent nonstick']
+    keywords: ['FEP', 'FEP film', 'FEP sheet', 'clear nonstick', 'transparent nonstick']
   },
   {
     name: 'Parchment Paper',
@@ -33,35 +33,63 @@ const PRIORITY_COLLECTIONS = [
   {
     name: 'Silicone Pads',
     url: '/collections/silicone-pads',
-    keywords: ['silicone pad', 'silicone mat', 'dab mat', 'dab pad', 'Oil Slick pad', 'nonstick mat', 'work mat']
+    keywords: ['silicone pad', 'silicone mat', 'dab mat', 'dab pad', 'Oil Slick pad', 'nonstick mat', 'work mat', 'mood mat']
   },
   {
     name: 'Extraction & Packaging',
     url: '/collections/extraction-packaging',
     keywords: ['extraction supplies', 'cannabis packaging', 'processor supplies', 'extract supplies']
+  },
+  {
+    name: 'Mylar Bags',
+    url: '/collections/mylar-bags',
+    keywords: ['mylar bag', 'smell proof bag', 'smell-proof bag', 'odor proof', 'airtight bag']
+  },
+  {
+    name: 'Joint Tubes',
+    url: '/collections/joint-tubes',
+    keywords: ['joint tube', 'pre-roll tube', 'doob tube', 'pre-roll packaging']
   }
 ];
 
-// Secondary collections (link when relevant)
+// Secondary collections (link when relevant to the topic)
 const SECONDARY_COLLECTIONS = [
   // Dabbing
   { name: 'Dab Rigs', url: '/collections/dab-rigs', keywords: ['dab rig', 'oil rig', 'concentrate rig'] },
-  { name: 'Quartz Bangers', url: '/collections/quartz-bangers', keywords: ['quartz banger', 'banger', 'quartz nail'] },
-  { name: 'Carb Caps', url: '/collections/carb-caps', keywords: ['carb cap', 'directional cap', 'bubble cap'] },
-  { name: 'Dab Tools', url: '/collections/dab-tools', keywords: ['dab tool', 'dabber'] },
+  { name: 'Quartz Bangers', url: '/collections/quartz-bangers', keywords: ['quartz banger', 'banger', 'quartz nail', 'terp slurper'] },
+  { name: 'Carb Caps', url: '/collections/carb-caps', keywords: ['carb cap', 'directional cap', 'bubble cap', 'spinner cap'] },
+  { name: 'Dab Tools', url: '/collections/dab-tools', keywords: ['dab tool', 'dabber', 'dab wand'] },
   { name: 'Nectar Collectors', url: '/collections/nectar-collectors', keywords: ['nectar collector', 'honey straw', 'dab straw'] },
   { name: 'Torches', url: '/collections/torches', keywords: ['torch', 'butane torch', 'dab torch'] },
-  // Smoking
+  { name: 'Concentrate Containers', url: '/collections/concentrate-containers', keywords: ['concentrate container', 'dab container', 'wax container', 'silicone container'] },
+  // Glass Smoking
   { name: 'Bongs', url: '/collections/bongs', keywords: ['bong', 'water pipe', 'glass bong'] },
-  { name: 'Hand Pipes', url: '/collections/hand-pipes', keywords: ['hand pipe', 'glass pipe', 'spoon pipe'] },
-  { name: 'Bubblers', url: '/collections/bubblers', keywords: ['bubbler'] },
-  { name: 'Grinders', url: '/collections/grinders', keywords: ['grinder', 'herb grinder'] },
-  // Storage
-  { name: 'Concentrate Containers', url: '/collections/concentrate-containers', keywords: ['concentrate container', 'dab container', 'wax container'] },
-  { name: 'Mylar Bags', url: '/collections/mylar-bags', keywords: ['mylar bag', 'smell proof bag'] },
+  { name: 'Hand Pipes', url: '/collections/hand-pipes', keywords: ['hand pipe', 'glass pipe', 'spoon pipe', 'sherlock'] },
+  { name: 'Bubblers', url: '/collections/bubblers', keywords: ['bubbler', 'glass bubbler'] },
+  { name: 'Ash Catchers', url: '/collections/ash-catchers', keywords: ['ash catcher', 'percolator attachment'] },
+  { name: 'Bowls & Downstems', url: '/collections/bowls-downstems', keywords: ['flower bowl', 'downstem', 'glass slide'] },
+  { name: 'One Hitters', url: '/collections/one-hitters-chillums', keywords: ['one hitter', 'chillum', 'taster bat'] },
+  { name: 'Heady Glass', url: '/collections/heady-glass', keywords: ['heady glass', 'collector glass', 'art glass'] },
+  // Silicone
+  { name: 'Silicone Pipes', url: '/collections/silicone-pipes', keywords: ['silicone pipe', 'unbreakable pipe'] },
+  { name: 'Silicone Bongs', url: '/collections/silicone-rigs-bongs', keywords: ['silicone bong', 'silicone rig', 'silicone water pipe'] },
+  { name: 'Silicone Bubblers', url: '/collections/silicone-bubblers', keywords: ['silicone bubbler'] },
+  { name: 'Silicone Nectar Collectors', url: '/collections/silicone-nectar-collectors', keywords: ['silicone nectar collector', 'silicone dab straw'] },
   // Rolling
-  { name: 'Rolling Papers', url: '/collections/rolling-papers', keywords: ['rolling paper', 'papers'] },
-  { name: 'Cones', url: '/collections/rolling-papers-cones', keywords: ['cone', 'pre-roll', 'pre-rolled cone'] }
+  { name: 'Rolling Papers', url: '/collections/rolling-papers', keywords: ['rolling paper', 'papers', 'hemp papers'] },
+  { name: 'Cones', url: '/collections/rolling-papers-cones', keywords: ['cone', 'pre-roll', 'pre-rolled cone'] },
+  { name: 'Rolling Supplies', url: '/collections/rolling-supplies', keywords: ['rolling tray', 'rolling supplies', 'hemp wick'] },
+  // Accessories
+  { name: 'Grinders', url: '/collections/grinders', keywords: ['grinder', 'herb grinder', 'electric grinder'] },
+  { name: 'Vapes & Electronics', url: '/collections/vapes-electronics', keywords: ['vaporizer', 'e-rig', 'vape pen', 'Puffco', 'G Pen'] },
+  // Packaging
+  { name: 'Bulk PTFE FEP', url: '/collections/bulk-ptfe-fep', keywords: ['bulk PTFE', 'bulk FEP', 'lab grade', 'wholesale PTFE'] },
+  { name: 'Custom Packaging', url: '/collections/custom-packaging-options', keywords: ['custom packaging', 'branded packaging', 'custom label'] },
+  // Specialty
+  { name: 'Heat Press Supplies', url: '/collections/heat-press-supplies', keywords: ['heat press', 'sublimation', 'heat transfer'] },
+  { name: 'Craft Supplies', url: '/collections/resin-craft-supplies', keywords: ['resin craft', 'craft mat', 'messy craft'] },
+  { name: 'Travel Friendly', url: '/collections/travel-friendly', keywords: ['travel friendly', 'portable smoking', 'travel kit'] },
+  { name: 'Made in USA', url: '/collections/made-in-usa', keywords: ['made in USA', 'American made', 'domestic glass'] }
 ];
 
 // External authoritative sources by topic
@@ -76,6 +104,13 @@ const EXTERNAL_SOURCES = {
   ],
   industry: [
     { name: 'MJBizDaily', url: 'https://mjbizdaily.com', topics: ['industry', 'market', 'business', 'trends'] }
+  ],
+  extraction: [
+    { name: 'High Times', url: 'https://hightimes.com', topics: ['rosin', 'extraction', 'concentrates', 'solventless'] }
+  ],
+  culture: [
+    { name: 'Leafly', url: 'https://www.leafly.com', topics: ['culture', 'lifestyle', 'community'] },
+    { name: 'High Times', url: 'https://hightimes.com', topics: ['culture', 'events', 'competitions'] }
   ]
 };
 
@@ -218,7 +253,11 @@ function addExternalLinks(content, existingPositions) {
     { pattern: /\b(terpene|terpenes|terps)\b/i, source: 'science', anchor: 'terpenes' },
     { pattern: /\b(cannabinoid|cannabinoids|THC|CBD)\b/i, source: 'science', anchor: 'cannabinoids' },
     { pattern: /\b(cannabis industry|market trends?)\b/i, source: 'industry', anchor: 'cannabis industry' },
-    { pattern: /\b(health benefits?|medical)\b/i, source: 'health_safety', anchor: 'health benefits' }
+    { pattern: /\b(health benefits?|medical cannabis)\b/i, source: 'health_safety', anchor: 'health benefits' },
+    { pattern: /\b(solventless|rosin tech|hash rosin)\b/i, source: 'extraction', anchor: 'solventless extraction' },
+    { pattern: /\b(cannabis (law|legal|regulation)|state compliance)\b/i, source: 'health_safety', anchor: 'cannabis regulations' },
+    { pattern: /\b(dispensary|dispensaries)\b/i, source: 'industry', anchor: 'dispensary' },
+    { pattern: /\b(cannabis culture|420|stoner culture)\b/i, source: 'culture', anchor: 'cannabis culture' }
   ];
 
   for (const opportunity of externalLinkOpportunities) {
