@@ -31,7 +31,7 @@ import {
   reviewAndFixContent,
   getUniqueTopic
 } from './generators/contentReviewer.js';
-import { getRandomPseudonym } from './utils/authorStyles.js';
+import { getRandomPseudonym, getAuthorBio } from './utils/authorStyles.js';
 import { injectHyperlinks, getLinkStats } from './utils/hyperlinkInjector.js';
 import {
   testConnection,
@@ -43,6 +43,7 @@ import {
   getProductsByVendor
 } from './publishers/shopifyPublisher.js';
 import { getCachedOrFetch, getCacheStatus } from './utils/researchCache.js';
+import { scoreContent, generateImageFilename } from './utils/seoOptimizer.js';
 
 /**
  * Main execution function
@@ -380,7 +381,7 @@ function generateProductTopics(products) {
 
     // Group products by type for comparison articles
     if (type) {
-      topics.push(`Best ${type} for Beginners in 2025`);
+      topics.push(`Best ${type} for Beginners in ${new Date().getFullYear()}`);
       topics.push(`How to Choose the Right ${type}`);
     }
   }
@@ -615,9 +616,22 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
   console.log('\n--- AI Content Review ---');
   finalContent = await reviewAndFixContent(finalContent, generatedPost.title);
 
-  // STEP 6: Inject SEO Hyperlinks
+  // STEP 6: Content Quality Gate
+  console.log('\n--- Content Quality Check ---');
+  const qualityScore = scoreContent(finalContent, getKeywordsForTopic(finalTopic)[0], generatedPost.title);
+  console.log(`Quality score: ${qualityScore.score}/100 (Grade: ${qualityScore.grade})`);
+  console.log(`  Words: ${qualityScore.wordCount} | Headings: ${qualityScore.headings} | Question H2s: ${qualityScore.questionHeadings}`);
+  if (qualityScore.issues.length > 0) {
+    console.log(`  Issues: ${qualityScore.issues.join('; ')}`);
+  }
+  if (!qualityScore.passesQualityGate) {
+    console.warn('WARNING: Content below quality threshold (50). Publishing anyway but flagging for review.');
+  }
+
+  // STEP 7: Inject SEO Hyperlinks (including blog-to-blog links)
   console.log('\n--- Injecting SEO Hyperlinks ---');
-  finalContent = injectHyperlinks(finalContent, generatedPost.title);
+  const existingArticlesList = existingBlogs?.blogs || [];
+  finalContent = injectHyperlinks(finalContent, generatedPost.title, existingArticlesList);
   const linkStats = getLinkStats(finalContent);
   console.log(`Link stats: ${linkStats.internalLinks} internal, ${linkStats.externalLinks} external (${linkStats.internalLinkDensity} per 1K words)`);
 
@@ -626,6 +640,7 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
     console.log('\n[DRY RUN] Skipping publish. Would have published:');
     console.log(`  Title: ${generatedPost.title}`);
     console.log(`  Words: ${generatedPost.wordCount}`);
+    console.log(`  Quality: ${qualityScore.grade} (${qualityScore.score}/100)`);
     console.log(`  Images: ${images.filter(i => i.success).length}`);
 
     return {
@@ -633,19 +648,21 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
       dryRun: true,
       title: generatedPost.title,
       wordCount: generatedPost.wordCount,
+      qualityScore: qualityScore.score,
       images: images.filter(i => i.success).length
     };
   }
 
-  // STEP 6: Publish to Shopify
+  // STEP 8: Publish to Shopify
   console.log('\n--- Publishing to Shopify ---');
   const blog = await getOrCreateBlog('News');
 
   // Get featured image data (first successful image)
   const featuredImage = images.find(img => img.success && img.imageData);
 
-  // Get a random author pseudonym for this article
+  // Get a random author pseudonym with bio for E-E-A-T
   const authorName = getRandomPseudonym();
+  const authorBio = getAuthorBio(authorName);
   console.log(`Author byline: ${authorName}`);
 
   const publishedArticle = await createArticle(blog.id, {
@@ -666,6 +683,7 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
     article: publishedArticle,
     title: generatedPost.title,
     wordCount: generatedPost.wordCount,
+    qualityScore: qualityScore.score,
     images: images.filter(i => i.success).length
   };
 }
@@ -726,7 +744,8 @@ async function prepareContentWithImages(post, images, title) {
 
   for (let i = 0; i < successfulImages.length; i++) {
     const img = successfulImages[i];
-    const filename = `blog-image-${Date.now()}-${i + 1}.png`;
+    // Use SEO-friendly descriptive filename instead of timestamp
+    const filename = generateImageFilename(img.description || title, i);
 
     try {
       const uploaded = await uploadImageToFiles(img.imageData, filename, img.altText || img.description);
