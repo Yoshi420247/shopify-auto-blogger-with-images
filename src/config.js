@@ -8,7 +8,7 @@ export const config = {
   shopify: {
     storeDomain: process.env.SHOPIFY_STORE_DOMAIN || 'oilslickpad.com',
     adminApiToken: process.env.SHOPIFY_ADMIN_API_TOKEN,
-    apiVersion: '2024-10'
+    apiVersion: '2025-04'
   },
 
   // OpenAI Configuration (GPT-5.2 - current best model)
@@ -161,7 +161,67 @@ export const config = {
       'silicone mat dabbing',
       'cannabis accessories'
     ],
-    targetAudience: 'cannabis enthusiasts, dabbing community, concentrate users'
+    targetAudience: 'cannabis enthusiasts, dabbing community, concentrate users',
+
+    // Topic authority clusters (pillar + cluster model)
+    // Each pillar topic links to its cluster articles, building topical authority
+    topicClusters: {
+      'dabbing-guide': {
+        pillar: 'The Complete Guide to Dabbing',
+        clusters: [
+          'Best Dab Temperatures for Every Concentrate',
+          'Cold Start Dabbing: The Complete Technique',
+          'Low Temp vs High Temp Dabs',
+          'How to Take Your First Dab',
+          'Dabbing Safety Tips Every Beginner Needs'
+        ],
+        keywords: ['dabbing', 'how to dab', 'dab temperature', 'dabbing guide']
+      },
+      'dab-pad-guide': {
+        pillar: 'Everything You Need to Know About Dab Pads',
+        clusters: [
+          'Silicone vs Glass Dab Mats',
+          'How to Clean Your Dab Pad',
+          'Best Dab Pad Materials Compared',
+          'Setting Up the Perfect Dab Station',
+          'Why Every Dabber Needs a Dab Mat'
+        ],
+        keywords: ['dab pad', 'dab mat', 'silicone mat', 'dab station']
+      },
+      'concentrate-storage': {
+        pillar: 'The Ultimate Guide to Storing Concentrates',
+        clusters: [
+          'Best Containers for Wax and Shatter',
+          'How Temperature Affects Your Concentrates',
+          'Terpene Preservation: Keeping Flavor Fresh',
+          'Silicone vs Glass Storage Containers',
+          'Travel-Friendly Concentrate Storage'
+        ],
+        keywords: ['concentrate storage', 'wax storage', 'terpene preservation']
+      },
+      'dab-rig-guide': {
+        pillar: 'How to Choose the Right Dab Rig',
+        clusters: [
+          'Mini Rigs vs Full Size: Which is Better',
+          'Recycler Rigs Explained',
+          'Quartz Bangers: The Complete Guide',
+          'E-Rigs vs Traditional Dab Rigs',
+          'Best Budget Dab Rigs That Actually Work'
+        ],
+        keywords: ['dab rig', 'glass rig', 'quartz banger', 'recycler rig']
+      },
+      'cleaning-maintenance': {
+        pillar: 'How to Clean All Your Dab Gear',
+        clusters: [
+          'Cleaning Your Dab Rig Step by Step',
+          'Best Way to Clean Quartz Bangers',
+          'How to Reclaim Concentrate from Your Rig',
+          'Dab Tool Maintenance Tips',
+          'When to Replace Your Dab Accessories'
+        ],
+        keywords: ['clean dab rig', 'clean banger', 'dab maintenance']
+      }
+    }
   }
 };
 

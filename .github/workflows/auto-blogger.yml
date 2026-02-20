@@ -76,6 +76,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Restore research cache
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: research-cache-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            research-cache-${{ runner.os }}-
+
       - name: Validate secrets
         run: |
           echo "Validating required secrets..."

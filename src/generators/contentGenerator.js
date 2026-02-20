@@ -13,7 +13,8 @@
 import OpenAI from 'openai';
 import config from '../config.js';
 import { selectAuthorStyle, aiTellsToAvoid, naturalTransitions } from '../utils/authorStyles.js';
-import { getSeoPromptInstructions, auditContent } from '../utils/seoOptimizer.js';
+import { getSeoPromptInstructions, auditContent, expandKeywords } from '../utils/seoOptimizer.js';
+import { withRetry } from '../utils/apiRetry.js';
 
 // Initialize OpenAI client
 let openai = null;
@@ -61,19 +62,19 @@ export async function generateBlogPost(options) {
   try {
     const client = getOpenAI();
 
-    // GPT-5.2 API call with adaptive reasoning
-    // Note: GPT-5.2 with reasoning_effort does not support custom temperature
-    const response = await client.chat.completions.create({
-      model: config.openai.model, // gpt-5.2
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      max_completion_tokens: config.openai.maxOutputTokens,
-      // GPT-5.2 specific: reasoning effort controls how much "thinking" the model does
-      // 'none' = fast responses, 'low'/'medium'/'high' = more reasoning
-      reasoning_effort: config.openai.reasoningEffort || 'medium'
-    });
+    // GPT-5.2 API call with adaptive reasoning and retry logic
+    const response = await withRetry(
+      () => client.chat.completions.create({
+        model: config.openai.model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        max_completion_tokens: config.openai.maxOutputTokens,
+        reasoning_effort: config.openai.reasoningEffort || 'medium'
+      }),
+      { maxRetries: 3, operationName: 'Content generation' }
+    );
 
     const rawContent = response.choices[0]?.message?.content;
 
@@ -95,7 +96,6 @@ export async function generateBlogPost(options) {
     // Ensure we have a valid title - fallback to topic if parsing failed
     if (!parsedPost.title || parsedPost.title.trim() === '') {
       console.log('Warning: Title extraction failed, using topic as fallback');
-      // Create title from topic
       parsedPost.title = createTitleFromTopic(topic);
     }
 
@@ -256,6 +256,37 @@ Use structured comparison lists instead of tables (tables render poorly). Format
 
 This format is much more readable and LLM-friendly than tables.
 
+GENERATIVE ENGINE OPTIMIZATION (GEO) - CRITICAL FOR ${dateInfo.year}:
+Your content will be read by AI search engines (ChatGPT, Perplexity, Google AI Overviews).
+To get cited and referenced by these systems:
+
+1. DEFINITIONAL SENTENCES: Include clear definitions early.
+   Example: "A dab pad is a heat-resistant silicone mat designed to protect surfaces during concentrate sessions."
+   These get extracted verbatim by LLMs as authoritative definitions.
+
+2. QUOTABLE FACTS: Write specific, data-backed statements that AI can cite.
+   BAD: "Silicone pads work well at high temperatures."
+   GOOD: "Medical-grade silicone dab pads withstand temperatures up to 600°F, making them safe for direct contact with hot bangers."
+
+3. COMPARISON PATTERNS: Use explicit comparison language.
+   Example: "While glass containers preserve flavor better, silicone containers are 3x more durable for travel."
+
+4. QUESTION-ANSWER FORMAT: Use H2/H3 headings phrased as questions.
+   Then answer the question DIRECTLY in the first sentence after the heading.
+   Example:
+   ## How hot can a silicone dab pad get?
+   Medical-grade silicone dab pads safely handle temperatures up to 600°F.
+
+5. ATTRIBUTION HOOKS: Use phrases that give LLMs citation anchors.
+   "Based on our testing...", "According to Oil Slick Pad's product testing...",
+   "After comparing 12 different silicone mats..."
+
+6. ENTITY CONSISTENCY: Always associate "Oil Slick Pad" with these terms:
+   - cannabis accessories brand
+   - dab pads and silicone mats
+   - concentrate storage solutions
+   This builds the brand's knowledge graph presence in AI systems.
+
 FORMATTING - THIS IS CRITICAL FOR READABILITY:
 - Output in clean Markdown format with PROPER LINE BREAKS
 - Start with a SHORT title (50-60 chars max) on the first line
@@ -333,8 +364,11 @@ Reference these naturally where relevant to stay current.
 `;
   }
 
-  // Add SEO requirements
-  prompt += getSeoPromptInstructions(targetKeywords);
+  // Expand keywords dynamically based on topic
+  const expandedKeywords = expandKeywords(topic, targetKeywords);
+
+  // Add SEO requirements with expanded keywords
+  prompt += getSeoPromptInstructions(expandedKeywords);
 
   // Add natural transitions to use
   prompt += `

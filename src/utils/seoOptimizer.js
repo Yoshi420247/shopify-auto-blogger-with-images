@@ -1,11 +1,13 @@
 /**
  * SEO Optimizer for AI and Traditional Search
  *
- * Implements latest SEO best practices for 2024/2025 including:
+ * Implements latest SEO best practices including:
  * - Traditional Google SEO
- * - AI Overview optimization (Google SGE)
- * - LLM/ChatGPT search optimization
- * - Voice search optimization
+ * - AI Overview optimization (Google SGE / AI Overviews)
+ * - LLM/ChatGPT/Perplexity search optimization (GEO)
+ * - Voice search and conversational query optimization
+ * - Structured data for rich snippets and LLM citation
+ * - Content quality scoring and readability analysis
  */
 
 import config from '../config.js';
@@ -29,18 +31,22 @@ export const seoGuidelines = {
     ]
   },
 
-  // LLM Search optimization (ChatGPT, Perplexity, etc.)
+  // LLM Search optimization (ChatGPT, Perplexity, etc.) - GEO
   llmSearch: {
-    description: 'Optimize for LLM-based search engines',
+    description: 'Generative Engine Optimization (GEO) for LLM-based search',
     guidelines: [
-      'Write comprehensive, authoritative content',
-      'Include clear definitions of key terms',
-      'Use natural language that matches how people ask questions',
-      'Provide complete answers within the content',
-      'Include related topics and semantic variations',
-      'Structure content with clear hierarchy',
-      'Add context and explanations for technical terms',
-      'Use conversational but informative tone'
+      'Write comprehensive, authoritative content that LLMs will cite',
+      'Include clear definitional sentences ("A dab pad is...")',
+      'Use natural language that matches conversational queries',
+      'Provide complete, self-contained answers in each section',
+      'Include specific data points (temperatures, prices, dimensions)',
+      'Structure content with clear hierarchy and semantic HTML',
+      'Add context and explanations that help LLMs understand relationships',
+      'Use "according to" patterns for citation hooks',
+      'Include comparison data in structured list format',
+      'Answer the "People Also Ask" questions within your content',
+      'Make factual claims that can be extracted as standalone statements',
+      'Include entity-relationship language (brand + product category associations)'
     ]
   },
 
@@ -98,8 +104,11 @@ export function generateTitleVariations(topic, keyword) {
 
 /**
  * Generate SEO prompt instructions for content generation
+ * Enhanced for GEO (Generative Engine Optimization) in 2026
  */
 export function getSeoPromptInstructions(targetKeywords) {
+  const currentYear = new Date().getFullYear();
+
   return `
 SEO REQUIREMENTS (Follow these naturally without making content feel keyword-stuffed):
 
@@ -111,26 +120,37 @@ SEO REQUIREMENTS (Follow these naturally without making content feel keyword-stu
 2. SEMANTIC KEYWORDS to weave in naturally:
    ${targetKeywords.slice(1).map(k => `- ${k}`).join('\n   ')}
 
-3. STRUCTURE FOR AI/LLM SEARCH:
-   - Start with a direct, quotable answer to the main question
-   - Use question-based H2 headings (e.g., "What makes a quality dab pad?")
-   - Each section should be able to stand alone as a complete answer
-   - Include specific details: materials, dimensions, price ranges, etc.
+3. LLM/AI SEARCH OPTIMIZATION (CRITICAL FOR ${currentYear}):
+   - Start each section with a DIRECT, QUOTABLE answer (1-2 sentences max)
+   - Use definitional sentences: "[Term] is [clear definition]" - these get cited by AI search
+   - Include specific data: temperatures (e.g., "between 350-450°F"), prices ("$15-60 range"), dimensions
+   - Use comparison structures that LLMs can parse: "X vs Y: X offers [benefit] while Y provides [benefit]"
+   - Answer implicit questions: "How long does X last?", "What's the best X for beginners?"
+   - Include "according to" or "based on our testing" attribution phrases - gives LLMs citation hooks
+   - Each H2 section should work as a standalone answer if extracted by an AI search engine
 
-4. E-E-A-T SIGNALS:
+4. FAQ-STYLE CONTENT (for FAQ schema generation):
+   - Include at least 3-4 question-based H2 or H3 headings
+   - Format as: "## What is the best [topic]?" or "## How do you [action]?"
+   - Answer the question completely in the first 2-3 sentences after the heading
+   - These get extracted into FAQ rich snippets AND cited by LLM search engines
+
+5. E-E-A-T SIGNALS:
    - Share specific personal experience or testing details
    - Mention how long you've been using/testing these products
    - Reference industry context (how things have changed, why certain features matter)
    - Be honest about limitations or situations where something isn't ideal
+   - Include specific brand/product names you've actually tested
 
-5. CONTENT FRESHNESS:
-   - Reference current year (2024/2025)
+6. CONTENT FRESHNESS:
+   - Reference current year (${currentYear})
    - Mention recent developments or trends in the space
    - Include current pricing or availability context
 
-6. INTERNAL/EXTERNAL LINKING OPPORTUNITIES:
-   - Suggest 2-3 places for internal links to related content
-   - Identify 1-2 places where external authority citations would help
+7. ENTITY OPTIMIZATION:
+   - Consistently associate "Oil Slick Pad" with "dab pads", "silicone mats", "concentrate accessories"
+   - Use consistent product category terminology across articles
+   - Reference the brand naturally 2-3 times in context of expertise
 
 Remember: SEO should be invisible to readers. The content must be genuinely useful first.
 `;
@@ -140,7 +160,6 @@ Remember: SEO should be invisible to readers. The content must be genuinely usef
  * Generate meta description
  */
 export function generateMetaDescription(title, content, keyword) {
-  // This will be called with AI assistance in the main generator
   return {
     instruction: `Generate a 150-160 character meta description for this blog post that:
     - Includes the keyword "${keyword}" naturally
@@ -172,9 +191,169 @@ export const imageSeoGuidelines = {
 };
 
 /**
- * Schema markup suggestions for blog posts
+ * Generate descriptive, SEO-friendly image filename from description
  */
-export function getSchemaMarkup(article) {
+export function generateImageFilename(description, index) {
+  const slug = description
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 60);
+
+  return `${slug}-${index + 1}.png`;
+}
+
+/**
+ * Generate FAQ schema from content
+ * Extracts question-based headings and their answers
+ */
+export function generateFAQSchema(htmlContent) {
+  const faqs = [];
+
+  // Match question headings (H2/H3 that end with ?)
+  // Also match common question patterns without ?
+  const questionPatterns = [
+    /<h[23][^>]*>([^<]*\?)<\/h[23]>/gi,
+    /<h[23][^>]*>((?:What|How|Why|When|Where|Which|Can|Should|Is|Are|Do|Does)[^<]*)<\/h[23]>/gi
+  ];
+
+  for (const pattern of questionPatterns) {
+    let match;
+    while ((match = pattern.exec(htmlContent)) !== null) {
+      const question = match[1].trim();
+
+      // Find the answer: text between this heading and the next heading
+      const headingEnd = match.index + match[0].length;
+      const nextHeadingMatch = htmlContent.substring(headingEnd).match(/<h[1-6]/i);
+      const answerEnd = nextHeadingMatch
+        ? headingEnd + nextHeadingMatch.index
+        : headingEnd + 500;
+
+      const answerHtml = htmlContent.substring(headingEnd, answerEnd);
+
+      // Strip HTML tags to get plain text answer
+      const answerText = answerHtml
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .substring(0, 300);
+
+      if (answerText.length > 30 && !faqs.find(f => f.question === question)) {
+        faqs.push({ question, answer: answerText });
+      }
+    }
+  }
+
+  if (faqs.length < 2) return null;
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    'mainEntity': faqs.slice(0, 8).map(faq => ({
+      '@type': 'Question',
+      'name': faq.question,
+      'acceptedAnswer': {
+        '@type': 'Answer',
+        'text': faq.answer
+      }
+    }))
+  };
+}
+
+/**
+ * Generate HowTo schema from content with numbered steps
+ */
+export function generateHowToSchema(title, htmlContent) {
+  // Only generate for guide/how-to content
+  const isHowTo = /how to|guide|steps|tutorial|instructions/i.test(title);
+  if (!isHowTo) return null;
+
+  const steps = [];
+
+  // Find ordered lists (numbered steps)
+  const olMatch = htmlContent.match(/<ol[^>]*>([\s\S]*?)<\/ol>/i);
+  if (olMatch) {
+    const listItems = olMatch[1].match(/<li[^>]*>([\s\S]*?)<\/li>/gi);
+    if (listItems) {
+      listItems.forEach((item, i) => {
+        const text = item.replace(/<[^>]+>/g, '').trim();
+        if (text.length > 10) {
+          steps.push({
+            '@type': 'HowToStep',
+            'position': i + 1,
+            'name': text.substring(0, 100),
+            'text': text
+          });
+        }
+      });
+    }
+  }
+
+  // Also try to find numbered patterns in text (1. Step, 2. Step)
+  if (steps.length === 0) {
+    const numberedPattern = /(?:^|\n)\s*(\d+)\.\s+(.+?)(?=\n\s*\d+\.|\n\n|$)/g;
+    const plainText = htmlContent.replace(/<[^>]+>/g, '\n');
+    let stepMatch;
+    while ((stepMatch = numberedPattern.exec(plainText)) !== null) {
+      const text = stepMatch[2].trim();
+      if (text.length > 10) {
+        steps.push({
+          '@type': 'HowToStep',
+          'position': parseInt(stepMatch[1]),
+          'name': text.substring(0, 100),
+          'text': text
+        });
+      }
+    }
+  }
+
+  if (steps.length < 2) return null;
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'HowTo',
+    'name': title,
+    'step': steps.slice(0, 15)
+  };
+}
+
+/**
+ * Generate BreadcrumbList schema
+ */
+export function generateBreadcrumbSchema(title) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    'itemListElement': [
+      {
+        '@type': 'ListItem',
+        'position': 1,
+        'name': 'Home',
+        'item': 'https://oilslickpad.com'
+      },
+      {
+        '@type': 'ListItem',
+        'position': 2,
+        'name': 'Blog',
+        'item': 'https://oilslickpad.com/blogs/news'
+      },
+      {
+        '@type': 'ListItem',
+        'position': 3,
+        'name': title
+      }
+    ]
+  };
+}
+
+/**
+ * Generate enhanced Article schema with author details
+ */
+export function generateArticleSchema(article) {
+  const currentYear = new Date().getFullYear();
+
   return {
     '@context': 'https://schema.org',
     '@type': 'Article',
@@ -182,21 +361,207 @@ export function getSchemaMarkup(article) {
     'description': article.metaDescription,
     'image': article.images?.[0]?.url,
     'author': {
-      '@type': 'Organization',
-      'name': 'Oil Slick Pad',
-      'url': 'https://oilslickpad.com'
+      '@type': 'Person',
+      'name': article.author || 'Oil Slick Pad Team',
+      'url': 'https://oilslickpad.com/pages/about',
+      'worksFor': {
+        '@type': 'Organization',
+        'name': 'Oil Slick Pad'
+      }
     },
     'publisher': {
       '@type': 'Organization',
       'name': 'Oil Slick Pad',
+      'url': 'https://oilslickpad.com',
       'logo': {
         '@type': 'ImageObject',
         'url': 'https://oilslickpad.com/logo.png'
       }
     },
-    'datePublished': article.publishDate,
-    'dateModified': article.modifiedDate || article.publishDate
+    'datePublished': article.publishDate || new Date().toISOString(),
+    'dateModified': article.modifiedDate || new Date().toISOString(),
+    'wordCount': article.wordCount || 1200,
+    'articleSection': 'Cannabis Accessories',
+    'keywords': article.keywords || ['dab pad', 'dabbing', 'concentrate tools', 'cannabis accessories'],
+    'mainEntityOfPage': {
+      '@type': 'WebPage',
+      '@id': `https://oilslickpad.com/blogs/news/${article.handle || ''}`
+    }
   };
+}
+
+/**
+ * Generate all applicable structured data for a blog post
+ * Returns combined JSON-LD script tags
+ */
+export function generateAllStructuredData(article, htmlContent) {
+  const schemas = [];
+
+  // Article schema (always)
+  schemas.push(generateArticleSchema(article));
+
+  // Breadcrumb schema (always)
+  schemas.push(generateBreadcrumbSchema(article.title));
+
+  // FAQ schema (if content has question headings)
+  const faqSchema = generateFAQSchema(htmlContent);
+  if (faqSchema) {
+    schemas.push(faqSchema);
+  }
+
+  // HowTo schema (if content is a guide/tutorial)
+  const howToSchema = generateHowToSchema(article.title, htmlContent);
+  if (howToSchema) {
+    schemas.push(howToSchema);
+  }
+
+  // Combine into script tags
+  return schemas.map(schema =>
+    `<script type="application/ld+json">${JSON.stringify(schema)}</script>`
+  ).join('\n');
+}
+
+/**
+ * Content quality scoring
+ * Returns a score 0-100 and specific issues found
+ */
+export function scoreContent(content, targetKeyword, title) {
+  const issues = [];
+  let score = 100;
+
+  const plainText = content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const wordCount = plainText.split(/\s+/).filter(w => w.length > 0).length;
+  const sentences = plainText.split(/[.!?]+/).filter(s => s.trim().length > 5);
+  const keywordLower = targetKeyword.toLowerCase();
+  const keywordCount = (plainText.toLowerCase().match(new RegExp(keywordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
+
+  // Word count check
+  if (wordCount < 800) {
+    score -= 25;
+    issues.push(`Very short content (${wordCount} words). Target 1200+.`);
+  } else if (wordCount < 1200) {
+    score -= 10;
+    issues.push(`Content below target (${wordCount} words). Target 1200+.`);
+  }
+
+  // Keyword presence
+  if (keywordCount === 0) {
+    score -= 20;
+    issues.push(`Primary keyword "${targetKeyword}" not found in content.`);
+  } else if (keywordCount < 2) {
+    score -= 10;
+    issues.push(`Primary keyword used only ${keywordCount} time(s). Target 3-5.`);
+  } else if (keywordCount > 15) {
+    score -= 15;
+    issues.push(`Keyword stuffing detected (${keywordCount} uses). Reduce to 3-8.`);
+  }
+
+  // Keyword in first 100 words
+  const first100Words = plainText.split(/\s+/).slice(0, 100).join(' ').toLowerCase();
+  if (!first100Words.includes(keywordLower)) {
+    score -= 5;
+    issues.push('Primary keyword not in first 100 words.');
+  }
+
+  // Heading count
+  const headings = (content.match(/<h[23][^>]*>/gi) || []).length;
+  if (headings < 3) {
+    score -= 10;
+    issues.push(`Only ${headings} subheadings. Add more for structure (target 5+).`);
+  }
+
+  // Question headings (important for GEO)
+  const questionHeadings = (content.match(/<h[23][^>]*>[^<]*\?/gi) || []).length;
+  if (questionHeadings === 0) {
+    score -= 5;
+    issues.push('No question-based headings. Add for FAQ schema and LLM search.');
+  }
+
+  // Readability: average sentence length
+  if (sentences.length > 0) {
+    const avgSentenceLength = wordCount / sentences.length;
+    if (avgSentenceLength > 30) {
+      score -= 10;
+      issues.push(`Sentences too long (avg ${Math.round(avgSentenceLength)} words). Target under 25.`);
+    }
+  }
+
+  // Check for AI tell patterns
+  const aiTells = ['in conclusion', 'it\'s worth noting', 'needless to say', 'at the end of the day',
+    'delve', 'tapestry', 'testament', 'landscape', 'pivotal', 'crucial'];
+  const aiTellCount = aiTells.filter(tell =>
+    plainText.toLowerCase().includes(tell)
+  ).length;
+  if (aiTellCount > 2) {
+    score -= aiTellCount * 3;
+    issues.push(`${aiTellCount} AI writing patterns detected. Content may sound artificial.`);
+  }
+
+  // Internal link check (in HTML content)
+  const internalLinks = (content.match(/href="https:\/\/oilslickpad\.com/g) || []).length;
+  if (internalLinks === 0) {
+    score -= 5;
+    issues.push('No internal links found. Add 2-5 for SEO.');
+  }
+
+  return {
+    score: Math.max(0, score),
+    grade: score >= 80 ? 'A' : score >= 60 ? 'B' : score >= 40 ? 'C' : 'D',
+    wordCount,
+    keywordDensity: ((keywordCount / wordCount) * 100).toFixed(2) + '%',
+    headings,
+    questionHeadings,
+    issues,
+    passesQualityGate: score >= 50
+  };
+}
+
+/**
+ * Generate dynamic long-tail keywords for a topic
+ * Expands the static keyword list with topic-specific variations
+ */
+export function expandKeywords(topic, baseKeywords) {
+  const topicLower = topic.toLowerCase();
+  const expanded = [...baseKeywords];
+  const currentYear = new Date().getFullYear();
+
+  // Topic-specific keyword modifiers
+  const modifiers = {
+    guide: ['beginner guide', 'complete guide', 'step by step'],
+    review: ['honest review', 'tested', 'hands on review'],
+    comparison: ['vs', 'compared', 'which is better'],
+    best: [`best ${currentYear}`, 'top picks', 'top rated'],
+    how: ['how to', 'tips for', 'easy way to'],
+    clean: ['how to clean', 'cleaning guide', 'maintenance tips'],
+    temperature: ['best temperature for', 'temp guide', 'heat settings'],
+    storage: ['how to store', 'storage tips', 'keep fresh'],
+    beginner: ['for beginners', 'starter guide', `getting started ${currentYear}`]
+  };
+
+  // Add relevant modifiers based on topic content
+  for (const [key, keywords] of Object.entries(modifiers)) {
+    if (topicLower.includes(key)) {
+      expanded.push(...keywords.map(k =>
+        k.includes(topicLower.split(' ')[0]) ? k : `${k} ${baseKeywords[0] || ''}`
+      ));
+    }
+  }
+
+  // Add question-form keywords (important for voice/LLM search)
+  const baseKeyword = baseKeywords[0] || topicLower.split(' ').slice(0, 3).join(' ');
+  expanded.push(`what is the best ${baseKeyword}`);
+  expanded.push(`how to choose ${baseKeyword}`);
+  expanded.push(`${baseKeyword} worth it`);
+
+  // Deduplicate and limit
+  return [...new Set(expanded)].slice(0, 15);
+}
+
+/**
+ * Legacy schema markup function (kept for backward compatibility)
+ */
+export function getSchemaMarkup(article) {
+  return generateArticleSchema(article);
 }
 
 /**
@@ -229,6 +594,14 @@ export default {
   getSeoPromptInstructions,
   generateMetaDescription,
   imageSeoGuidelines,
+  generateImageFilename,
+  generateFAQSchema,
+  generateHowToSchema,
+  generateBreadcrumbSchema,
+  generateArticleSchema,
+  generateAllStructuredData,
+  scoreContent,
+  expandKeywords,
   getSchemaMarkup,
   auditContent
 };

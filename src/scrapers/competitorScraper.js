@@ -147,7 +147,7 @@ export function generateContentIdeas(competitorData, existingBlogAnalysis) {
     { pattern: /guide|how to/i, suggestion: 'Create/update comprehensive guide' },
     { pattern: /review/i, suggestion: 'Write product review content' },
     { pattern: /best|top/i, suggestion: 'Create listicle/comparison content' },
-    { pattern: /2024|2025|new/i, suggestion: 'Create fresh, timely content' },
+    { pattern: new RegExp(`${new Date().getFullYear() - 1}|${new Date().getFullYear()}|new`, 'i'), suggestion: 'Create fresh, timely content' },
     { pattern: /vs|versus|compare/i, suggestion: 'Write comparison article' }
   ];
 

@@ -2,11 +2,12 @@
  * Shopify Publisher Module
  *
  * Publishes blog posts to Shopify using the Admin API.
- * Uses GraphQL API (2024-10+) for articles, blogs, and images.
+ * Uses GraphQL API (2025-04+) for articles, blogs, and images.
  */
 
 import axios from 'axios';
 import config from '../config.js';
+import { generateAllStructuredData } from '../utils/seoOptimizer.js';
 
 /**
  * Get the Shopify API endpoint
@@ -430,10 +431,18 @@ async function createArticle(blogId, article) {
     htmlBody = markdownToHtml(body);
   }
 
-  // Add schema.org structured data for LLM/AI search optimization
+  // Add comprehensive structured data for LLM/AI search optimization
+  // Includes Article, FAQ, HowTo, and Breadcrumb schemas
   const wordCount = body ? body.split(/\s+/).length : 1200;
-  const schemaMarkup = generateSchemaMarkup(finalTitle, metaDescription, author, new Date().toISOString(), wordCount);
-  htmlBody = schemaMarkup + '\n\n' + htmlBody;
+  const structuredData = generateAllStructuredData({
+    title: finalTitle,
+    metaDescription,
+    author,
+    wordCount,
+    publishDate: new Date().toISOString(),
+    keywords: tags
+  }, htmlBody);
+  htmlBody = structuredData + '\n\n' + htmlBody;
 
   // Ensure title is not too long (Shopify max is 255 characters)
   const safeTitle = finalTitle.length > 250 ? finalTitle.substring(0, 247) + '...' : finalTitle;

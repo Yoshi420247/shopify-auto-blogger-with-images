@@ -83,6 +83,7 @@ const EXTERNAL_SOURCES = {
 const CONFIG = {
   minSpacingChars: 200,        // Minimum characters between links
   internalLinksPerThousand: { min: 2, max: 5 },
+  blogLinksPerArticle: { min: 1, max: 3 }, // Blog-to-blog links
   externalLinksPerArticle: { min: 1, max: 2 },
   anchorTextMinWords: 2,
   anchorTextMaxWords: 4
@@ -92,15 +93,15 @@ const CONFIG = {
  * Main function to inject hyperlinks into HTML content
  * @param {string} htmlContent - The HTML blog content
  * @param {string} articleTitle - The article title (to avoid self-linking)
+ * @param {Array} existingArticles - Existing blog articles for blog-to-blog linking
  * @returns {string} - HTML content with links injected
  */
-export function injectHyperlinks(htmlContent, articleTitle = '') {
+export function injectHyperlinks(htmlContent, articleTitle = '', existingArticles = []) {
   if (!htmlContent) return htmlContent;
 
   let content = htmlContent;
   const wordCount = countWords(content);
   const linkedCollections = new Set();
-  let lastLinkPosition = -CONFIG.minSpacingChars; // Allow first link immediately
 
   // Calculate target link counts
   const targetInternalLinks = Math.min(
@@ -141,6 +142,15 @@ export function injectHyperlinks(htmlContent, articleTitle = '') {
     }
   }
 
+  // Add blog-to-blog links (builds topical authority)
+  if (existingArticles.length > 0) {
+    const blogLinksResult = addBlogToBlogLinks(content, existingArticles, articleTitle, linkPositions);
+    if (blogLinksResult.count > 0) {
+      content = blogLinksResult.content;
+      console.log(`  Added ${blogLinksResult.count} blog-to-blog link(s)`);
+    }
+  }
+
   // Add external links (1-2 per article)
   const externalLinksAdded = addExternalLinks(content, linkPositions);
   if (externalLinksAdded.count > 0) {
@@ -151,6 +161,101 @@ export function injectHyperlinks(htmlContent, articleTitle = '') {
   console.log(`Hyperlinking complete: ${internalLinksAdded} internal, ${externalLinksAdded.count} external`);
 
   return content;
+}
+
+/**
+ * Add blog-to-blog internal links for topical authority
+ * Links to related existing blog articles based on keyword overlap
+ */
+function addBlogToBlogLinks(content, existingArticles, currentTitle, existingPositions) {
+  let modifiedContent = content;
+  let count = 0;
+  const maxBlogLinks = CONFIG.blogLinksPerArticle.max;
+  const linkedUrls = new Set();
+
+  // Build keyword-to-article map from existing articles
+  const articleKeywords = existingArticles
+    .filter(article => {
+      const title = (article.title || '').toLowerCase();
+      // Don't link to self
+      return title !== currentTitle.toLowerCase() && article.url;
+    })
+    .map(article => {
+      const title = article.title || '';
+      // Extract meaningful phrases (2-4 words) from title for matching
+      const words = title.toLowerCase()
+        .replace(/[^\w\s]/g, '')
+        .split(/\s+/)
+        .filter(w => w.length > 3 && !['the', 'and', 'for', 'your', 'that', 'this', 'with', 'from', 'best', 'guide', 'complete'].includes(w));
+
+      // Build anchor phrases from consecutive meaningful words
+      const phrases = [];
+      for (let i = 0; i < words.length - 1; i++) {
+        phrases.push(`${words[i]} ${words[i + 1]}`);
+      }
+      if (words.length > 0) {
+        phrases.push(words[0]); // Single keyword fallback
+      }
+
+      return {
+        title,
+        url: article.url,
+        handle: article.handle,
+        phrases
+      };
+    })
+    .filter(a => a.phrases.length > 0);
+
+  // Try to link to related articles
+  for (const article of articleKeywords) {
+    if (count >= maxBlogLinks) break;
+    if (linkedUrls.has(article.url)) continue;
+
+    for (const phrase of article.phrases) {
+      if (count >= maxBlogLinks) break;
+
+      const escapedPhrase = escapeRegex(phrase);
+      const pattern = new RegExp(
+        `(?<![<\\/a-zA-Z])\\b(${escapedPhrase}s?)\\b(?![^<]*<\\/a>)(?![^<]*<\\/h[1-6]>)`,
+        'i'
+      );
+
+      const match = modifiedContent.match(pattern);
+      if (!match) continue;
+
+      const matchPosition = match.index;
+      if (isInsideHeading(modifiedContent, matchPosition) || isInsideLink(modifiedContent, matchPosition)) continue;
+
+      // Check spacing
+      let tooClose = false;
+      for (const pos of existingPositions) {
+        if (Math.abs(matchPosition - pos) < CONFIG.minSpacingChars) {
+          tooClose = true;
+          break;
+        }
+      }
+      if (tooClose) continue;
+
+      // Build the blog link URL
+      let blogUrl = article.url;
+      if (!blogUrl.startsWith('http')) {
+        blogUrl = `${BASE_URL}${blogUrl.startsWith('/') ? '' : '/'}${blogUrl}`;
+      }
+
+      const linkedText = `<a href="${blogUrl}">${match[1]}</a>`;
+      modifiedContent = modifiedContent.substring(0, matchPosition) +
+        linkedText +
+        modifiedContent.substring(matchPosition + match[1].length);
+
+      existingPositions.push(matchPosition);
+      linkedUrls.add(article.url);
+      count++;
+      console.log(`  Added blog link: "${phrase}" -> ${article.title}`);
+      break; // Move to next article
+    }
+  }
+
+  return { content: modifiedContent, count };
 }
 
 /**

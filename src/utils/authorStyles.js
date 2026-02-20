@@ -274,6 +274,29 @@ export function getRandomPseudonym() {
 }
 
 /**
+ * Author bio templates for E-E-A-T signals
+ * Each pseudonym gets a consistent bio that builds expertise credibility
+ */
+const authorBioTemplates = [
+  '{name} has been in the dabbing community for over 5 years, testing everything from budget rigs to high-end setups. They write for Oil Slick Pad to help fellow enthusiasts make better gear choices.',
+  '{name} is a cannabis accessories reviewer and concentrate enthusiast who has tested hundreds of products. Their writing for Oil Slick Pad focuses on honest, experience-based recommendations.',
+  '{name} is a longtime dabbing enthusiast and product tester for Oil Slick Pad. When not writing about the latest concentrate tools, they are probably cleaning their rig.',
+  '{name} brings years of hands-on experience with cannabis accessories to Oil Slick Pad. They believe in honest reviews, practical advice, and not overpaying for gear.',
+  '{name} writes about dabbing, concentrates, and cannabis accessories for Oil Slick Pad. A self-described gear nerd, they have strong opinions about quartz bangers and temperature control.'
+];
+
+/**
+ * Get a consistent author bio for a pseudonym
+ * The same name always returns the same bio (deterministic based on name hash)
+ */
+export function getAuthorBio(name) {
+  // Simple hash to consistently map names to bios
+  const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const templateIndex = hash % authorBioTemplates.length;
+  return authorBioTemplates[templateIndex].replace('{name}', name);
+}
+
+/**
  * AI writing patterns to strictly avoid - these are "AI tells"
  * Based on Wikipedia's "Signs of AI writing" guide
  */
@@ -496,6 +519,7 @@ export default {
   authorStyles,
   selectAuthorStyle,
   getRandomPseudonym,
+  getAuthorBio,
   aiTellsToAvoid,
   naturalTransitions
 };

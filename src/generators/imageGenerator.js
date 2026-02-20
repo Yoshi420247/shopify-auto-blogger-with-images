@@ -16,6 +16,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import fs from 'fs/promises';
 import path from 'path';
 import config from '../config.js';
+import { withRetry } from '../utils/apiRetry.js';
+import { generateImageFilename } from '../utils/seoOptimizer.js';
 
 // Initialize Gemini client
 let genAI = null;
@@ -44,33 +46,29 @@ export async function generateImage(description, options = {}) {
   try {
     const ai = getGenAI();
 
-    // Use Gemini 3 Pro Image (Nano Banana Pro 3.0) for advanced image generation
+    // Use Gemini 3 Pro Image (Nano Banana Pro 3.0) with retry logic
     const model = ai.getGenerativeModel({
-      model: config.gemini.imageModel, // gemini-3-pro-image-preview
+      model: config.gemini.imageModel,
       generationConfig: {
         responseModalities: ['TEXT', 'IMAGE'],
-        // Nano Banana Pro 3.0 specific image configuration
         imageConfig: {
           aspectRatio: config.gemini.aspectRatio || aspectRatio,
-          imageSize: config.gemini.imageSize || '2K' // Options: 1K, 2K, 4K
+          imageSize: config.gemini.imageSize || '2K'
         }
       }
     });
 
-    const result = await model.generateContent({
-      contents: [{
-        parts: [{ text: enhancedPrompt }]
-      }],
-      generationConfig: {
-        candidateCount: 1
-      }
-    });
+    const result = await withRetry(
+      () => model.generateContent({
+        contents: [{ parts: [{ text: enhancedPrompt }] }],
+        generationConfig: { candidateCount: 1 }
+      }),
+      { maxRetries: 2, operationName: 'Image generation (Gemini Pro)' }
+    );
 
     const response = result.response;
     const parts = response.candidates?.[0]?.content?.parts || [];
 
-    // Find the image part in the response
-    // Nano Banana Pro returns images with thought signatures handled by SDK
     for (const part of parts) {
       if (part.inlineData) {
         return {
@@ -84,13 +82,11 @@ export async function generateImage(description, options = {}) {
       }
     }
 
-    // If no image was generated, try alternative approach with Nano Banana (faster model)
+    // If no image was generated, try alternative approach
     return await generateImageAlternative(description, options);
 
   } catch (error) {
     console.error('Error generating image with Nano Banana Pro:', error.message);
-
-    // Fallback to Nano Banana (faster, less advanced)
     return await generateImageAlternative(description, options);
   }
 }
