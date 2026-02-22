@@ -52,9 +52,14 @@ function getClient() {
  * Search Console accepts both "sc-domain:" prefix and full URL formats
  */
 function getSiteUrl() {
-  const domain = config.shopify.storeDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
-  // Try domain property first (covers all subdomains and protocols)
-  return process.env.GSC_SITE_URL || `sc-domain:${domain}`;
+  if (process.env.GSC_SITE_URL) {
+    return process.env.GSC_SITE_URL.trim();
+  }
+  const domain = config.shopify.storeDomain
+    .replace(/^https?:\/\//, '')
+    .replace(/\/$/, '')
+    .trim();
+  return `sc-domain:${domain}`;
 }
 
 /**
