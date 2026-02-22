@@ -1437,8 +1437,8 @@ function addRelatedReadingSection(content, currentTitle, existingArticles) {
 
   // Check if current article belongs to a topic cluster
   let currentCluster = null;
-  for (const cluster of (config.seo?.topicClusters || [])) {
-    const clusterKeywords = [cluster.pillar, ...cluster.clusterArticles].map(t => t.toLowerCase());
+  for (const cluster of Object.values(config.seo?.topicClusters || {})) {
+    const clusterKeywords = [cluster.pillar, ...(cluster.clusters || [])].map(t => t.toLowerCase());
     if (clusterKeywords.some(kw => currentTitle.toLowerCase().includes(kw.split(' ').slice(0, 3).join(' ')))) {
       currentCluster = cluster;
       break;
@@ -1457,7 +1457,7 @@ function addRelatedReadingSection(content, currentTitle, existingArticles) {
 
     // Boost articles in the same topic cluster
     if (currentCluster) {
-      const clusterKeywords = [currentCluster.pillar, ...currentCluster.clusterArticles].map(t => t.toLowerCase());
+      const clusterKeywords = [currentCluster.pillar, ...(currentCluster.clusters || [])].map(t => t.toLowerCase());
       if (clusterKeywords.some(kw => articleTitleLower.includes(kw.split(' ').slice(0, 3).join(' ')))) {
         score += 3; // Strong boost for same-cluster articles
       }
@@ -1513,7 +1513,7 @@ function addClusterPillarLink(content, pillarTitle, existingArticles) {
 function addPillarToClusterLinks(content, currentTitle, existingArticles) {
   // Find which cluster this pillar belongs to
   let matchedCluster = null;
-  for (const cluster of (config.seo?.topicClusters || [])) {
+  for (const cluster of Object.values(config.seo?.topicClusters || {})) {
     if (similarityScore(currentTitle.toLowerCase(), cluster.pillar.toLowerCase()) > 0.4) {
       matchedCluster = cluster;
       break;
@@ -1523,7 +1523,7 @@ function addPillarToClusterLinks(content, currentTitle, existingArticles) {
 
   // Find existing cluster articles
   const clusterLinks = [];
-  for (const clusterTopic of matchedCluster.clusterArticles) {
+  for (const clusterTopic of (matchedCluster.clusters || [])) {
     const match = existingArticles.find(a =>
       similarityScore((a.title || '').toLowerCase(), clusterTopic.toLowerCase()) > 0.3
     );
