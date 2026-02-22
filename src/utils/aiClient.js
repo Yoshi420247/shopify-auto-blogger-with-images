@@ -30,10 +30,18 @@ function getAnthropic() {
 }
 
 /**
- * Returns true if the active model is Claude
+ * Returns true if the active model is Claude AND the API key is available.
+ * Falls back to OpenAI if ANTHROPIC_API_KEY is missing.
  */
 export function isClaudeModel() {
-  return config.aiModel.startsWith('claude');
+  if (!config.aiModel.startsWith('claude')) {
+    return false;
+  }
+  if (!config.anthropic.apiKey) {
+    console.warn('AI_MODEL is claude-sonnet but ANTHROPIC_API_KEY is not set — falling back to GPT-5.2');
+    return false;
+  }
+  return true;
 }
 
 /**
