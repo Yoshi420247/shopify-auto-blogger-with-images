@@ -1,0 +1,256 @@
+# Unified Shopify Auto-Blogger
+# Consolidates blog generation + Search Console optimization into one workflow
+#
+# Schedule:
+#   6 AM UTC  - GSC analysis + link optimization (no new blog)
+#   9 AM UTC  - GSC-informed blog: trending data picks the topic
+#   3 PM UTC  - Category rotation blog: cycles through all content categories
+#   10 PM UTC - Strategic blog: pillar/cluster, content gaps, or strike-distance targeting
+name: Unified Auto-Blogger
+
+on:
+  schedule:
+    # GSC analysis + link optimization only (no blog)
+    - cron: '0 6 * * *'
+    # GSC-informed blog generation
+    - cron: '0 9 * * *'
+    # Category rotation blog
+    - cron: '0 15 * * *'
+    # Strategic blog (pillar/cluster, gaps, strike-distance)
+    - cron: '0 22 * * *'
+
+  workflow_dispatch:
+    inputs:
+      strategy:
+        description: 'Run strategy'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - gsc-analyze
+          - gsc-informed
+          - category-rotate
+          - strategic
+          - full-pipeline
+      blogs_count:
+        description: 'Number of blogs to generate (1-10)'
+        required: false
+        default: '1'
+        type: choice
+        options:
+          - '1'
+          - '2'
+          - '3'
+          - '5'
+          - '10'
+      content_category:
+        description: 'Content category (for category-rotate strategy)'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - dabbing_storage
+          - product_spotlight
+          - science_education
+          - culture_lifestyle
+          - comparison_review
+          - troubleshooting
+          - industry_trends
+      content_format:
+        description: 'Content format type'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - standard
+          - listicle
+          - deep_dive
+          - quick_guide
+          - comparison
+          - myth_busting
+      mode:
+        description: 'Content mode'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - new
+          - update
+          - mixed
+      ai_model:
+        description: 'AI model for content generation'
+        required: false
+        default: 'gpt-5.2'
+        type: choice
+        options:
+          - gpt-5.2
+          - claude-sonnet
+      topic:
+        description: 'Specific topic to write about (overrides strategy)'
+        required: false
+        type: string
+      dry_run:
+        description: 'Dry run (generate but do not publish)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  unified-autoblogger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Restore research cache
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: unified-cache-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            unified-cache-${{ runner.os }}-
+
+      - name: Validate secrets
+        run: |
+          echo "Validating required secrets..."
+          MISSING=0
+          if [ -z "${{ secrets.SHOPIFY_ADMIN_API_TOKEN }}" ]; then
+            echo "ERROR: SHOPIFY_ADMIN_API_TOKEN is not set"
+            MISSING=1
+          fi
+          if [ -z "${{ secrets.SHOPIFY_STORE_DOMAIN }}" ]; then
+            echo "ERROR: SHOPIFY_STORE_DOMAIN is not set"
+            MISSING=1
+          fi
+          if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
+            echo "ERROR: OPENAI_API_KEY is not set"
+            MISSING=1
+          fi
+          if [ -z "${{ secrets.GEMINI_API_KEY }}" ]; then
+            echo "WARNING: GEMINI_API_KEY is not set - images will be skipped"
+          fi
+          if [ -z "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}" ]; then
+            echo "WARNING: GOOGLE_SERVICE_ACCOUNT_JSON is not set - GSC features will be skipped"
+          fi
+          if [ "$MISSING" -eq 1 ]; then
+            exit 1
+          fi
+          echo "All required secrets are configured"
+
+          # Validate Anthropic key if Claude model selected
+          AI_MODEL="${{ github.event.inputs.ai_model || 'gpt-5.2' }}"
+          if [ "$AI_MODEL" = "claude-sonnet" ]; then
+            if [ -z "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+              echo "WARNING: ANTHROPIC_API_KEY not set but Claude model selected, falling back to GPT-5.2"
+            else
+              echo "Anthropic API key configured for Claude Sonnet"
+            fi
+          fi
+
+      - name: Determine run strategy from schedule
+        id: determine-strategy
+        run: |
+          # Manual trigger takes precedence
+          if [ -n "${{ github.event.inputs.strategy }}" ] && [ "${{ github.event.inputs.strategy }}" != "auto" ]; then
+            echo "strategy=${{ github.event.inputs.strategy }}" >> $GITHUB_OUTPUT
+            echo "Using manual strategy: ${{ github.event.inputs.strategy }}"
+            exit 0
+          fi
+
+          # Schedule-based strategy selection
+          HOUR=$(date -u +%H)
+          echo "Current UTC hour: $HOUR"
+
+          if [ "$HOUR" = "06" ]; then
+            echo "strategy=gsc-analyze" >> $GITHUB_OUTPUT
+            echo "Schedule: GSC analysis + link optimization"
+          elif [ "$HOUR" = "09" ]; then
+            echo "strategy=gsc-informed" >> $GITHUB_OUTPUT
+            echo "Schedule: GSC-informed blog generation"
+          elif [ "$HOUR" = "15" ]; then
+            echo "strategy=category-rotate" >> $GITHUB_OUTPUT
+            echo "Schedule: Category rotation blog"
+          elif [ "$HOUR" = "22" ]; then
+            echo "strategy=strategic" >> $GITHUB_OUTPUT
+            echo "Schedule: Strategic blog (pillar/cluster/gaps)"
+          else
+            echo "strategy=auto" >> $GITHUB_OUTPUT
+            echo "Default: auto strategy"
+          fi
+
+      - name: Run Unified Auto-Blogger
+        env:
+          # API Keys
+          SHOPIFY_ADMIN_API_TOKEN: ${{ secrets.SHOPIFY_ADMIN_API_TOKEN }}
+          SHOPIFY_STORE_DOMAIN: ${{ secrets.SHOPIFY_STORE_DOMAIN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GSC_SITE_URL: ${{ secrets.GSC_SITE_URL || '' }}
+
+          # Unified strategy controls
+          RUN_STRATEGY: ${{ steps.determine-strategy.outputs.strategy }}
+          BLOGS_PER_RUN: ${{ github.event.inputs.blogs_count || '1' }}
+          BLOG_MODE: ${{ github.event.inputs.mode || 'auto' }}
+          CONTENT_CATEGORY: ${{ github.event.inputs.content_category || 'auto' }}
+          CONTENT_FORMAT: ${{ github.event.inputs.content_format || 'auto' }}
+          CUSTOM_TOPIC: ${{ github.event.inputs.topic || '' }}
+          AI_MODEL: ${{ github.event.inputs.ai_model || 'gpt-5.2' }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          PRODUCT_BLOG_DAY: '1'
+        run: |
+          echo "=========================================="
+          echo "UNIFIED AUTO-BLOGGER"
+          echo "=========================================="
+          echo "Strategy: $RUN_STRATEGY"
+          echo "Blogs to generate: $BLOGS_PER_RUN"
+          echo "Mode: $BLOG_MODE"
+          echo "Content category: $CONTENT_CATEGORY"
+          echo "Content format: $CONTENT_FORMAT"
+          echo "AI model: $AI_MODEL"
+          echo "Dry run: $DRY_RUN"
+          if [ -n "$CUSTOM_TOPIC" ]; then
+            echo "Custom topic: $CUSTOM_TOPIC"
+          fi
+          echo "=========================================="
+          npm start
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unified-autoblogger-logs-${{ github.run_number }}
+          path: |
+            *.log
+          retention-days: 30
+
+  notify:
+    needs: unified-autoblogger
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Report status
+        run: |
+          if [ "${{ needs.unified-autoblogger.result }}" == "success" ]; then
+            echo "Unified auto-blogger completed successfully"
+          else
+            echo "Unified auto-blogger failed or was cancelled"
+            exit 1
+          fi

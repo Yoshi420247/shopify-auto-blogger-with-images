@@ -64,18 +64,25 @@ const SECONDARY_COLLECTIONS = [
   { name: 'Cones', url: '/collections/rolling-papers-cones', keywords: ['cone', 'pre-roll', 'pre-rolled cone'] }
 ];
 
-// External authoritative sources by topic
+// External authoritative sources by topic (expanded for E-E-A-T)
 const EXTERNAL_SOURCES = {
   health_safety: [
     { name: 'Leafly', url: 'https://www.leafly.com', topics: ['cannabis', 'health', 'strains', 'effects'] },
-    { name: 'NORML', url: 'https://norml.org', topics: ['legalization', 'laws', 'policy', 'rights'] }
+    { name: 'NORML', url: 'https://norml.org', topics: ['legalization', 'laws', 'policy', 'rights'] },
+    { name: 'Americans for Safe Access', url: 'https://www.safeaccessnow.org', topics: ['patient', 'medical', 'safety'] }
   ],
   science: [
     { name: 'Leafly', url: 'https://www.leafly.com', topics: ['terpenes', 'cannabinoids', 'science'] },
-    { name: 'Weedmaps', url: 'https://weedmaps.com/learn', topics: ['cannabis science', 'research'] }
+    { name: 'Weedmaps', url: 'https://weedmaps.com/learn', topics: ['cannabis science', 'research'] },
+    { name: 'Project CBD', url: 'https://www.projectcbd.org', topics: ['CBD', 'research', 'endocannabinoid'] }
   ],
   industry: [
-    { name: 'MJBizDaily', url: 'https://mjbizdaily.com', topics: ['industry', 'market', 'business', 'trends'] }
+    { name: 'MJBizDaily', url: 'https://mjbizdaily.com', topics: ['industry', 'market', 'business', 'trends'] },
+    { name: 'Cannabis Business Times', url: 'https://www.cannabisbusinesstimes.com', topics: ['cultivation', 'processing', 'extraction'] },
+    { name: 'High Times', url: 'https://hightimes.com', topics: ['culture', 'events', 'awards', '710'] }
+  ],
+  extraction: [
+    { name: 'PurePressure', url: 'https://gopurepressure.com/blogs/rosin-education', topics: ['rosin', 'press', 'solventless', 'extraction'] }
   ]
 };
 
@@ -323,7 +330,9 @@ function addExternalLinks(content, existingPositions) {
     { pattern: /\b(terpene|terpenes|terps)\b/i, source: 'science', anchor: 'terpenes' },
     { pattern: /\b(cannabinoid|cannabinoids|THC|CBD)\b/i, source: 'science', anchor: 'cannabinoids' },
     { pattern: /\b(cannabis industry|market trends?)\b/i, source: 'industry', anchor: 'cannabis industry' },
-    { pattern: /\b(health benefits?|medical)\b/i, source: 'health_safety', anchor: 'health benefits' }
+    { pattern: /\b(health benefits?|medical)\b/i, source: 'health_safety', anchor: 'health benefits' },
+    { pattern: /\b(rosin press|solventless extract|hash rosin)\b/i, source: 'extraction', anchor: 'rosin' },
+    { pattern: /\b(710 cup|cannabis cup|emerald cup)\b/i, source: 'industry', anchor: 'cannabis events' }
   ];
 
   for (const opportunity of externalLinkOpportunities) {
