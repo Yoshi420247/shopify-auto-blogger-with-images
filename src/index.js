@@ -266,7 +266,8 @@ async function runGSCInformedBlog() {
       topic: gscTopicData.topic,
       reason: `GSC opportunity: ${gscTopicData.reason}`,
       targetKeywords: gscTopicData.targetKeywords,
-      gscData: gscTopicData
+      gscData: gscTopicData,
+      format: gscTopicData.format || 'standard'
     }];
   } else {
     contentPlans = await planMultipleBlogs(researchData, config.blog.blogsPerRun);
@@ -291,7 +292,7 @@ async function runCategoryRotation() {
     console.log(`Rotated to category: ${category}`);
   }
 
-  // Pick a random format for variety
+  // Pick a format for variety (category rotation doesn't know topic yet, so no hint)
   const format = config.blog.contentFormat === 'auto' ? pickWeightedFormat() : config.blog.contentFormat;
   console.log(`Content format: ${format}`);
 
@@ -494,6 +495,20 @@ async function doResearch() {
 // ============================================================
 
 /**
+ * Map AI-generated contentType to our format system
+ * Prevents mismatches like myth_busting on a buying guide
+ */
+const CONTENT_TYPE_TO_FORMAT = {
+  'guide': 'standard',
+  'how-to': 'standard',
+  'review': 'standard',
+  'comparison': 'comparison',
+  'listicle': 'listicle',
+  'deep-dive': 'deep_dive',
+  'quick-guide': 'quick_guide'
+};
+
+/**
  * Find the best topic opportunity from GSC data
  * Looks for: strike-distance keywords, high impressions/low CTR, rising queries
  */
@@ -508,12 +523,15 @@ async function findGSCOpportunityTopic(researchData) {
   if (blogTargets.length > 0) {
     const target = blogTargets[0];
     const topicData = await generateTargetedTopic(target, existingArticles);
+    const format = CONTENT_TYPE_TO_FORMAT[topicData.contentType] || 'standard';
+    console.log(`GSC topic contentType: "${topicData.contentType}" -> format: "${format}"`);
     return {
       topic: topicData.topic,
       targetKeywords: topicData.targetKeywords,
       reason: `Trending ${target.type}: ${target.humanName} (+${(target.clicksGrowth * 100).toFixed(0)}% clicks)`,
       gscTarget: target,
-      topicData
+      topicData,
+      format
     };
   }
 
@@ -726,7 +744,8 @@ async function findProductBlogOpportunity(researchData) {
     targetKeywords: topicData.targetKeywords,
     gscTarget: target,
     topicData,
-    isProductBlog: true
+    isProductBlog: true,
+    format: CONTENT_TYPE_TO_FORMAT[topicData.contentType] || 'standard'
   };
 }
 
@@ -1086,7 +1105,7 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
 
   // Determine content format
   const format = plan.format || config.blog.contentFormat;
-  const resolvedFormat = format === 'auto' ? pickWeightedFormat() : format;
+  const resolvedFormat = format === 'auto' ? pickWeightedFormat(finalTopic) : format;
   const formatConfig = config.contentFormats[resolvedFormat] || config.contentFormats.standard;
   console.log(`Content format: ${formatConfig.name}`);
 
@@ -1142,6 +1161,8 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
   const primaryKeyword = (plan.targetKeywords || getKeywordsForTopic(finalTopic))[0];
   const qualityScore = scoreContent(finalContent, primaryKeyword, generatedPost.title);
   console.log(`Quality: ${qualityScore.score}/100 (${qualityScore.grade})`);
+  console.log(`  GEO signals: definitions=${qualityScore.hasDefinitionalSentence ? 'YES' : 'NO'}, attribution=${qualityScore.hasAttribution ? 'YES' : 'NO'}, data=${qualityScore.hasSpecificData ? 'YES' : 'NO'}, experience=${qualityScore.hasExperienceSignal ? 'YES' : 'NO'}`);
+  console.log(`  Snippet readiness: ${qualityScore.questionHeadings} question headings, ${qualityScore.listItems} list items`);
   if (qualityScore.issues.length > 0) {
     console.log(`  Issues: ${qualityScore.issues.join('; ')}`);
   }
@@ -1174,7 +1195,16 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
 
   if (structuredData) {
     finalContent = structuredData + '\n' + finalContent;
-    console.log('Structured data injected (Article, Breadcrumb, FAQ, HowTo schemas)');
+    const hasFAQ = structuredData.includes('FAQPage');
+    const hasHowTo = structuredData.includes('"HowTo"');
+    const schemaTypes = ['Article', 'Breadcrumb', hasFAQ ? 'FAQ' : null, hasHowTo ? 'HowTo' : null].filter(Boolean);
+    console.log(`Structured data injected: ${schemaTypes.join(', ')}`);
+    if (!hasFAQ && qualityScore.questionHeadings >= 2) {
+      console.warn('WARNING: Content has question headings but FAQ schema was not generated. Check heading format.');
+    }
+    if (!hasFAQ && qualityScore.questionHeadings < 2) {
+      console.warn('WARNING: Not enough question headings for FAQ schema. Articles with FAQ rich results get 2-3x more clicks.');
+    }
   }
 
   // STEP 9: Add "Related Reading" section
@@ -1282,9 +1312,47 @@ function getNextCategory() {
 
 /**
  * Pick a content format based on weighted distribution
+ * Optionally accepts a topic string to avoid mismatches
+ * (e.g. don't pick myth_busting for "buying guide" topics)
  */
-function pickWeightedFormat() {
-  const weights = config.formatRotation.weights;
+function pickWeightedFormat(topic) {
+  const weights = { ...config.formatRotation.weights };
+
+  // If we have a topic, suppress formats that don't match
+  if (topic) {
+    const topicLower = topic.toLowerCase();
+
+    // Suppress myth_busting unless topic naturally fits
+    const mythKeywords = ['myth', 'truth', 'misconception', 'wrong', 'mistake', 'lie', 'fact'];
+    if (!mythKeywords.some(kw => topicLower.includes(kw))) {
+      delete weights.myth_busting;
+    }
+
+    // Suppress comparison unless topic involves "vs" or comparing
+    const compKeywords = ['vs', 'versus', 'compar', 'which', 'better', 'difference'];
+    if (!compKeywords.some(kw => topicLower.includes(kw))) {
+      delete weights.comparison;
+    }
+
+    // Boost listicle for "best", "top", numbered topics
+    const listicleKeywords = ['best', 'top', 'essential', 'must-have', 'favorite'];
+    if (listicleKeywords.some(kw => topicLower.includes(kw))) {
+      weights.listicle = (weights.listicle || 0) + 3;
+    }
+
+    // Boost deep_dive for "complete guide", "ultimate", "everything"
+    const deepKeywords = ['complete', 'ultimate', 'everything', 'comprehensive', 'definitive'];
+    if (deepKeywords.some(kw => topicLower.includes(kw))) {
+      weights.deep_dive = (weights.deep_dive || 0) + 3;
+    }
+
+    // Boost quick_guide for "how to", "quick", short questions
+    const quickKeywords = ['how to', 'quick', 'fast', 'simple', 'easy'];
+    if (quickKeywords.some(kw => topicLower.includes(kw))) {
+      weights.quick_guide = (weights.quick_guide || 0) + 2;
+    }
+  }
+
   const entries = Object.entries(weights);
   const totalWeight = entries.reduce((sum, [, w]) => sum + w, 0);
 
