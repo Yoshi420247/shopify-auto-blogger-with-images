@@ -1149,8 +1149,11 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
     console.log('No image markers found');
   }
 
-  // STEP 4: Prepare content with images
-  let finalContent = await prepareContentWithImages(generatedPost, images, generatedPost.title);
+  // Determine primary keyword early (needed for image alt text and quality scoring)
+  const primaryKeyword = (plan.targetKeywords || getKeywordsForTopic(finalTopic))[0];
+
+  // STEP 4: Prepare content with images (passes primaryKeyword for alt text SEO)
+  let finalContent = await prepareContentWithImages(generatedPost, images, generatedPost.title, primaryKeyword);
 
   // STEP 5: AI Content Review
   console.log('\n--- AI Content Review ---');
@@ -1158,7 +1161,6 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
 
   // STEP 6: Quality Gate
   console.log('\n--- Content Quality Check ---');
-  const primaryKeyword = (plan.targetKeywords || getKeywordsForTopic(finalTopic))[0];
   const qualityScore = scoreContent(finalContent, primaryKeyword, generatedPost.title);
   console.log(`Quality: ${qualityScore.score}/100 (${qualityScore.grade})`);
   console.log(`  GEO signals: definitions=${qualityScore.hasDefinitionalSentence ? 'YES' : 'NO'}, attribution=${qualityScore.hasAttribution ? 'YES' : 'NO'}, data=${qualityScore.hasSpecificData ? 'YES' : 'NO'}, experience=${qualityScore.hasExperienceSignal ? 'YES' : 'NO'}`);
@@ -1207,7 +1209,16 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
     }
   }
 
-  // STEP 9: Add "Related Reading" section
+  // STEP 9: Add author bio for E-E-A-T
+  const authorBio = getAuthorBio(authorName);
+  const authorBioHtml = `<div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 12px; padding: 1.2em 1.5em; margin: 2em 0 1em 0; text-align: left;">
+<p style="font-weight: 700; margin: 0 0 0.4em 0; font-size: 16px;">About the Author</p>
+<p style="margin: 0; font-size: 15px; line-height: 1.6; color: #555;">${authorBio}</p>
+</div>`;
+  finalContent = finalContent + '\n' + authorBioHtml;
+  console.log(`Author bio added for ${authorName}`);
+
+  // STEP 10: Add "Related Reading" section
   finalContent = addRelatedReadingSection(finalContent, generatedPost.title, existingArticlesList);
 
   // Publish
@@ -1463,7 +1474,7 @@ function addClusterPillarLink(content, pillarTitle, existingArticles) {
   return content;
 }
 
-async function prepareContentWithImages(post, images, title) {
+async function prepareContentWithImages(post, images, title, primaryKeyword = '') {
   let content = post.body;
   const successfulImages = images.filter(img => img.success && img.imageData);
 
@@ -1475,11 +1486,21 @@ async function prepareContentWithImages(post, images, title) {
     const filename = generateImageFilename(img.description || title, i);
 
     try {
-      const uploaded = await uploadImageToFiles(img.imageData, filename, img.altText || img.description);
+      // Build SEO-optimized alt text: include primary keyword if not already present
+      let altText = img.altText || img.description || `${title} image ${i + 1}`;
+      if (primaryKeyword && !altText.toLowerCase().includes(primaryKeyword.toLowerCase())) {
+        // Prepend keyword context naturally (keep under 125 chars)
+        const keywordPrefix = primaryKeyword.charAt(0).toUpperCase() + primaryKeyword.slice(1);
+        altText = `${keywordPrefix} - ${altText}`;
+        if (altText.length > 125) {
+          altText = altText.substring(0, 122) + '...';
+        }
+      }
+      const uploaded = await uploadImageToFiles(img.imageData, filename, altText);
       if (uploaded?.url) {
         uploadedImages.push({
           url: uploaded.url,
-          altText: img.altText || img.description || `${title} image ${i + 1}`
+          altText
         });
         console.log(`  Image ${i + 1}: Uploaded to ${uploaded.url.substring(0, 50)}...`);
       }

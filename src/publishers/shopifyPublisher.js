@@ -7,7 +7,6 @@
 
 import axios from 'axios';
 import config from '../config.js';
-import { generateAllStructuredData } from '../utils/seoOptimizer.js';
 
 /**
  * Get the Shopify API endpoint
@@ -431,18 +430,9 @@ async function createArticle(blogId, article) {
     htmlBody = markdownToHtml(body);
   }
 
-  // Add comprehensive structured data for LLM/AI search optimization
-  // Includes Article, FAQ, HowTo, and Breadcrumb schemas
-  const wordCount = body ? body.split(/\s+/).length : 1200;
-  const structuredData = generateAllStructuredData({
-    title: finalTitle,
-    metaDescription,
-    author,
-    wordCount,
-    publishDate: new Date().toISOString(),
-    keywords: tags
-  }, htmlBody);
-  htmlBody = structuredData + '\n\n' + htmlBody;
+  // NOTE: Structured data (JSON-LD) is injected by index.js generateAndPublishBlog()
+  // before the body reaches this function. Do NOT inject it again here to avoid
+  // duplicate schemas which confuse search engines.
 
   // Ensure title is not too long (Shopify max is 255 characters)
   const safeTitle = finalTitle.length > 250 ? finalTitle.substring(0, 247) + '...' : finalTitle;
@@ -952,31 +942,45 @@ function markdownToHtml(markdown) {
   // STEP 7: Links with proper styling (underline, offset, inherit weight)
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #2563eb; text-decoration: underline; text-underline-offset: 0.12em; font-weight: inherit;">$1</a>');
 
-  // STEP 8: Process lists
+  // STEP 8: Process lists (both unordered and ordered)
   const lines = html.split('\n');
   const processedLines = [];
   let inList = false;
+  let listType = null; // 'ul' or 'ol'
 
   for (const line of lines) {
     const trimmed = line.trim();
-    const listMatch = trimmed.match(/^[-*]\s+(.+)$/);
+    const ulMatch = trimmed.match(/^[-*]\s+(.+)$/);
+    const olMatch = trimmed.match(/^\d+[.)]\s+(.+)$/);
 
-    if (listMatch) {
-      if (!inList) {
-        processedLines.push('<ul style="font-size: 18px; margin: 0.4em 0 1em 0; padding-left: 1.2em; line-height: 1.7; text-align: left;">');
-        inList = true;
+    if (ulMatch || olMatch) {
+      const newListType = ulMatch ? 'ul' : 'ol';
+      const content = ulMatch ? ulMatch[1] : olMatch[1];
+
+      // If switching list types, close the old one first
+      if (inList && listType !== newListType) {
+        processedLines.push(`</${listType}>`);
+        inList = false;
       }
-      processedLines.push(`<li style="margin: 0.35em 0;">${listMatch[1]}</li>`);
+
+      if (!inList) {
+        const tag = newListType;
+        processedLines.push(`<${tag} style="font-size: 18px; margin: 0.4em 0 1em 0; padding-left: 1.2em; line-height: 1.7; text-align: left;">`);
+        inList = true;
+        listType = newListType;
+      }
+      processedLines.push(`<li style="margin: 0.35em 0;">${content}</li>`);
     } else {
       if (inList) {
-        processedLines.push('</ul>');
+        processedLines.push(`</${listType}>`);
         inList = false;
+        listType = null;
       }
       processedLines.push(line);
     }
   }
   if (inList) {
-    processedLines.push('</ul>');
+    processedLines.push(`</${listType}>`);
   }
 
   html = processedLines.join('\n');

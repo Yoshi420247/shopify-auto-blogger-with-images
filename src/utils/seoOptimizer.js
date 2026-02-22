@@ -268,8 +268,8 @@ export function generateFAQSchema(htmlContent) {
  * Generate HowTo schema from content with numbered steps
  */
 export function generateHowToSchema(title, htmlContent) {
-  // Only generate for guide/how-to content
-  const isHowTo = /how to|guide|steps|tutorial|instructions/i.test(title);
+  // Only generate for guide/how-to content (expanded patterns)
+  const isHowTo = /how to|guide|steps?|tutorial|instructions?|walkthrough|complete|ultimate|master|tips for|method|technique|process|clean|setup|maintain/i.test(title);
   if (!isHowTo) return null;
 
   const steps = [];

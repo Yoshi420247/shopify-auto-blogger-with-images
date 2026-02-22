@@ -155,6 +155,20 @@ VENDOR/SUPPLIER BRAND RULES (VERY IMPORTANT):
 - Write about the product category and features, not where they come from
 - Only mention Oil Slick Pad as the store/brand, never our suppliers
 
+NATURAL PRODUCT MENTIONS (for internal linking):
+When relevant to the topic, naturally mention these product categories from Oil Slick Pad's store.
+Don't force mentions where they don't fit, but weave them in when the topic connects:
+- "silicone dab pads" or "silicone mats" (our core product)
+- "glass jars" for concentrate storage
+- "PTFE sheets" or "FEP sheets" for extraction
+- "parchment paper" for rosin pressing
+- "quartz bangers" for dab rigs
+- "carb caps" for vapor control
+- "dab tools" for handling concentrates
+- "nectar collectors" for portable dabbing
+These mentions create natural anchor points for internal links. Write about them as if
+recommending products you personally use, not as advertisements.
+
 HUMANIZATION RULES - AVOID AI WRITING PATTERNS:
 These patterns scream "AI-generated" and must be avoided:
 
