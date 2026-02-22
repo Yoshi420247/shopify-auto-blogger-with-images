@@ -147,6 +147,24 @@ export const config = {
     'https://www.dailyhighclub.com/blogs/news'
   ],
 
+  // Google Search Console settings
+  searchConsole: {
+    // Comparison period in days (compares recent N days vs previous N days)
+    comparisonPeriodDays: 7,
+    // Minimum clicks in recent period to consider a page "qualified"
+    minClicksRecent: 3,
+    // Minimum impressions in recent period
+    minImpressionsRecent: 20,
+    // Growth threshold to classify as "trending" (0.20 = 20% growth)
+    growthThreshold: 0.20,
+    // Maximum trending blog pages to optimize per run
+    maxBlogsToOptimize: 5,
+    // Day of week to write product-targeted blog (0=Sun, 1=Mon, ..., 6=Sat)
+    productBlogDay: parseInt(process.env.PRODUCT_BLOG_DAY) || 1,
+    // Force product blog regardless of weekly cadence
+    forceProductBlog: process.env.FORCE_PRODUCT_BLOG === 'true' || false
+  },
+
   // SEO settings
   seo: {
     focusKeywords: [
