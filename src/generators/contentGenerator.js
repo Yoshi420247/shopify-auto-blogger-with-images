@@ -1,32 +1,16 @@
 /**
  * Content Generator Module
  *
- * Uses OpenAI GPT-5.2 (current best model) to generate human-like blog content
- * with emphasis on avoiding AI tells and mimicking author styles.
- *
- * GPT-5.2 features:
- * - Adaptive reasoning with configurable effort levels
- * - Extended prompt caching
- * - Improved content generation and reasoning
+ * Uses configurable AI model (GPT-5.2 or Claude Sonnet 4.6) to generate
+ * human-like blog content with emphasis on avoiding AI tells and mimicking
+ * author styles. Model is controlled by the AI_MODEL env var.
  */
 
-import OpenAI from 'openai';
 import config from '../config.js';
+import { createCompletion, getActiveModelName } from '../utils/aiClient.js';
 import { selectAuthorStyle, aiTellsToAvoid, naturalTransitions } from '../utils/authorStyles.js';
 import { getSeoPromptInstructions, auditContent, expandKeywords } from '../utils/seoOptimizer.js';
 import { withRetry } from '../utils/apiRetry.js';
-
-// Initialize OpenAI client
-let openai = null;
-
-function getOpenAI() {
-  if (!openai) {
-    openai = new OpenAI({
-      apiKey: config.openai.apiKey
-    });
-  }
-  return openai;
-}
 
 /**
  * Generate a complete blog post
@@ -60,23 +44,18 @@ export async function generateBlogPost(options) {
   });
 
   try {
-    const client = getOpenAI();
-
-    // GPT-5.2 API call with adaptive reasoning and retry logic
-    const response = await withRetry(
-      () => client.chat.completions.create({
-        model: config.openai.model,
+    // AI API call with adaptive reasoning and retry logic
+    const rawContent = await withRetry(
+      () => createCompletion({
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_completion_tokens: config.openai.maxOutputTokens,
-        reasoning_effort: config.openai.reasoningEffort || 'medium'
+        maxTokens: config.openai.maxOutputTokens,
+        reasoningEffort: config.openai.reasoningEffort || 'medium'
       }),
       { maxRetries: 3, operationName: 'Content generation' }
     );
-
-    const rawContent = response.choices[0]?.message?.content;
 
     if (!rawContent) {
       throw new Error('No content generated');
@@ -107,7 +86,7 @@ export async function generateBlogPost(options) {
       authorStyle: authorStyle.author,
       seoAudit,
       generatedAt: new Date().toISOString(),
-      model: config.openai.model
+      model: getActiveModelName()
     };
 
   } catch (error) {
@@ -822,8 +801,6 @@ export async function generateTopicIdeas(analysisData) {
     contentGaps
   } = analysisData;
 
-  const client = getOpenAI();
-
   const prompt = `Based on this market analysis for a cannabis accessories blog (oilslickpad.com, specializing in dab pads and concentrate tools), generate 10 unique blog post ideas.
 
 EXISTING BLOG TOPICS COVERED:
@@ -851,10 +828,8 @@ For each idea, provide:
 Format as JSON array.`;
 
   try {
-    // GPT-5.2 with lower reasoning effort for faster topic generation
-    // Note: GPT-5.2 with reasoning_effort does not support custom temperature
-    const response = await client.chat.completions.create({
-      model: config.openai.model, // gpt-5.2
+    // Lower reasoning effort for faster topic generation
+    const responseText = await createCompletion({
       messages: [
         {
           role: 'system',
@@ -862,11 +837,9 @@ Format as JSON array.`;
         },
         { role: 'user', content: prompt }
       ],
-      max_completion_tokens: 2000,
-      reasoning_effort: 'low' // Fast mode for simple task
+      maxTokens: 2000,
+      reasoningEffort: 'low'
     });
-
-    const responseText = response.choices[0]?.message?.content;
 
     // Extract JSON from response
     const jsonMatch = responseText.match(/\[[\s\S]*\]/);

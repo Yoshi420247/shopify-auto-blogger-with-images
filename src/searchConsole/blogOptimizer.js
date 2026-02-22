@@ -11,21 +11,12 @@
  * maximize the value of incoming organic traffic.
  */
 
-import config from '../config.js';
 import hyperlinkInjectorDefaults, { getLinkStats } from '../utils/hyperlinkInjector.js';
 import { extractHandle } from './trendAnalyzer.js';
 
 const { PRIORITY_COLLECTIONS, SECONDARY_COLLECTIONS } = hyperlinkInjectorDefaults;
 
 const BASE_URL = 'https://oilslickpad.com';
-
-let openai = null;
-function getOpenAI() {
-  if (!openai) {
-    openai = new OpenAI({ apiKey: config.openai.apiKey });
-  }
-  return openai;
-}
 
 /**
  * Analyze and optimize hyperlinks in a single blog article
