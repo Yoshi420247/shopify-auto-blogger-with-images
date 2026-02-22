@@ -21,7 +21,9 @@ export async function generateBlogPost(options) {
     targetKeywords = config.seo.focusKeywords,
     existingContent = null,
     competitorInsights = null,
-    industryContext = null
+    industryContext = null,
+    contentFormat = null,
+    clusterInfo = null
   } = options;
 
   console.log(`Generating blog post for topic: ${topic}`);
@@ -40,7 +42,9 @@ export async function generateBlogPost(options) {
     existingContent,
     competitorInsights,
     industryContext,
-    authorStyle
+    authorStyle,
+    contentFormat,
+    clusterInfo
   });
 
   try {
@@ -300,7 +304,9 @@ function buildUserPrompt(options) {
     existingContent,
     competitorInsights,
     industryContext,
-    authorStyle
+    authorStyle,
+    contentFormat = null,
+    clusterInfo = null
   } = options;
 
   let prompt = `Write a comprehensive, engaging blog post about: "${topic}"
@@ -361,6 +367,64 @@ Reference these naturally where relevant to stay current.
 
 USE NATURAL TRANSITIONS like these instead of AI-sounding ones:
 ${naturalTransitions.slice(0, 10).join(', ')}
+
+`;
+
+  // Add content format instructions if specified
+  if (contentFormat && contentFormat.promptInstructions) {
+    const wordRange = contentFormat.wordRange || [1200, 2000];
+    prompt += `
+
+CONTENT FORMAT: ${contentFormat.name}
+${contentFormat.promptInstructions}
+Target word count: ${wordRange[0]}-${wordRange[1]} words.
+Images to include: ${contentFormat.imagesPerPost || config.blog.imagesPerPost} [IMAGE: ...] markers.
+
+`;
+  }
+
+  // Add pillar/cluster linking instructions if this is a cluster article
+  if (clusterInfo) {
+    if (clusterInfo.type === 'pillar') {
+      prompt += `
+
+PILLAR CONTENT STRATEGY:
+This is a PILLAR article - the cornerstone content for the "${clusterInfo.clusterId}" topic cluster.
+- Make this the definitive, comprehensive resource on this topic
+- Include brief mentions of these related subtopics (we have or will have separate articles for each):
+${(clusterInfo.relatedArticles || []).map(a => `  - ${a}`).join('\n')}
+- For each related subtopic, include 1-2 sentences that tease the topic (we'll link to the full articles later)
+- This should be the article that all other articles in the cluster link back to
+
+`;
+    } else if (clusterInfo.type === 'cluster') {
+      prompt += `
+
+CLUSTER ARTICLE STRATEGY:
+This is a CLUSTER article supporting the pillar: "${clusterInfo.pillar}"
+- Go deep on this specific subtopic - don't try to cover everything the pillar covers
+- Reference the broader topic naturally (e.g., "as part of a complete dabbing setup...")
+- Include 1-2 natural mentions where readers might want to read the comprehensive guide
+- Keep focused: this article owns THIS specific subtopic
+
+`;
+    }
+  }
+
+  // Add seasonal/freshness context
+  const now = new Date();
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const currentMonth = monthNames[now.getMonth()];
+  const season = now.getMonth() <= 1 || now.getMonth() === 11 ? 'winter' : now.getMonth() <= 4 ? 'spring' : now.getMonth() <= 7 ? 'summer' : 'fall';
+
+  prompt += `
+
+CONTENT FRESHNESS:
+- Current month: ${currentMonth} ${now.getFullYear()}
+- Current season: ${season}
+- Where natural, reference the time of year (e.g., "with ${season} coming up..." or "as we head into ${currentMonth}...")
+- Include at least one reference to current trends or recent developments
+- If discussing prices, use current-year ranges
 
 `;
 

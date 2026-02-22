@@ -504,6 +504,24 @@ export function scoreContent(content, targetKeyword, title) {
     issues.push('No internal links found. Add 2-5 for SEO.');
   }
 
+  // GEO/LLM optimization check
+  const hasDefinitionalSentence = /\b(?:is a|are a|refers to|means|defined as)\b/i.test(plainText);
+  const hasAttribution = /\b(?:based on|according to|after testing|after comparing)\b/i.test(plainText);
+  const hasSpecificData = /\b\d+°F|\$\d+|\d+\s*(?:inches|mm|cm|grams|mg|hours|minutes)\b/i.test(plainText);
+
+  if (!hasDefinitionalSentence) {
+    score -= 3;
+    issues.push('No definitional sentences found. Add "[Term] is a..." for LLM citation.');
+  }
+  if (!hasAttribution) {
+    score -= 3;
+    issues.push('No attribution phrases. Add "based on our testing..." for LLM citation hooks.');
+  }
+  if (!hasSpecificData) {
+    score -= 3;
+    issues.push('No specific data points. Include temperatures, prices, or measurements for LLM search.');
+  }
+
   return {
     score: Math.max(0, score),
     grade: score >= 80 ? 'A' : score >= 60 ? 'B' : score >= 40 ? 'C' : 'D',

@@ -1,13 +1,15 @@
 /**
- * Shopify Auto-Blogger with AI Images
+ * Unified Shopify Auto-Blogger
  *
- * Main orchestrator that coordinates:
- * 1. Scraping existing blogs and competitor sites
- * 2. Generating new content with OpenAI GPT-5.2
- * 3. Creating images with Gemini Nano Banana Pro 3.0
- * 4. Publishing to Shopify
+ * Single entry point that handles all strategies:
+ * - gsc-analyze:    GSC trend analysis + link optimization (no new blog)
+ * - gsc-informed:   Blog generation with topic picked from GSC data
+ * - category-rotate: Blog generation cycling through content categories
+ * - strategic:      Pillar/cluster content, gap fills, strike-distance targeting
+ * - full-pipeline:  GSC analysis + link optimization + new blog
+ * - auto:           Determine best strategy from context
  *
- * Supports multiple blogs per run and different content modes.
+ * Consolidates the old auto-blogger.yml and search-console-checker.yml into one.
  */
 
 import config from './config.js';
@@ -37,148 +39,382 @@ import {
   testConnection,
   getOrCreateBlog,
   createArticle,
+  updateArticle,
   getArticles,
   uploadImageToFiles,
   markdownToHtml,
   getProductsByVendor
 } from './publishers/shopifyPublisher.js';
 import { getCachedOrFetch, getCacheStatus } from './utils/researchCache.js';
-import { scoreContent, generateImageFilename } from './utils/seoOptimizer.js';
+import {
+  scoreContent,
+  generateImageFilename,
+  generateAllStructuredData
+} from './utils/seoOptimizer.js';
 
-/**
- * Main execution function
- */
+// Search Console imports (optional - only used when GSC credentials available)
+let gscAvailable = false;
+let fetchComparisonData, testGSCConnection, querySearchAnalyticsByQuery;
+let analyzeTrends, identifyBlogTargets, identifyBlogsForOptimization, printTrendReport, extractHandle;
+let optimizeBlogLinks;
+let generateTargetedTopic, buildTargetLinkingInstructions, isProductBlogDue, recordProductBlogWritten;
+
+try {
+  const gscClient = await import('./searchConsole/searchConsoleClient.js');
+  fetchComparisonData = gscClient.fetchComparisonData;
+  testGSCConnection = gscClient.testConnection;
+  querySearchAnalyticsByQuery = gscClient.querySearchAnalyticsByQuery;
+
+  const trendModule = await import('./searchConsole/trendAnalyzer.js');
+  analyzeTrends = trendModule.analyzeTrends;
+  identifyBlogTargets = trendModule.identifyBlogTargets;
+  identifyBlogsForOptimization = trendModule.identifyBlogsForOptimization;
+  printTrendReport = trendModule.printTrendReport;
+  extractHandle = trendModule.extractHandle;
+
+  const optimizerModule = await import('./searchConsole/blogOptimizer.js');
+  optimizeBlogLinks = optimizerModule.optimizeBlogLinks;
+
+  const writerModule = await import('./searchConsole/productBlogWriter.js');
+  generateTargetedTopic = writerModule.generateTargetedTopic;
+  buildTargetLinkingInstructions = writerModule.buildTargetLinkingInstructions;
+  isProductBlogDue = writerModule.isProductBlogDue;
+  recordProductBlogWritten = writerModule.recordProductBlogWritten;
+
+  gscAvailable = !!process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+} catch (e) {
+  console.log('Search Console modules not available:', e.message);
+}
+
+// ============================================================
+// MAIN ENTRY POINT
+// ============================================================
+
 async function main() {
   console.log('='.repeat(60));
-  console.log('SHOPIFY AUTO-BLOGGER WITH AI IMAGES');
+  console.log('UNIFIED AUTO-BLOGGER');
   console.log('='.repeat(60));
   console.log(`Started at: ${new Date().toISOString()}`);
+
+  const strategy = config.runStrategy;
+  console.log(`Strategy: ${strategy}`);
+  console.log(`GSC available: ${gscAvailable}`);
+  console.log(`Mode: ${config.blog.mode}`);
+  console.log(`Category: ${config.blog.contentCategory}`);
+  console.log(`Format: ${config.blog.contentFormat}`);
+  console.log(`Blogs per run: ${config.blog.blogsPerRun}`);
+  console.log(`Dry run: ${config.blog.dryRun}`);
   console.log('');
 
-  // Show configuration
-  console.log('Configuration:');
-  console.log(`  - Blogs per run: ${config.blog.blogsPerRun}`);
-  console.log(`  - Mode: ${config.blog.mode}`);
-  console.log(`  - Content category: ${config.blog.contentCategory}`);
-  console.log(`  - Dry run: ${config.blog.dryRun}`);
-  console.log(`  - Custom topic: ${process.env.CUSTOM_TOPIC || 'None'}`);
-  console.log('');
-
-  // Validate required environment variables
   if (!validateEnvironment()) {
     process.exit(1);
   }
 
-  const results = [];
-  let researchData = null;
-
   try {
-    // Step 1: Test Shopify connection (skip if dry run)
-    if (!config.blog.dryRun) {
-      console.log('\n--- STEP 1: Testing Shopify Connection ---');
-      const connectionTest = await testConnection();
-      if (!connectionTest.success) {
-        throw new Error(`Shopify connection failed: ${connectionTest.error}`);
-      }
-      console.log('Shopify connection: OK');
-    } else {
-      console.log('\n--- STEP 1: Skipping Shopify Connection (Dry Run) ---');
+    let result;
+
+    switch (strategy) {
+      case 'gsc-analyze':
+        result = await runGSCAnalysis();
+        break;
+
+      case 'gsc-informed':
+        result = await runGSCInformedBlog();
+        break;
+
+      case 'category-rotate':
+        result = await runCategoryRotation();
+        break;
+
+      case 'strategic':
+        result = await runStrategicBlog();
+        break;
+
+      case 'full-pipeline':
+        result = await runFullPipeline();
+        break;
+
+      case 'auto':
+      default:
+        result = await runAuto();
+        break;
     }
 
-    // Step 2: Research phase (do once for all blogs)
-    console.log('\n--- STEP 2: Research Phase ---');
-    researchData = await doResearch();
-
-    // Step 3: Generate content plans
-    console.log('\n--- STEP 3: Planning Content ---');
-    const contentPlans = await planMultipleBlogs(researchData, config.blog.blogsPerRun);
-    console.log(`Planned ${contentPlans.length} blog(s) to create`);
-
-    // Track topics used in this run to prevent duplicates
-    const topicsUsedThisRun = [];
-
-    // Step 4: Generate and publish each blog
-    for (let i = 0; i < contentPlans.length; i++) {
-      const plan = contentPlans[i];
-      console.log(`\n${'='.repeat(60)}`);
-      console.log(`BLOG ${i + 1}/${contentPlans.length}: ${plan.topic}`);
-      console.log(`Mode: ${plan.action} | Reason: ${plan.reason}`);
-      console.log('='.repeat(60));
-
-      try {
-        // Pass topics used this run to the blog generator
-        const result = await generateAndPublishBlog(plan, researchData, topicsUsedThisRun);
-        results.push(result);
-
-        // If successful, track this topic to prevent duplicates
-        if (result.success && result.title) {
-          topicsUsedThisRun.push({
-            title: result.title,
-            topic: plan.topic,
-            publishedAt: new Date().toISOString()
-          });
-          console.log(`Tracking topic "${result.title}" to prevent duplicates`);
-        }
-
-        console.log(`Blog ${i + 1} completed: ${result.success ? 'SUCCESS' : 'FAILED'}`);
-      } catch (blogError) {
-        console.error(`Blog ${i + 1} failed:`, blogError.message);
-        results.push({ success: false, error: blogError.message, plan });
-      }
-
-      // Delay between blogs to avoid rate limits
-      if (i < contentPlans.length - 1) {
-        console.log('\nWaiting 10 seconds before next blog...');
-        await new Promise(resolve => setTimeout(resolve, 10000));
-      }
-    }
-
-    // Summary
-    printSummary(results);
-
-    const allSuccessful = results.every(r => r.success);
-    return { success: allSuccessful, results };
+    console.log(`\nCompleted at: ${new Date().toISOString()}`);
+    return result;
 
   } catch (error) {
     console.error('\n' + '='.repeat(60));
-    console.error('ERROR: Auto-blogger failed');
+    console.error('ERROR: Unified auto-blogger failed');
     console.error('='.repeat(60));
     console.error(error.message);
     console.error(error.stack);
-
     return { success: false, error: error.message };
   }
 }
 
-/**
- * Validate required environment variables
- */
-function validateEnvironment() {
-  const required = [
-    { key: 'SHOPIFY_ADMIN_API_TOKEN', value: config.shopify.adminApiToken },
-    { key: 'SHOPIFY_STORE_DOMAIN', value: config.shopify.storeDomain },
-    { key: 'OPENAI_API_KEY', value: config.openai.apiKey },
-    { key: 'GEMINI_API_KEY', value: config.gemini.apiKey }
-  ];
+// ============================================================
+// STRATEGY: GSC Analysis Only
+// ============================================================
 
-  const missing = required.filter(r => !r.value);
+async function runGSCAnalysis() {
+  console.log('\n--- STRATEGY: GSC Analysis + Link Optimization ---');
 
-  if (missing.length > 0) {
-    console.error('Missing required environment variables:');
-    missing.forEach(m => console.error(`  - ${m.key}`));
-    return false;
+  if (!gscAvailable) {
+    console.log('GSC not configured - skipping analysis');
+    return { success: true, strategy: 'gsc-analyze', skipped: true };
   }
 
-  console.log('Environment validation: OK');
-  return true;
+  const results = { gscConnected: false, trendsAnalyzed: false, blogsOptimized: 0, errors: [] };
+
+  // Test connections
+  const gscResult = await testGSCConnection();
+  if (!gscResult.success) {
+    throw new Error(`GSC connection failed: ${gscResult.error}`);
+  }
+  results.gscConnected = true;
+
+  if (!config.blog.dryRun) {
+    const shopifyResult = await testConnection();
+    if (!shopifyResult.success) {
+      throw new Error(`Shopify connection failed: ${shopifyResult.error}`);
+    }
+  }
+
+  // Fetch and analyze trends
+  console.log('\nFetching Search Console data...');
+  const comparisonData = await fetchComparisonData(7);
+  const trends = analyzeTrends(comparisonData);
+  results.trendsAnalyzed = true;
+  printTrendReport(trends);
+
+  // Gather blog context
+  const existingBlogs = await getCachedOrFetch('existingBlogs', async () => {
+    return await scrapeAllBlogs(15);
+  });
+  const existingArticlesList = existingBlogs?.blogs || [];
+
+  // Optimize hyperlinks in trending blog pages
+  console.log('\n--- Optimizing Trending Blog Hyperlinks ---');
+  const blogsToOptimize = identifyBlogsForOptimization(trends, 5);
+  console.log(`Found ${blogsToOptimize.length} trending blogs to optimize`);
+
+  if (blogsToOptimize.length > 0) {
+    const trendingProductPages = [...trends.trendingProducts, ...trends.trendingCollections];
+
+    for (const blogPage of blogsToOptimize) {
+      try {
+        const handle = extractHandle(blogPage.page);
+        console.log(`\nOptimizing: ${handle} (${blogPage.reason})`);
+
+        const article = await fetchArticleByHandle(handle);
+        if (!article) {
+          console.log(`  Could not find article for handle: ${handle}`);
+          continue;
+        }
+
+        const optimResult = await optimizeBlogLinks(
+          article, trendingProductPages, existingArticlesList, { dryRun: config.blog.dryRun }
+        );
+
+        if (optimResult.optimized && optimResult.updatedContent && !config.blog.dryRun) {
+          await updateArticle(article.id, { body: optimResult.updatedContent });
+          console.log(`  Updated article in Shopify: ${article.title}`);
+          results.blogsOptimized++;
+        } else if (optimResult.optimized && config.blog.dryRun) {
+          console.log(`  [DRY RUN] Would update: ${article.title}`);
+          results.blogsOptimized++;
+        }
+
+        await new Promise(r => setTimeout(r, 2000));
+      } catch (error) {
+        console.error(`  Error optimizing blog: ${error.message}`);
+        results.errors.push(error.message);
+      }
+    }
+  }
+
+  printGSCSummary(results);
+  return { success: true, strategy: 'gsc-analyze', results };
 }
 
-/**
- * Do research phase - scrape blogs and competitors
- * Uses caching to reduce API calls and web scraping
- */
+// ============================================================
+// STRATEGY: GSC-Informed Blog Generation
+// ============================================================
+
+async function runGSCInformedBlog() {
+  console.log('\n--- STRATEGY: GSC-Informed Blog Generation ---');
+
+  // Do standard research
+  const researchData = await doResearch();
+  let gscTopicData = null;
+
+  // If GSC is available, find the highest-opportunity topic
+  if (gscAvailable) {
+    try {
+      gscTopicData = await findGSCOpportunityTopic(researchData);
+    } catch (e) {
+      console.log(`GSC topic selection failed: ${e.message} - falling back to standard`);
+    }
+  }
+
+  // Build content plans
+  let contentPlans;
+  if (gscTopicData) {
+    contentPlans = [{
+      action: 'new',
+      topic: gscTopicData.topic,
+      reason: `GSC opportunity: ${gscTopicData.reason}`,
+      targetKeywords: gscTopicData.targetKeywords,
+      gscData: gscTopicData
+    }];
+  } else {
+    contentPlans = await planMultipleBlogs(researchData, config.blog.blogsPerRun);
+  }
+
+  return await executeContentPlans(contentPlans, researchData);
+}
+
+// ============================================================
+// STRATEGY: Category Rotation
+// ============================================================
+
+async function runCategoryRotation() {
+  console.log('\n--- STRATEGY: Category Rotation ---');
+
+  const researchData = await doResearch();
+
+  // Determine which category to use
+  let category = config.blog.contentCategory;
+  if (category === 'auto') {
+    category = getNextCategory();
+    console.log(`Rotated to category: ${category}`);
+  }
+
+  // Pick a random format for variety
+  const format = config.blog.contentFormat === 'auto' ? pickWeightedFormat() : config.blog.contentFormat;
+  console.log(`Content format: ${format}`);
+
+  const categoryConfig = config.contentCategories[category];
+  if (!categoryConfig) {
+    console.log(`Unknown category "${category}", falling back to auto`);
+    const contentPlans = await planMultipleBlogs(researchData, config.blog.blogsPerRun);
+    return await executeContentPlans(contentPlans, researchData);
+  }
+
+  // Build plans from the selected category
+  const contentPlans = await planCategoryBlogs(researchData, category, format, config.blog.blogsPerRun);
+  return await executeContentPlans(contentPlans, researchData);
+}
+
+// ============================================================
+// STRATEGY: Strategic (Pillar/Cluster, Gap Fill, Strike Distance)
+// ============================================================
+
+async function runStrategicBlog() {
+  console.log('\n--- STRATEGY: Strategic Blog ---');
+
+  const researchData = await doResearch();
+  let contentPlans = [];
+
+  // Priority 1: Check for missing pillar/cluster content
+  const clusterPlan = findMissingClusterContent(researchData);
+  if (clusterPlan) {
+    console.log(`Found missing cluster content: ${clusterPlan.topic}`);
+    contentPlans.push(clusterPlan);
+  }
+
+  // Priority 2: GSC strike-distance keywords
+  if (contentPlans.length === 0 && gscAvailable) {
+    try {
+      const strikePlan = await findStrikeDistanceOpportunity(researchData);
+      if (strikePlan) {
+        console.log(`Found strike-distance opportunity: ${strikePlan.topic}`);
+        contentPlans.push(strikePlan);
+      }
+    } catch (e) {
+      console.log(`Strike-distance check failed: ${e.message}`);
+    }
+  }
+
+  // Priority 3: Content gaps from competitor analysis
+  if (contentPlans.length === 0) {
+    const gapPlan = findContentGap(researchData);
+    if (gapPlan) {
+      console.log(`Found content gap: ${gapPlan.topic}`);
+      contentPlans.push(gapPlan);
+    }
+  }
+
+  // Priority 4: GSC product blog (weekly)
+  if (contentPlans.length === 0 && gscAvailable) {
+    try {
+      const productBlogPlan = await findProductBlogOpportunity(researchData);
+      if (productBlogPlan) {
+        console.log(`Product blog opportunity: ${productBlogPlan.topic}`);
+        contentPlans.push(productBlogPlan);
+      }
+    } catch (e) {
+      console.log(`Product blog check failed: ${e.message}`);
+    }
+  }
+
+  // Fallback: standard auto planning
+  if (contentPlans.length === 0) {
+    console.log('No strategic opportunities found, falling back to auto');
+    contentPlans = await planMultipleBlogs(researchData, config.blog.blogsPerRun);
+  }
+
+  return await executeContentPlans(contentPlans, researchData);
+}
+
+// ============================================================
+// STRATEGY: Full Pipeline (GSC + Blog)
+// ============================================================
+
+async function runFullPipeline() {
+  console.log('\n--- STRATEGY: Full Pipeline ---');
+
+  // Run GSC analysis first
+  if (gscAvailable) {
+    await runGSCAnalysis();
+  }
+
+  // Then generate a GSC-informed blog
+  return await runGSCInformedBlog();
+}
+
+// ============================================================
+// STRATEGY: Auto (determine from context)
+// ============================================================
+
+async function runAuto() {
+  console.log('\n--- STRATEGY: Auto ---');
+
+  // If custom topic provided, just write it
+  if (process.env.CUSTOM_TOPIC) {
+    const researchData = await doResearch();
+    const contentPlans = [{
+      action: 'new',
+      topic: process.env.CUSTOM_TOPIC,
+      reason: 'Custom topic specified'
+    }];
+    return await executeContentPlans(contentPlans, researchData);
+  }
+
+  // Otherwise use the standard blog generation with all intelligence
+  const researchData = await doResearch();
+  const contentPlans = await planMultipleBlogs(researchData, config.blog.blogsPerRun);
+  return await executeContentPlans(contentPlans, researchData);
+}
+
+// ============================================================
+// RESEARCH PHASE
+// ============================================================
+
 async function doResearch() {
-  // Show cache status
+  console.log('\n--- Research Phase ---');
+
   const cacheStatus = getCacheStatus();
   if (Object.keys(cacheStatus).length > 0) {
     console.log('Cache status:', Object.entries(cacheStatus)
@@ -200,7 +436,7 @@ async function doResearch() {
   });
   console.log(`Analyzed ${competitorData.length} competitor sites`);
 
-  // Extract trending topics from competitor data (cached for 12 hours)
+  // Extract trending topics (cached for 12 hours)
   const trendingTopics = await getCachedOrFetch('trendingTopics', async () => {
     return extractTrendingTopics(competitorData);
   });
@@ -218,7 +454,7 @@ async function doResearch() {
   });
   console.log(`Generated ${contentIdeas.length} content ideas`);
 
-  // Fetch vendor products if using "what_you_need" category (not cached - products change)
+  // Fetch vendor products if using product_spotlight category
   let vendorProducts = [];
   const contentCategory = config.blog.contentCategory;
   const categoryConfig = config.contentCategories?.[contentCategory];
@@ -229,18 +465,327 @@ async function doResearch() {
     console.log(`Found ${vendorProducts.length} products from vendor`);
   }
 
+  // Fetch GSC data if available (for GSC-informed strategies)
+  let gscTrends = null;
+  if (gscAvailable) {
+    try {
+      console.log('Fetching Search Console data...');
+      const comparisonData = await fetchComparisonData(7);
+      gscTrends = analyzeTrends(comparisonData);
+      console.log(`GSC: ${gscTrends.summary.qualifiedPages} qualified pages analyzed`);
+    } catch (e) {
+      console.log(`GSC data fetch failed: ${e.message}`);
+    }
+  }
+
   return {
     existingBlogs,
     competitorData,
     trendingTopics,
     industryContext,
     contentIdeas,
-    vendorProducts
+    vendorProducts,
+    gscTrends
   };
 }
 
+// ============================================================
+// GSC OPPORTUNITY DETECTION
+// ============================================================
+
 /**
- * Plan multiple blogs based on mode, count, and content category
+ * Find the best topic opportunity from GSC data
+ * Looks for: strike-distance keywords, high impressions/low CTR, rising queries
+ */
+async function findGSCOpportunityTopic(researchData) {
+  if (!gscAvailable || !researchData.gscTrends) return null;
+
+  const trends = researchData.gscTrends;
+  const existingArticles = researchData.existingBlogs?.blogs || [];
+
+  // Strategy 1: Find trending products/collections that need blog support
+  const blogTargets = identifyBlogTargets(trends, existingArticles, 3);
+  if (blogTargets.length > 0) {
+    const target = blogTargets[0];
+    const topicData = await generateTargetedTopic(target, existingArticles);
+    return {
+      topic: topicData.topic,
+      targetKeywords: topicData.targetKeywords,
+      reason: `Trending ${target.type}: ${target.humanName} (+${(target.clicksGrowth * 100).toFixed(0)}% clicks)`,
+      gscTarget: target,
+      topicData
+    };
+  }
+
+  // Strategy 2: Find strike-distance keywords
+  const strikePlan = await findStrikeDistanceOpportunity(researchData);
+  if (strikePlan) {
+    return {
+      topic: strikePlan.topic,
+      targetKeywords: strikePlan.targetKeywords || [],
+      reason: strikePlan.reason
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Find keywords ranking in positions 5-20 with decent impressions
+ * These are "strike distance" keywords where a targeted article could push to page 1
+ */
+async function findStrikeDistanceOpportunity(researchData) {
+  if (!gscAvailable) return null;
+
+  const thresholds = config.searchConsole.strikeDistance;
+
+  try {
+    const now = new Date();
+    const endDate = new Date(now);
+    endDate.setDate(endDate.getDate() - 3);
+    const startDate = new Date(endDate);
+    startDate.setDate(startDate.getDate() - 14);
+
+    const formatDate = d => d.toISOString().split('T')[0];
+    const queryData = await querySearchAnalyticsByQuery(formatDate(startDate), formatDate(endDate));
+
+    // Filter for strike-distance keywords
+    const opportunities = queryData
+      .filter(row =>
+        row.position >= thresholds.minPosition &&
+        row.position <= thresholds.maxPosition &&
+        row.impressions >= thresholds.minImpressions &&
+        row.ctr <= thresholds.maxCtr
+      )
+      .sort((a, b) => b.impressions - a.impressions);
+
+    if (opportunities.length === 0) return null;
+
+    // Find an opportunity that doesn't already have dedicated blog coverage
+    const existingTitles = (researchData.existingBlogs?.blogs || [])
+      .map(b => (b.title || '').toLowerCase());
+
+    for (const opp of opportunities.slice(0, 10)) {
+      const queryWords = opp.query.toLowerCase().split(/\s+/);
+      const hasExistingCoverage = existingTitles.some(title =>
+        queryWords.every(w => w.length > 3 ? title.includes(w) : true)
+      );
+
+      if (!hasExistingCoverage) {
+        return {
+          action: 'new',
+          topic: buildTopicFromQuery(opp.query),
+          targetKeywords: [opp.query, ...queryWords.filter(w => w.length > 3)],
+          reason: `Strike-distance keyword: "${opp.query}" (pos ${opp.position.toFixed(1)}, ${opp.impressions} impressions)`,
+          format: 'standard'
+        };
+      }
+    }
+  } catch (e) {
+    console.log(`Strike-distance search failed: ${e.message}`);
+  }
+
+  return null;
+}
+
+/**
+ * Convert a search query into a blog topic
+ */
+function buildTopicFromQuery(query) {
+  const q = query.trim().toLowerCase();
+
+  // If already a question, capitalize and return
+  if (q.startsWith('how') || q.startsWith('what') || q.startsWith('why') || q.startsWith('where') || q.startsWith('when')) {
+    return q.replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  // If it contains "best", make it a guide
+  if (q.includes('best')) {
+    return q.replace(/\b\w/g, c => c.toUpperCase()) + ': Top Picks and Guide';
+  }
+
+  // If it contains "vs", make it a comparison
+  if (q.includes(' vs ') || q.includes(' versus ')) {
+    return q.replace(/\b\w/g, c => c.toUpperCase()) + ': Which is Better';
+  }
+
+  // Default: make it a guide
+  return `Guide to ${q.replace(/\b\w/g, c => c.toUpperCase())}`;
+}
+
+// ============================================================
+// PILLAR/CLUSTER CONTENT PLANNING
+// ============================================================
+
+/**
+ * Find missing pillar or cluster articles and generate a plan
+ */
+function findMissingClusterContent(researchData) {
+  const existingTitles = (researchData.existingBlogs?.blogs || [])
+    .map(b => (b.title || '').toLowerCase());
+
+  const clusters = config.seo.topicClusters;
+
+  for (const [clusterId, cluster] of Object.entries(clusters)) {
+    // Check if pillar exists
+    const pillarExists = existingTitles.some(t =>
+      similarityScore(t, cluster.pillar.toLowerCase()) > 0.5
+    );
+
+    if (!pillarExists) {
+      return {
+        action: 'new',
+        topic: cluster.pillar,
+        reason: `Missing pillar content for "${clusterId}" cluster`,
+        format: 'deep_dive',
+        targetKeywords: cluster.keywords,
+        clusterInfo: { clusterId, type: 'pillar', relatedArticles: cluster.clusters }
+      };
+    }
+
+    // Check for missing cluster articles
+    for (const clusterArticle of cluster.clusters) {
+      const clusterExists = existingTitles.some(t =>
+        similarityScore(t, clusterArticle.toLowerCase()) > 0.4
+      );
+
+      if (!clusterExists) {
+        return {
+          action: 'new',
+          topic: clusterArticle,
+          reason: `Missing cluster article for "${clusterId}" pillar`,
+          format: 'standard',
+          targetKeywords: cluster.keywords,
+          clusterInfo: { clusterId, type: 'cluster', pillar: cluster.pillar }
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Simple word-overlap similarity score between two strings
+ */
+function similarityScore(a, b) {
+  const wordsA = new Set(a.split(/\s+/).filter(w => w.length > 3));
+  const wordsB = new Set(b.split(/\s+/).filter(w => w.length > 3));
+  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+
+  let overlap = 0;
+  for (const word of wordsA) {
+    if (wordsB.has(word)) overlap++;
+  }
+  return overlap / Math.max(wordsA.size, wordsB.size);
+}
+
+/**
+ * Find content gaps from competitor analysis
+ */
+function findContentGap(researchData) {
+  const contentGaps = researchData.existingBlogs?.analysis?.contentGaps || [];
+  const existingTitles = (researchData.existingBlogs?.blogs || [])
+    .map(b => (b.title || '').toLowerCase());
+
+  for (const gap of contentGaps) {
+    if (!existingTitles.some(t => t.includes(gap.toLowerCase().substring(0, 15)))) {
+      return {
+        action: 'new',
+        topic: gap,
+        reason: 'Content gap vs competitors',
+        format: 'standard'
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Check if a product-targeted blog is due from GSC trends
+ */
+async function findProductBlogOpportunity(researchData) {
+  if (!gscAvailable || !researchData.gscTrends) return null;
+
+  const productBlogDue = await isProductBlogDue();
+  if (!productBlogDue && !config.searchConsole.forceProductBlog) return null;
+
+  const existingArticles = researchData.existingBlogs?.blogs || [];
+  const blogTargets = identifyBlogTargets(researchData.gscTrends, existingArticles, 1);
+
+  if (blogTargets.length === 0) return null;
+
+  const target = blogTargets[0];
+  const topicData = await generateTargetedTopic(target, existingArticles);
+
+  return {
+    action: 'new',
+    topic: topicData.topic,
+    reason: `Weekly product blog: ${target.humanName}`,
+    targetKeywords: topicData.targetKeywords,
+    gscTarget: target,
+    topicData,
+    isProductBlog: true
+  };
+}
+
+// ============================================================
+// CONTENT PLANNING
+// ============================================================
+
+/**
+ * Plan blogs from a specific category with format
+ */
+async function planCategoryBlogs(researchData, category, format, count) {
+  const categoryConfig = config.contentCategories[category];
+  if (!categoryConfig) return [];
+
+  const existingTitles = (researchData.existingBlogs?.blogs || [])
+    .map(b => (b.title || '').toLowerCase());
+
+  let topicPool = [...(categoryConfig.topicPool || [])];
+
+  // For product_spotlight, add vendor product topics
+  if (category === 'product_spotlight' && researchData.vendorProducts?.length > 0) {
+    const productTopics = generateProductTopics(researchData.vendorProducts);
+    topicPool = [...productTopics, ...topicPool];
+  }
+
+  // Filter out topics similar to existing content
+  topicPool = topicPool.filter(topic => {
+    const topicLower = topic.toLowerCase();
+    return !existingTitles.some(existing =>
+      existing.includes(topicLower.substring(0, 20)) ||
+      topicLower.includes(existing.substring(0, 20))
+    );
+  });
+
+  // Shuffle for variety
+  topicPool = shuffleArray(topicPool);
+
+  const plans = [];
+  const usedTopics = new Set();
+
+  for (let i = 0; i < count && i < topicPool.length; i++) {
+    const topic = topicPool[i];
+    if (!usedTopics.has(topic.toLowerCase())) {
+      plans.push({
+        action: 'new',
+        topic,
+        reason: `Category: ${categoryConfig.name}`,
+        category,
+        format
+      });
+      usedTopics.add(topic.toLowerCase());
+    }
+  }
+
+  return plans;
+}
+
+/**
+ * Plan multiple blogs based on mode and priorities
  */
 async function planMultipleBlogs(researchData, count) {
   const { existingBlogs, contentIdeas, trendingTopics, vendorProducts } = researchData;
@@ -248,7 +793,6 @@ async function planMultipleBlogs(researchData, count) {
   const contentCategory = config.blog.contentCategory;
   const customTopic = process.env.CUSTOM_TOPIC;
 
-  // If custom topic provided, just use that
   if (customTopic) {
     return [{
       action: 'new',
@@ -259,8 +803,6 @@ async function planMultipleBlogs(researchData, count) {
 
   const plans = [];
   const usedTopics = new Set();
-
-  // Get outdated posts
   const outdatedPosts = existingBlogs.analysis.outdatedPosts || [];
   const contentGaps = existingBlogs.analysis.contentGaps || [];
 
@@ -269,21 +811,15 @@ async function planMultipleBlogs(researchData, count) {
 
   if (categoryConfig) {
     console.log(`Using content category: ${categoryConfig.name}`);
-
-    // Get existing blog titles to avoid duplicates
     const existingTitles = (existingBlogs.blogs || []).map(b => b.title?.toLowerCase() || '');
 
-    // Build topic pool based on category
     let topicPool = [...(categoryConfig.topicPool || [])];
 
-    // For "what_you_need" category, also add product-based topics
-    if (contentCategory === 'what_you_need' && vendorProducts && vendorProducts.length > 0) {
+    if (contentCategory === 'product_spotlight' && vendorProducts && vendorProducts.length > 0) {
       const productTopics = generateProductTopics(vendorProducts);
       topicPool = [...productTopics, ...topicPool];
-      console.log(`Added ${productTopics.length} product-based topics`);
     }
 
-    // Filter out topics that are too similar to existing blogs
     topicPool = topicPool.filter(topic => {
       const topicLower = topic.toLowerCase();
       return !existingTitles.some(existing =>
@@ -292,10 +828,8 @@ async function planMultipleBlogs(researchData, count) {
       );
     });
 
-    // Shuffle the topic pool for variety
     topicPool = shuffleArray(topicPool);
 
-    // Generate plans from category topic pool
     for (let i = 0; i < count && i < topicPool.length; i++) {
       const topic = topicPool[i];
       if (!usedTopics.has(topic.toLowerCase())) {
@@ -309,7 +843,6 @@ async function planMultipleBlogs(researchData, count) {
       }
     }
 
-    // If we still need more plans, fall back to generic selection
     if (plans.length < count) {
       console.log(`Need ${count - plans.length} more topics, falling back to generic selection`);
     }
@@ -323,11 +856,9 @@ async function planMultipleBlogs(researchData, count) {
       case 'update':
         plan = getUpdatePlan(outdatedPosts, existingBlogs.blogs, usedTopics);
         break;
-
       case 'new':
         plan = getNewPlan(contentIdeas, contentGaps, trendingTopics, usedTopics);
         break;
-
       case 'mixed':
         if (i % 2 === 0 && outdatedPosts.length > 0) {
           plan = getUpdatePlan(outdatedPosts, existingBlogs.blogs, usedTopics);
@@ -335,10 +866,9 @@ async function planMultipleBlogs(researchData, count) {
           plan = getNewPlan(contentIdeas, contentGaps, trendingTopics, usedTopics);
         }
         break;
-
       case 'auto':
       default:
-        plan = getAutoPlan(outdatedPosts, existingBlogs.blogs, contentIdeas, contentGaps, trendingTopics, usedTopics);
+        plan = getAutoPlan(outdatedPosts, existingBlogs.blogs, contentIdeas, contentGaps, trendingTopics, usedTopics, researchData);
         break;
     }
 
@@ -348,10 +878,8 @@ async function planMultipleBlogs(researchData, count) {
     }
   }
 
-  // If no plans generated, add default based on category
   if (plans.length === 0) {
-    const defaultTopic = categoryConfig?.topicPool?.[0] ||
-      'The Ultimate Guide to Choosing Your First Dab Pad';
+    const defaultTopic = categoryConfig?.topicPool?.[0] || 'The Ultimate Guide to Choosing Your First Dab Pad';
     plans.push({
       action: 'new',
       topic: defaultTopic,
@@ -362,49 +890,6 @@ async function planMultipleBlogs(researchData, count) {
   return plans;
 }
 
-/**
- * Generate article topics based on vendor products
- */
-function generateProductTopics(products) {
-  const topics = [];
-
-  for (const product of products) {
-    const title = product.title || '';
-    const type = product.productType || '';
-    const tags = product.tags || [];
-
-    // Generate various topic angles for each product
-    if (title) {
-      topics.push(`${title}: Complete Review and Guide`);
-      topics.push(`Is the ${title} Worth It? Honest Review`);
-    }
-
-    // Group products by type for comparison articles
-    if (type) {
-      topics.push(`Best ${type} for Beginners in ${new Date().getFullYear()}`);
-      topics.push(`How to Choose the Right ${type}`);
-    }
-  }
-
-  // Remove duplicates and limit
-  return [...new Set(topics)].slice(0, 15);
-}
-
-/**
- * Shuffle array using Fisher-Yates algorithm
- */
-function shuffleArray(array) {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
-
-/**
- * Get a plan for updating an existing post
- */
 function getUpdatePlan(outdatedPosts, allBlogs, usedTopics) {
   for (const post of outdatedPosts) {
     if (!usedTopics.has(post.title?.toLowerCase())) {
@@ -419,55 +904,56 @@ function getUpdatePlan(outdatedPosts, allBlogs, usedTopics) {
   return null;
 }
 
-/**
- * Get a plan for creating new content
- */
 function getNewPlan(contentIdeas, contentGaps, trendingTopics, usedTopics) {
-  // Try content gaps first
   for (const gap of contentGaps) {
     if (!usedTopics.has(gap.toLowerCase())) {
-      return {
-        action: 'new',
-        topic: gap,
-        reason: 'Filling content gap'
-      };
+      return { action: 'new', topic: gap, reason: 'Filling content gap' };
     }
   }
 
-  // Try generated ideas
   for (const idea of contentIdeas) {
     const topic = idea.title || idea.topic;
     if (topic && !usedTopics.has(topic.toLowerCase())) {
-      return {
-        action: 'new',
-        topic,
-        reason: `Content idea: ${idea.type || 'general'}`
-      };
+      return { action: 'new', topic, reason: `Content idea: ${idea.type || 'general'}` };
     }
   }
 
-  // Try trending topics
   for (const trend of trendingTopics.trendingTopics || []) {
     if (!usedTopics.has(trend.topic?.toLowerCase())) {
-      return {
-        action: 'new',
-        topic: `Guide to ${trend.topic}`,
-        reason: 'Trending topic'
-      };
+      return { action: 'new', topic: `Guide to ${trend.topic}`, reason: 'Trending topic' };
     }
   }
 
   return null;
 }
 
-/**
- * Get auto-planned content based on priorities
- */
-function getAutoPlan(outdatedPosts, allBlogs, contentIdeas, contentGaps, trendingTopics, usedTopics) {
+function getAutoPlan(outdatedPosts, allBlogs, contentIdeas, contentGaps, trendingTopics, usedTopics, researchData) {
   const priorities = config.blog.priorities;
-
-  // Build weighted options
   const options = [];
+
+  // GSC opportunities (highest priority if available)
+  if (researchData?.gscTrends && identifyBlogTargets) {
+    const existingArticles = researchData.existingBlogs?.blogs || [];
+    const blogTargets = identifyBlogTargets(researchData.gscTrends, existingArticles, 1);
+    if (blogTargets.length > 0) {
+      const target = blogTargets[0];
+      options.push({
+        weight: priorities.gscOpportunities,
+        plan: {
+          action: 'new',
+          topic: `Guide to ${target.humanName}`,
+          reason: `GSC: trending ${target.type} (${target.recentClicks} clicks)`,
+          gscTarget: target
+        }
+      });
+    }
+  }
+
+  // Missing pillar/cluster content
+  const clusterPlan = findMissingClusterContent(researchData || {});
+  if (clusterPlan) {
+    options.push({ weight: priorities.pillarCluster, plan: clusterPlan });
+  }
 
   // Outdated posts
   if (outdatedPosts.length > 0) {
@@ -488,80 +974,121 @@ function getAutoPlan(outdatedPosts, allBlogs, contentIdeas, contentGaps, trendin
   // Content gaps
   const gap = contentGaps.find(g => !usedTopics.has(g.toLowerCase()));
   if (gap) {
-    options.push({
-      weight: priorities.fillContentGaps,
-      plan: {
-        action: 'new',
-        topic: gap,
-        reason: 'Filling content gap'
-      }
-    });
+    options.push({ weight: priorities.fillContentGaps, plan: { action: 'new', topic: gap, reason: 'Filling content gap' } });
   }
 
   // Trending topics
   const trend = (trendingTopics.trendingTopics || []).find(t => !usedTopics.has(t.topic?.toLowerCase()));
   if (trend) {
-    options.push({
-      weight: priorities.trendingTopics,
-      plan: {
-        action: 'new',
-        topic: `Guide to ${trend.topic}`,
-        reason: 'Trending topic'
-      }
-    });
+    options.push({ weight: priorities.trendingTopics, plan: { action: 'new', topic: `Guide to ${trend.topic}`, reason: 'Trending topic' } });
   }
 
   // Fresh content ideas
   const idea = contentIdeas.find(i => !usedTopics.has((i.title || i.topic)?.toLowerCase()));
   if (idea) {
-    options.push({
-      weight: priorities.freshContent,
-      plan: {
-        action: 'new',
-        topic: idea.title || idea.topic,
-        reason: `Fresh content: ${idea.type || 'general'}`
-      }
-    });
+    options.push({ weight: priorities.freshContent, plan: { action: 'new', topic: idea.title || idea.topic, reason: `Fresh content: ${idea.type || 'general'}` } });
   }
 
-  // Sort by weight (highest first) and return top
   options.sort((a, b) => b.weight - a.weight);
   return options[0]?.plan || null;
 }
 
+// ============================================================
+// CONTENT EXECUTION
+// ============================================================
+
+/**
+ * Execute a list of content plans (generate + publish)
+ */
+async function executeContentPlans(contentPlans, researchData) {
+  if (!config.blog.dryRun) {
+    console.log('\n--- Testing Shopify Connection ---');
+    const connectionTest = await testConnection();
+    if (!connectionTest.success) {
+      throw new Error(`Shopify connection failed: ${connectionTest.error}`);
+    }
+    console.log('Shopify connection: OK');
+  }
+
+  console.log(`\nExecuting ${contentPlans.length} content plan(s)`);
+
+  const results = [];
+  const topicsUsedThisRun = [];
+
+  for (let i = 0; i < contentPlans.length; i++) {
+    const plan = contentPlans[i];
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`BLOG ${i + 1}/${contentPlans.length}: ${plan.topic}`);
+    console.log(`Mode: ${plan.action} | Reason: ${plan.reason}`);
+    if (plan.format) console.log(`Format: ${plan.format}`);
+    console.log('='.repeat(60));
+
+    try {
+      const result = await generateAndPublishBlog(plan, researchData, topicsUsedThisRun);
+      results.push(result);
+
+      if (result.success && result.title) {
+        topicsUsedThisRun.push({
+          title: result.title,
+          topic: plan.topic,
+          publishedAt: new Date().toISOString()
+        });
+      }
+
+      // Record product blog if applicable
+      if (result.success && plan.isProductBlog && recordProductBlogWritten) {
+        await recordProductBlogWritten({
+          topic: result.title,
+          targetPage: plan.gscTarget?.page,
+          publishedAt: new Date().toISOString()
+        });
+      }
+
+      console.log(`Blog ${i + 1} completed: ${result.success ? 'SUCCESS' : 'FAILED'}`);
+    } catch (blogError) {
+      console.error(`Blog ${i + 1} failed:`, blogError.message);
+      results.push({ success: false, error: blogError.message, plan });
+    }
+
+    if (i < contentPlans.length - 1) {
+      console.log('\nWaiting 10 seconds before next blog...');
+      await new Promise(resolve => setTimeout(resolve, 10000));
+    }
+  }
+
+  printSummary(results);
+
+  const allSuccessful = results.every(r => r.success);
+  return { success: allSuccessful, results };
+}
+
 /**
  * Generate and publish a single blog
- * @param {Object} plan - The content plan
- * @param {Object} researchData - Research data from earlier phases
- * @param {Array} topicsUsedThisRun - Topics already used in this run (to prevent duplicates)
  */
 async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []) {
   const { trendingTopics, industryContext, existingBlogs, contentIdeas } = researchData;
 
-  // STEP 1: Check if topic was recently covered (skip for updates)
+  // STEP 1: Check topic uniqueness
   let finalTopic = plan.topic;
   if (plan.action !== 'update') {
     console.log('\n--- Checking Topic Uniqueness ---');
-
-    // Combine existing articles with topics used in this run
     const existingArticles = existingBlogs?.blogs || [];
-    const allRecentArticles = [
-      ...existingArticles,
-      ...topicsUsedThisRun  // Add topics from this run
-    ];
-
-    console.log(`Checking against ${existingArticles.length} existing + ${topicsUsedThisRun.length} from this run`);
+    const allRecentArticles = [...existingArticles, ...topicsUsedThisRun];
 
     const topicCheck = await getUniqueTopic(plan.topic, allRecentArticles, contentIdeas);
-
     if (topicCheck.wasChanged) {
       console.log(`Topic changed: "${plan.topic}" -> "${topicCheck.topic}"`);
-      console.log(`Reason: ${topicCheck.reason}`);
       finalTopic = topicCheck.topic;
     } else {
       console.log(`Topic "${finalTopic}" is unique - proceeding`);
     }
   }
+
+  // Determine content format
+  const format = plan.format || config.blog.contentFormat;
+  const resolvedFormat = format === 'auto' ? pickWeightedFormat() : format;
+  const formatConfig = config.contentFormats[resolvedFormat] || config.contentFormats.standard;
+  console.log(`Content format: ${formatConfig.name}`);
 
   // STEP 2: Generate content
   console.log('\n--- Generating Blog Content ---');
@@ -572,9 +1099,11 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
   } else {
     generatedPost = await generateBlogPost({
       topic: finalTopic,
-      targetKeywords: getKeywordsForTopic(finalTopic),
+      targetKeywords: plan.targetKeywords || getKeywordsForTopic(finalTopic),
       competitorInsights: trendingTopics.allTitles,
-      industryContext
+      industryContext,
+      contentFormat: formatConfig,
+      clusterInfo: plan.clusterInfo || null
     });
   }
 
@@ -582,99 +1111,96 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
   console.log(`Word count: ${generatedPost.wordCount}`);
   console.log(`Author style: ${generatedPost.authorStyle}`);
 
-  // STEP 3: Generate images (skip in dry-run mode to save API costs)
+  // STEP 3: Generate images
   console.log('\n--- Generating Images ---');
   let images = [];
+
   if (config.blog.dryRun) {
-    console.log('[DRY RUN] Skipping image generation to save API costs');
-    // Create placeholder entries so content flow works
-    if (generatedPost.imageMarkers && generatedPost.imageMarkers.length > 0) {
+    console.log('[DRY RUN] Skipping image generation');
+    if (generatedPost.imageMarkers?.length > 0) {
       images = generatedPost.imageMarkers.map(marker => ({
-        success: false,
-        description: marker.description,
-        skipped: true,
-        reason: 'dry-run'
+        success: false, description: marker.description, skipped: true, reason: 'dry-run'
       }));
-      console.log(`Would have generated ${images.length} images`);
     }
-  } else if (generatedPost.imageMarkers && generatedPost.imageMarkers.length > 0) {
+  } else if (generatedPost.imageMarkers?.length > 0) {
     images = await generateBlogImages(generatedPost.imageMarkers, generatedPost.title);
     const successfulImages = images.filter(i => i.success);
     console.log(`Generated ${successfulImages.length}/${images.length} images`);
-
-    successfulImages.forEach((img, idx) => {
-      console.log(`  Image ${idx + 1}: ${img.imageData ? `${Math.round(img.imageData.length / 1024)}KB` : 'NO DATA'} - ${img.model || 'unknown model'}`);
-    });
   } else {
-    console.log('No image markers found in content');
+    console.log('No image markers found');
   }
 
-  // STEP 4: Prepare content - upload inline images to Shopify Files and embed by URL
+  // STEP 4: Prepare content with images
   let finalContent = await prepareContentWithImages(generatedPost, images, generatedPost.title);
 
-  // STEP 5: AI Content Review - Fix formatting issues before publishing
+  // STEP 5: AI Content Review
   console.log('\n--- AI Content Review ---');
   finalContent = await reviewAndFixContent(finalContent, generatedPost.title);
 
-  // STEP 6: Content Quality Gate
+  // STEP 6: Quality Gate
   console.log('\n--- Content Quality Check ---');
-  const qualityScore = scoreContent(finalContent, getKeywordsForTopic(finalTopic)[0], generatedPost.title);
-  console.log(`Quality score: ${qualityScore.score}/100 (Grade: ${qualityScore.grade})`);
-  console.log(`  Words: ${qualityScore.wordCount} | Headings: ${qualityScore.headings} | Question H2s: ${qualityScore.questionHeadings}`);
+  const primaryKeyword = (plan.targetKeywords || getKeywordsForTopic(finalTopic))[0];
+  const qualityScore = scoreContent(finalContent, primaryKeyword, generatedPost.title);
+  console.log(`Quality: ${qualityScore.score}/100 (${qualityScore.grade})`);
   if (qualityScore.issues.length > 0) {
     console.log(`  Issues: ${qualityScore.issues.join('; ')}`);
   }
-  if (!qualityScore.passesQualityGate) {
-    console.warn('WARNING: Content below quality threshold (50). Publishing anyway but flagging for review.');
-  }
 
-  // STEP 7: Inject SEO Hyperlinks (including blog-to-blog links)
+  // STEP 7: Inject SEO Hyperlinks
   console.log('\n--- Injecting SEO Hyperlinks ---');
   const existingArticlesList = existingBlogs?.blogs || [];
   finalContent = injectHyperlinks(finalContent, generatedPost.title, existingArticlesList);
-
-  // Clean up orphaned bold text (bold phrases that should be links or plain text)
   finalContent = cleanOrphanedBoldText(finalContent);
 
-  const linkStats = getLinkStats(finalContent);
-  console.log(`Link stats: ${linkStats.internalLinks} internal, ${linkStats.externalLinks} external (${linkStats.internalLinkDensity} per 1K words)`);
+  // If this is a cluster article, add links back to the pillar
+  if (plan.clusterInfo?.type === 'cluster' && plan.clusterInfo.pillar) {
+    finalContent = addClusterPillarLink(finalContent, plan.clusterInfo.pillar, existingArticlesList);
+  }
 
-  // Publish (unless dry run)
+  const linkStats = getLinkStats(finalContent);
+  console.log(`Links: ${linkStats.internalLinks} internal, ${linkStats.externalLinks} external`);
+
+  // STEP 8: Inject structured data (JSON-LD)
+  console.log('\n--- Injecting Structured Data ---');
+  const authorName = getRandomPseudonym();
+  const structuredData = generateAllStructuredData({
+    title: generatedPost.title,
+    metaDescription: generatedPost.metaDescription,
+    author: authorName,
+    wordCount: generatedPost.wordCount,
+    keywords: plan.targetKeywords || getKeywordsForTopic(finalTopic),
+    images: images.filter(i => i.success)
+  }, finalContent);
+
+  if (structuredData) {
+    finalContent = structuredData + '\n' + finalContent;
+    console.log('Structured data injected (Article, Breadcrumb, FAQ, HowTo schemas)');
+  }
+
+  // STEP 9: Add "Related Reading" section
+  finalContent = addRelatedReadingSection(finalContent, generatedPost.title, existingArticlesList);
+
+  // Publish
   if (config.blog.dryRun) {
-    console.log('\n[DRY RUN] Skipping publish. Would have published:');
+    console.log('\n[DRY RUN] Would publish:');
     console.log(`  Title: ${generatedPost.title}`);
     console.log(`  Words: ${generatedPost.wordCount}`);
     console.log(`  Quality: ${qualityScore.grade} (${qualityScore.score}/100)`);
-    console.log(`  Images: ${images.filter(i => i.success).length}`);
-
-    return {
-      success: true,
-      dryRun: true,
-      title: generatedPost.title,
-      wordCount: generatedPost.wordCount,
-      qualityScore: qualityScore.score,
-      images: images.filter(i => i.success).length
-    };
+    console.log(`  Format: ${formatConfig.name}`);
+    return { success: true, dryRun: true, title: generatedPost.title, wordCount: generatedPost.wordCount, qualityScore: qualityScore.score };
   }
 
-  // STEP 8: Publish to Shopify
+  // STEP 10: Publish to Shopify
   console.log('\n--- Publishing to Shopify ---');
   const blog = await getOrCreateBlog('News');
-
-  // Get featured image data (first successful image)
   const featuredImage = images.find(img => img.success && img.imageData);
-
-  // Get a random author pseudonym with bio for E-E-A-T
-  const authorName = getRandomPseudonym();
-  const authorBio = getAuthorBio(authorName);
-  console.log(`Author byline: ${authorName}`);
 
   const publishedArticle = await createArticle(blog.id, {
     title: generatedPost.title,
     body: finalContent,
     metaDescription: generatedPost.metaDescription,
     author: authorName,
-    tags: getTagsForTopic(finalTopic),
+    tags: getTagsForTopic(finalTopic, plan.category),
     published: true,
     imageData: featuredImage?.imageData || null,
     imageAlt: featuredImage?.altText || generatedPost.title
@@ -688,100 +1214,220 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
     title: generatedPost.title,
     wordCount: generatedPost.wordCount,
     qualityScore: qualityScore.score,
-    images: images.filter(i => i.success).length
+    images: images.filter(i => i.success).length,
+    format: formatConfig.name
   };
 }
 
+// ============================================================
+// HELPERS
+// ============================================================
+
+function validateEnvironment() {
+  const required = [
+    { key: 'SHOPIFY_ADMIN_API_TOKEN', value: config.shopify.adminApiToken },
+    { key: 'SHOPIFY_STORE_DOMAIN', value: config.shopify.storeDomain },
+    { key: 'OPENAI_API_KEY', value: config.openai.apiKey }
+  ];
+
+  const missing = required.filter(r => !r.value);
+  if (missing.length > 0) {
+    console.error('Missing required environment variables:');
+    missing.forEach(m => console.error(`  - ${m.key}`));
+    return false;
+  }
+
+  if (!config.gemini.apiKey) {
+    console.warn('GEMINI_API_KEY not set - images will be skipped');
+  }
+
+  console.log('Environment validation: OK');
+  return true;
+}
+
+function generateProductTopics(products) {
+  const topics = [];
+  for (const product of products) {
+    const title = product.title || '';
+    const type = product.productType || '';
+    if (title) {
+      topics.push(`${title}: Complete Review and Guide`);
+      topics.push(`Is the ${title} Worth It? Honest Review`);
+    }
+    if (type) {
+      topics.push(`Best ${type} for Beginners in ${new Date().getFullYear()}`);
+      topics.push(`How to Choose the Right ${type}`);
+    }
+  }
+  return [...new Set(topics)].slice(0, 15);
+}
+
+function shuffleArray(array) {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
 /**
- * Get relevant keywords for a topic
+ * Get the next content category in the rotation
  */
+function getNextCategory() {
+  const order = config.categoryRotation.order;
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+  return order[dayOfYear % order.length];
+}
+
+/**
+ * Pick a content format based on weighted distribution
+ */
+function pickWeightedFormat() {
+  const weights = config.formatRotation.weights;
+  const entries = Object.entries(weights);
+  const totalWeight = entries.reduce((sum, [, w]) => sum + w, 0);
+
+  let random = Math.random() * totalWeight;
+  for (const [format, weight] of entries) {
+    random -= weight;
+    if (random <= 0) return format;
+  }
+
+  return 'standard';
+}
+
 function getKeywordsForTopic(topic) {
   const topicLower = topic.toLowerCase();
   const keywords = [...config.seo.focusKeywords];
 
-  if (topicLower.includes('guide') || topicLower.includes('how')) {
-    keywords.unshift('dabbing guide', 'how to dab');
-  }
-  if (topicLower.includes('clean')) {
-    keywords.unshift('clean dab tools', 'dab maintenance');
-  }
-  if (topicLower.includes('temperature') || topicLower.includes('temp')) {
-    keywords.unshift('dab temperature', 'low temp dabs');
-  }
-  if (topicLower.includes('beginner')) {
-    keywords.unshift('beginner dabbing', 'first dab rig');
-  }
+  if (topicLower.includes('guide') || topicLower.includes('how')) keywords.unshift('dabbing guide', 'how to dab');
+  if (topicLower.includes('clean')) keywords.unshift('clean dab tools', 'dab maintenance');
+  if (topicLower.includes('temperature') || topicLower.includes('temp')) keywords.unshift('dab temperature', 'low temp dabs');
+  if (topicLower.includes('beginner')) keywords.unshift('beginner dabbing', 'first dab rig');
+  if (topicLower.includes('storage') || topicLower.includes('store')) keywords.unshift('concentrate storage', 'wax storage');
+  if (topicLower.includes('terpene') || topicLower.includes('terp')) keywords.unshift('terpene preservation', 'terpenes');
+  if (topicLower.includes('rig') || topicLower.includes('bong')) keywords.unshift('dab rig', 'glass rig');
+  if (topicLower.includes('banger') || topicLower.includes('quartz')) keywords.unshift('quartz banger', 'banger');
 
   return keywords.slice(0, 10);
 }
 
-/**
- * Get tags for a topic
- */
-function getTagsForTopic(topic) {
-  const baseTags = ['dabbing', 'cannabis accessories', 'dab pads'];
+function getTagsForTopic(topic, category) {
+  const baseTags = ['dabbing', 'cannabis accessories'];
   const topicLower = topic.toLowerCase();
 
-  if (topicLower.includes('guide')) baseTags.push('guide', 'how-to');
-  if (topicLower.includes('review')) baseTags.push('review', 'product review');
-  if (topicLower.includes('clean')) baseTags.push('maintenance', 'cleaning');
-  if (topicLower.includes('silicone')) baseTags.push('silicone', 'dab mat');
-  if (topicLower.includes('beginner')) baseTags.push('beginners', 'getting started');
+  if (topicLower.includes('guide')) baseTags.push('guide');
+  if (topicLower.includes('review')) baseTags.push('review');
+  if (topicLower.includes('clean')) baseTags.push('maintenance');
+  if (topicLower.includes('silicone') || topicLower.includes('pad')) baseTags.push('dab pads');
+  if (topicLower.includes('beginner')) baseTags.push('beginners');
+  if (topicLower.includes('vs') || topicLower.includes('comparison')) baseTags.push('comparison');
+  if (topicLower.includes('rig') || topicLower.includes('bong')) baseTags.push('dab rigs');
+  if (topicLower.includes('storage') || topicLower.includes('container')) baseTags.push('storage');
+  if (topicLower.includes('terpene')) baseTags.push('terpenes');
+  if (topicLower.includes('myth') || topicLower.includes('truth')) baseTags.push('myth busting');
+
+  if (category) {
+    const catConfig = config.contentCategories[category];
+    if (catConfig) baseTags.push(catConfig.name.toLowerCase());
+  }
 
   return [...new Set(baseTags)].slice(0, 8);
 }
 
 /**
- * Prepare content - upload images, embed URLs, then convert markdown to HTML
- * First image is also used as featured image (uploaded via REST API)
+ * Add a "Related Reading" section at the end of article content
  */
-async function prepareContentWithImages(post, images, title) {
-  // Start with raw markdown body
-  let content = post.body;
+function addRelatedReadingSection(content, currentTitle, existingArticles) {
+  if (!existingArticles || existingArticles.length === 0) return content;
 
-  // Get successful images
+  const titleWords = currentTitle.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+  const related = [];
+
+  for (const article of existingArticles) {
+    if ((article.title || '').toLowerCase() === currentTitle.toLowerCase()) continue;
+    if (!article.url && !article.handle) continue;
+
+    const articleTitleLower = (article.title || '').toLowerCase();
+    const overlap = titleWords.filter(w => articleTitleLower.includes(w)).length;
+
+    if (overlap >= 1) {
+      const url = article.url || `https://oilslickpad.com/blogs/news/${article.handle}`;
+      related.push({ title: article.title, url, overlap });
+    }
+  }
+
+  related.sort((a, b) => b.overlap - a.overlap);
+  const topRelated = related.slice(0, 3);
+
+  if (topRelated.length < 2) return content;
+
+  const relatedHtml = `
+<div style="margin-top: 2em; padding: 1.5em; background: #f8f8f8; border-radius: 12px;">
+<h3 style="margin-top: 0; font-size: 1.1em;">Related Reading</h3>
+<ul style="list-style: none; padding: 0; margin: 0;">
+${topRelated.map(r => `<li style="margin-bottom: 0.5em;"><a href="${r.url}">${r.title}</a></li>`).join('\n')}
+</ul>
+</div>`;
+
+  return content + relatedHtml;
+}
+
+/**
+ * Add a link from cluster article back to its pillar article
+ */
+function addClusterPillarLink(content, pillarTitle, existingArticles) {
+  const pillar = existingArticles.find(a =>
+    similarityScore((a.title || '').toLowerCase(), pillarTitle.toLowerCase()) > 0.4
+  );
+
+  if (!pillar) return content;
+
+  const pillarUrl = pillar.url || `https://oilslickpad.com/blogs/news/${pillar.handle}`;
+
+  const firstH2 = content.indexOf('<h2');
+  if (firstH2 > 0) {
+    const pillarCallout = `<p style="font-size: 0.95em; color: #555; margin-bottom: 1em;"><em>This article is part of our comprehensive <a href="${pillarUrl}">${pillarTitle}</a>.</em></p>\n`;
+    content = content.substring(0, firstH2) + pillarCallout + content.substring(firstH2);
+  }
+
+  return content;
+}
+
+async function prepareContentWithImages(post, images, title) {
+  let content = post.body;
   const successfulImages = images.filter(img => img.success && img.imageData);
 
-  // Upload images to Shopify Files and get URLs
   console.log('Uploading inline images to Shopify Files...');
   const uploadedImages = [];
 
   for (let i = 0; i < successfulImages.length; i++) {
     const img = successfulImages[i];
-    // Use SEO-friendly descriptive filename instead of timestamp
     const filename = generateImageFilename(img.description || title, i);
 
     try {
       const uploaded = await uploadImageToFiles(img.imageData, filename, img.altText || img.description);
-      if (uploaded && uploaded.url) {
+      if (uploaded?.url) {
         uploadedImages.push({
           url: uploaded.url,
           altText: img.altText || img.description || `${title} image ${i + 1}`
         });
         console.log(`  Image ${i + 1}: Uploaded to ${uploaded.url.substring(0, 50)}...`);
-      } else {
-        console.log(`  Image ${i + 1}: Upload failed, skipping`);
       }
     } catch (err) {
       console.log(`  Image ${i + 1}: Error - ${err.message}`);
     }
 
-    // Small delay between uploads
     if (i < successfulImages.length - 1) {
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
 
-  // Replace each [IMAGE: ...] marker with actual image HTML using URLs
   let imageIndex = 0;
-  content = content.replace(/\[IMAGE:[^\]]+\]/g, (match) => {
+  content = content.replace(/\[IMAGE:[^\]]+\]/g, () => {
     if (imageIndex < uploadedImages.length) {
-      const img = uploadedImages[imageIndex];
-      imageIndex++;
-
-      // Create responsive image HTML with typography rules
-      // Images: border-radius 12px, margin-top 1.2em, margin-bottom 0.6em
-      // Captions: 15px, line-height 1.5, margin-top 0.4em, margin-bottom 1.2em
+      const img = uploadedImages[imageIndex++];
       return `
 <figure style="margin: 1.2em 0 0.6em 0; text-align: center;">
   <img src="${img.url}" alt="${img.altText}" style="max-width: 100%; height: auto; border-radius: 12px;" loading="lazy">
@@ -789,23 +1435,65 @@ async function prepareContentWithImages(post, images, title) {
 </figure>
 `;
     }
-    // No more images available, remove the marker
     return '';
   });
 
-  // NOW convert markdown to HTML (images are already HTML, they'll be preserved)
-  console.log('Converting markdown to HTML...');
   content = markdownToHtml(content);
-
-  // Clean up any extra whitespace
   content = content.replace(/\n{3,}/g, '\n\n');
 
   return content;
 }
 
 /**
- * Print summary of all results
+ * Fetch a blog article by its handle/slug from Shopify
  */
+async function fetchArticleByHandle(handle) {
+  try {
+    const blog = await getOrCreateBlog('News');
+    const blogId = blog.id;
+    const articles = await getArticles(blogId, 50);
+
+    const match = articles.find(a =>
+      a.handle === handle || (a.handle || '').toLowerCase() === handle.toLowerCase()
+    );
+
+    if (!match) return null;
+
+    const { default: axios } = await import('axios');
+    const numericBlogId = blogId.toString().split('/').pop();
+    const numericArticleId = match.id.toString().split('/').pop();
+
+    const domain = config.shopify.storeDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const endpoint = `https://${domain}/admin/api/${config.shopify.apiVersion}/blogs/${numericBlogId}/articles/${numericArticleId}.json`;
+
+    const response = await axios.get(endpoint, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': config.shopify.adminApiToken
+      },
+      timeout: 15000
+    });
+
+    return response.data?.article || null;
+  } catch (error) {
+    console.error(`Error fetching article "${handle}":`, error.message);
+    return null;
+  }
+}
+
+function printGSCSummary(results) {
+  console.log('\n' + '='.repeat(60));
+  console.log('GSC ANALYSIS SUMMARY');
+  console.log('='.repeat(60));
+  console.log(`GSC Connected: ${results.gscConnected ? 'Yes' : 'No'}`);
+  console.log(`Trends Analyzed: ${results.trendsAnalyzed ? 'Yes' : 'No'}`);
+  console.log(`Blogs Optimized: ${results.blogsOptimized}`);
+  if (results.errors.length > 0) {
+    console.log(`Errors: ${results.errors.length}`);
+    results.errors.forEach(e => console.log(`  - ${e}`));
+  }
+}
+
 function printSummary(results) {
   console.log('\n' + '='.repeat(60));
   console.log('SUMMARY');
@@ -816,7 +1504,7 @@ function printSummary(results) {
 
   results.forEach((r, i) => {
     if (r.success) {
-      console.log(`  ${i + 1}. ${r.title} - ${r.wordCount} words, ${r.images} images ${r.dryRun ? '[DRY RUN]' : ''}`);
+      console.log(`  ${i + 1}. ${r.title} - ${r.wordCount} words ${r.format ? `[${r.format}]` : ''} ${r.dryRun ? '[DRY RUN]' : ''}`);
     } else {
       console.log(`  ${i + 1}. FAILED: ${r.error}`);
     }
@@ -825,16 +1513,10 @@ function printSummary(results) {
   console.log(`\nCompleted at: ${new Date().toISOString()}`);
 }
 
-// Run the main function
+// Run
 main()
   .then(result => {
-    if (result.success) {
-      console.log('\nExiting with success status.');
-      process.exit(0);
-    } else {
-      console.log('\nExiting with error status.');
-      process.exit(1);
-    }
+    process.exit(result.success ? 0 : 1);
   })
   .catch(error => {
     console.error('Unhandled error:', error);
