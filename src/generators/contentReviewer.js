@@ -5,19 +5,8 @@
  * before publishing. Acts as a final quality check.
  */
 
-import OpenAI from 'openai';
 import config from '../config.js';
-
-let openai = null;
-
-function getOpenAI() {
-  if (!openai) {
-    openai = new OpenAI({
-      apiKey: config.openai.apiKey
-    });
-  }
-  return openai;
-}
+import { createCompletion } from '../utils/aiClient.js';
 
 /**
  * Programmatic fixes for common HTML issues
@@ -123,8 +112,6 @@ export async function reviewAndFixContent(htmlContent, title) {
   let fixedHtml = programmaticFixes(htmlContent);
 
   // Then use AI for remaining issues
-  const client = getOpenAI();
-
   const prompt = `You are a content editor reviewing HTML for a Shopify blog post.
 Review this HTML and fix any issues you find. Return ONLY the corrected HTML, no explanations.
 
@@ -161,31 +148,28 @@ ${fixedHtml}
 Return the fixed HTML:`;
 
   try {
-    const response = await client.chat.completions.create({
-      model: config.openai.model,
+    const reviewedHtml = await createCompletion({
       messages: [
         { role: 'system', content: 'You are an HTML editor. Return only valid, clean HTML. No explanations.' },
         { role: 'user', content: prompt }
       ],
-      max_completion_tokens: 8192,
-      reasoning_effort: 'low'
+      maxTokens: 8192,
+      reasoningEffort: 'low'
     });
 
-    const fixedHtml = response.choices[0]?.message?.content;
-
-    if (!fixedHtml) {
+    if (!reviewedHtml) {
       console.log('AI review returned empty, using original content');
       return htmlContent;
     }
 
     // Basic validation - make sure we got HTML back
-    if (!fixedHtml.includes('<') || fixedHtml.length < 100) {
+    if (!reviewedHtml.includes('<') || reviewedHtml.length < 100) {
       console.log('AI review returned invalid content, using original');
       return htmlContent;
     }
 
     console.log('AI review complete - formatting issues fixed');
-    return fixedHtml.trim();
+    return reviewedHtml.trim();
 
   } catch (error) {
     console.error('AI review failed:', error.message);
@@ -231,8 +215,6 @@ export async function isTopicRecentlyCovered(proposedTopic, recentArticles, days
 
   console.log(`Checking if "${proposedTopic}" overlaps with ${recentTitles.length} recent articles...`);
 
-  const client = getOpenAI();
-
   const prompt = `You are a STRICT content deduplication checker. Your job is to PREVENT duplicate blog posts.
 
 PROPOSED TOPIC: "${proposedTopic}"
@@ -261,17 +243,14 @@ Respond in JSON format only:
 }`;
 
   try {
-    const response = await client.chat.completions.create({
-      model: config.openai.model,
+    const result = await createCompletion({
       messages: [
         { role: 'system', content: 'You are a content strategist. Respond only with valid JSON.' },
         { role: 'user', content: prompt }
       ],
-      max_completion_tokens: 500,
-      reasoning_effort: 'low'
+      maxTokens: 500,
+      reasoningEffort: 'low'
     });
-
-    const result = response.choices[0]?.message?.content;
 
     // Parse JSON response
     const jsonMatch = result.match(/\{[\s\S]*\}/);

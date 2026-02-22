@@ -14,19 +14,11 @@
  * product/collection pages with rising clicks, impressions, or improving position.
  */
 
-import OpenAI from 'openai';
 import config from '../config.js';
+import { createCompletion } from '../utils/aiClient.js';
 import { withRetry } from '../utils/apiRetry.js';
 import { extractHandle, extractPath } from './trendAnalyzer.js';
 import { getCachedOrFetch } from '../utils/researchCache.js';
-
-let openai = null;
-function getOpenAI() {
-  if (!openai) {
-    openai = new OpenAI({ apiKey: config.openai.apiKey });
-  }
-  return openai;
-}
 
 /**
  * Check if we should write a product blog this week
@@ -48,7 +40,6 @@ export function shouldWriteProductBlog() {
  * @returns {Object} - { topic, targetUrl, targetKeywords, angle }
  */
 export async function generateTargetedTopic(target, existingArticles = []) {
-  const client = getOpenAI();
 
   const humanName = target.humanName;
   const isCollection = target.type === 'collection';
@@ -89,20 +80,17 @@ Generate a single blog topic as JSON with this format:
 Return ONLY the JSON object, no other text.`;
 
   try {
-    const response = await withRetry(
-      () => client.chat.completions.create({
-        model: config.openai.model,
+    const text = await withRetry(
+      () => createCompletion({
         messages: [
           { role: 'system', content: 'You are a cannabis accessories content strategist. Return valid JSON only.' },
           { role: 'user', content: prompt }
         ],
-        max_completion_tokens: 500,
-        reasoning_effort: 'low'
+        maxTokens: 500,
+        reasoningEffort: 'low'
       }),
       { maxRetries: 2, operationName: 'Topic generation' }
     );
-
-    const text = response.choices[0]?.message?.content || '';
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0]);

@@ -2,17 +2,17 @@
 name: Auto-Blogger with AI Images
 
 on:
-  # ============ SCHEDULE: 5 BLOGS PER DAY ============
-  # Split into two content categories:
-  # - Dabbing & Storage: 2 articles/day (6 AM, 10 AM UTC)
-  # - What You Need products (bongs, rigs): 3 articles/day (2 PM, 6 PM, 10 PM UTC)
+  # ============ SCHEDULE: 3 BLOGS PER DAY ============
+  # Balanced strategy for quality over quantity:
+  # - 8 AM UTC:  Dabbing & Storage (guaranteed daily coverage)
+  # - 3 PM UTC:  What You Need products (peak US shopping hours)
+  # - 10 PM UTC: Auto (AI picks best-value topic from either category)
   schedule:
-    # Dabbing & Storage content - 6 AM and 10 AM UTC
-    - cron: '0 6 * * *'
-    - cron: '0 10 * * *'
-    # What You Need products - 2 PM, 6 PM, 10 PM UTC
-    - cron: '0 14 * * *'
-    - cron: '0 18 * * *'
+    # Dabbing & Storage content - 8 AM UTC
+    - cron: '0 8 * * *'
+    # What You Need products - 3 PM UTC
+    - cron: '0 15 * * *'
+    # Auto (AI picks best category) - 10 PM UTC
     - cron: '0 22 * * *'
 
   # Allow manual trigger with options
@@ -48,6 +48,14 @@ on:
           - auto
           - dabbing_storage
           - what_you_need
+      ai_model:
+        description: 'AI model for content generation'
+        required: false
+        default: 'gpt-5.2'
+        type: choice
+        options:
+          - gpt-5.2
+          - claude-sonnet
       topic:
         description: 'Specific topic to write about (optional, overrides mode)'
         required: false
@@ -105,6 +113,16 @@ jobs:
           fi
           echo "All required secrets are configured"
 
+          # Validate Anthropic key if Claude model selected
+          AI_MODEL="${{ github.event.inputs.ai_model || 'gpt-5.2' }}"
+          if [ "$AI_MODEL" = "claude-sonnet" ]; then
+            if [ -z "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+              echo "WARNING: ANTHROPIC_API_KEY not set but Claude model selected, falling back to GPT-5.2"
+            else
+              echo "Anthropic API key configured for Claude Sonnet"
+            fi
+          fi
+
       - name: Determine content category from schedule
         id: determine-category
         run: |
@@ -117,12 +135,15 @@ jobs:
             echo "category=${{ github.event.inputs.content_category }}" >> $GITHUB_OUTPUT
             echo "Using manual category: ${{ github.event.inputs.content_category }}"
           # Schedule-based category selection
-          elif [ "$HOUR" = "06" ] || [ "$HOUR" = "10" ]; then
+          elif [ "$HOUR" = "08" ]; then
             echo "category=dabbing_storage" >> $GITHUB_OUTPUT
             echo "Schedule-based category: dabbing_storage (Dabbing & Storage)"
-          elif [ "$HOUR" = "14" ] || [ "$HOUR" = "18" ] || [ "$HOUR" = "22" ]; then
+          elif [ "$HOUR" = "15" ]; then
             echo "category=what_you_need" >> $GITHUB_OUTPUT
             echo "Schedule-based category: what_you_need (Bongs, Rigs & Accessories)"
+          elif [ "$HOUR" = "22" ]; then
+            echo "category=auto" >> $GITHUB_OUTPUT
+            echo "Schedule-based category: auto (AI picks best-value topic)"
           else
             echo "category=auto" >> $GITHUB_OUTPUT
             echo "Using auto category selection"
@@ -135,12 +156,14 @@ jobs:
           SHOPIFY_STORE_DOMAIN: ${{ secrets.SHOPIFY_STORE_DOMAIN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
           # Behavior controls (from workflow inputs or defaults)
           BLOGS_PER_RUN: ${{ github.event.inputs.blogs_count || '1' }}
           BLOG_MODE: ${{ github.event.inputs.mode || 'auto' }}
           CONTENT_CATEGORY: ${{ steps.determine-category.outputs.category }}
           CUSTOM_TOPIC: ${{ github.event.inputs.topic || '' }}
+          AI_MODEL: ${{ github.event.inputs.ai_model || 'gpt-5.2' }}
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
         run: |
           echo "=========================================="
@@ -149,6 +172,7 @@ jobs:
           echo "Blogs to generate: $BLOGS_PER_RUN"
           echo "Mode: $BLOG_MODE"
           echo "Content category: $CONTENT_CATEGORY"
+          echo "AI model: $AI_MODEL"
           echo "Dry run: $DRY_RUN"
           if [ -n "$CUSTOM_TOPIC" ]; then
             echo "Custom topic: $CUSTOM_TOPIC"

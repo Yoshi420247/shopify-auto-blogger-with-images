@@ -11,6 +11,10 @@ export const config = {
     apiVersion: '2025-04'
   },
 
+  // AI Model Selection
+  // Options: 'gpt-5.2' (default, cheapest), 'claude-sonnet' (Claude Sonnet 4.6)
+  aiModel: process.env.AI_MODEL || 'gpt-5.2',
+
   // OpenAI Configuration (GPT-5.2 - current best model)
   // Note: GPT-5.2 with reasoning_effort does not support custom temperature
   openai: {
@@ -18,6 +22,13 @@ export const config = {
     model: 'gpt-5.2', // GPT-5.2 - current best model
     maxOutputTokens: 8192,
     reasoningEffort: 'medium' // Options: 'none', 'low', 'medium', 'high'
+  },
+
+  // Anthropic Configuration (Claude Sonnet 4.6 - alternative model)
+  anthropic: {
+    apiKey: process.env.ANTHROPIC_API_KEY,
+    model: 'claude-sonnet-4-6', // Claude Sonnet 4.6
+    maxOutputTokens: 8192
   },
 
   // Gemini Configuration (Nano Banana Pro 3.0 for image generation)
@@ -50,9 +61,9 @@ export const config = {
 
     // Content category - which type of content to generate
     // Options:
-    //   'dabbing_storage' - Focus on dabbing techniques and storage solutions (2 per day)
-    //   'what_you_need'   - Focus on products with vendor tag "What You Need" like bongs, rigs (3 per day)
-    //   'auto'            - Let the system decide (default)
+    //   'dabbing_storage' - Focus on dabbing techniques and storage solutions (1 per day, 8 AM UTC)
+    //   'what_you_need'   - Focus on products with vendor tag "What You Need" like bongs, rigs (1 per day, 3 PM UTC)
+    //   'auto'            - AI picks best-value topic from either category (1 per day, 10 PM UTC)
     contentCategory: process.env.CONTENT_CATEGORY || 'auto',
 
     // Update threshold - how old (in days) before a post is considered for update
@@ -72,7 +83,7 @@ export const config = {
 
   // Content categories - topic focus areas for different article types
   contentCategories: {
-    // Dabbing and storage focused content (2 articles per day)
+    // Dabbing and storage focused content (1 article per day at 8 AM UTC)
     dabbing_storage: {
       name: 'Dabbing & Storage',
       vendor: null, // No product vendor filtering
@@ -101,7 +112,7 @@ export const config = {
       keywords: ['storage', 'dabbing', 'dab pad', 'concentrate storage', 'dab mat', 'dab station', 'oil slick']
     },
 
-    // Products with vendor tag "What You Need" (3 articles per day)
+    // Products with vendor tag "What You Need" (1 article per day at 3 PM UTC)
     what_you_need: {
       name: 'Bongs, Rigs & Accessories',
       vendor: 'What You Need', // Filter products by this vendor tag
