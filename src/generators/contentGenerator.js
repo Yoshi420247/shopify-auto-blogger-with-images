@@ -301,6 +301,13 @@ FORMATTING - THIS IS CRITICAL FOR READABILITY:
 - Use numbered lists (1. 2. 3.) for step-by-step instructions
 - DO NOT use markdown tables (|---|) - they render poorly. Use structured lists instead.
 
+BOLD TEXT RULES (VERY IMPORTANT):
+- ONLY use **bold** for callout box labels: **Pro Tip:**, **Warning:**, **Note:**, **Important:**
+- ONLY use **bold** for structured comparison list headers (e.g., **Budget Option ($15-25)**)
+- NEVER bold product names, price ranges, measurements, or specs in regular paragraph text
+- Links will be added automatically to product mentions - do NOT try to emphasize them with bold
+- If you want to emphasize something in a paragraph, use *italics* instead of **bold**
+
 You are writing for real people who know their stuff. Don't talk down to them, but do explain technical concepts when needed.`;
 }
 
