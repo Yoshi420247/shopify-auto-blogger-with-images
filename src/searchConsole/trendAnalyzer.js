@@ -21,6 +21,19 @@ const PAGE_PATTERNS = {
   collection: /\/collections\//i
 };
 
+// Niche-relevant keywords for oilslickpad.com (dabbing/concentrate accessories)
+// Products/collections must match at least one keyword to be considered for blog topics
+const NICHE_KEYWORDS = [
+  'dab', 'dabbing', 'rig', 'banger', 'quartz', 'silicone', 'concentrate',
+  'wax', 'shatter', 'rosin', 'resin', 'terp', 'terpene', 'pad', 'mat',
+  'station', 'glass', 'bong', 'percolator', 'recycler', 'carb', 'cap',
+  'nail', 'enail', 'e-nail', 'torch', 'oil', 'slick', 'container',
+  'storage', 'budder', 'hash', 'extract', 'press', 'puffco', 'peak',
+  'carta', 'rig', 'pipe', 'bubbler', 'nectar', 'collector', 'straw',
+  'tool', 'scoop', 'loader', 'insert', 'pearl', 'spinner', 'iso',
+  'cleaner', 'reclaim', 'accessory', 'accessories', 'kit'
+];
+
 /**
  * Analyze two periods of GSC data and identify trends
  *
@@ -180,6 +193,15 @@ export function extractPath(url) {
 }
 
 /**
+ * Check if a page handle/name is relevant to the store's niche
+ * Returns false for off-niche products (e.g. rolling papers, filter tips, grinders)
+ */
+function isNicheRelevant(handle, humanName) {
+  const combined = `${handle} ${humanName}`.toLowerCase();
+  return NICHE_KEYWORDS.some(keyword => combined.includes(keyword));
+}
+
+/**
  * Identify which trending product/collection pages would benefit from a new blog
  * Filters to pages that don't already have recent blog coverage
  *
@@ -209,6 +231,18 @@ export function identifyBlogTargets(trends, existingBlogs = [], maxSuggestions =
 
     const handle = extractHandle(candidate.page);
     const humanName = handle.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+    // Filter: require positive growth in clicks or impressions
+    if (candidate.clicksGrowth <= 0 && candidate.impressionsGrowth <= 0) {
+      console.log(`Skipping "${humanName}" - no positive growth (clicks: ${(candidate.clicksGrowth * 100).toFixed(0)}%, impressions: ${(candidate.impressionsGrowth * 100).toFixed(0)}%)`);
+      continue;
+    }
+
+    // Filter: must be relevant to the store's niche (dabbing/concentrates)
+    if (!isNicheRelevant(handle, humanName)) {
+      console.log(`Skipping "${humanName}" - not relevant to store niche (dabbing/concentrates)`);
+      continue;
+    }
 
     // Check if there's already a recent blog about this topic
     const hasExistingCoverage = existingTitlesLower.some(title =>
