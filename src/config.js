@@ -306,7 +306,7 @@ export const config = {
     standard: {
       name: 'Standard Article',
       wordRange: [1200, 2000],
-      imagesPerPost: 2,
+      imagesPerPost: 3,
       description: 'Comprehensive article with H2/H3 structure, 5-7 sections',
       promptInstructions: `Write a comprehensive, well-structured blog post with 5-7 major sections.
 Use ## for main headings and ### for subsections. Include 2-3 callout boxes.
@@ -329,7 +329,7 @@ Target 1000-1600 words. This format is great for skimmers.`
     deep_dive: {
       name: 'Deep Dive',
       wordRange: [2000, 3000],
-      imagesPerPost: 3,
+      imagesPerPost: 4,
       description: 'Authoritative pillar content, 2500+ words',
       promptInstructions: `Write an in-depth, authoritative pillar article. This should be the definitive resource on this topic.
 Requirements:
@@ -449,16 +449,28 @@ Be bold with the corrections. Don't soften the truth.`
   // SEO settings
   seo: {
     focusKeywords: [
-      'dab pad',
-      'oil slick pad',
-      'silicone dab mat',
-      'concentrate pad',
-      'dab station',
-      'dabbing accessories',
-      'wax pad',
-      'dab tray',
-      'silicone mat dabbing',
-      'cannabis accessories'
+      // Brand/product keywords
+      'dab pad', 'oil slick pad', 'silicone dab mat', 'concentrate pad',
+      'dab station', 'dabbing accessories', 'wax pad', 'dab tray',
+      'silicone mat dabbing', 'cannabis accessories',
+      // Dabbing educational (high-volume informational)
+      'how to dab', 'dabbing guide', 'best dab temperature', 'cold start dab',
+      'low temp dab', 'how to take a dab', 'dabbing for beginners',
+      // Product category keywords
+      'dab rig', 'quartz banger', 'carb cap', 'dab tool', 'nectar collector',
+      'e-nail', 'dab torch', 'terp pearls', 'dab insert',
+      // Storage & extraction
+      'concentrate storage', 'how to store concentrates', 'glass jars for wax',
+      'PTFE sheets', 'FEP sheets', 'parchment paper rosin', 'rosin press',
+      // Cleaning & maintenance
+      'how to clean dab rig', 'how to clean quartz banger', 'isopropyl cleaning',
+      'reclaim dab', 'dab rig maintenance',
+      // Comparisons (high intent)
+      'dab rig vs bong', 'quartz vs titanium nail', 'silicone vs glass dab pad',
+      'e-nail vs torch', 'live rosin vs live resin',
+      // Culture & trends
+      '710 meaning', 'solventless concentrates', 'hash rosin',
+      'cannabis concentrate types', 'shatter vs wax vs budder'
     ],
     targetAudience: 'cannabis enthusiasts, dabbing community, concentrate users',
 
