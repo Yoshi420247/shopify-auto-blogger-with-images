@@ -19,21 +19,19 @@ function programmaticFixes(html) {
   fixed = fixed.replace(/<p[^>]*>\s*<\/p>/g, '');
 
   // ============ FIX BROKEN IMAGE ARTIFACTS ============
-  // IMPORTANT: Only remove BROKEN fragments, NOT valid <img> tags
+  // IMPORTANT: Only remove BROKEN fragments, NOT valid <img> or <figure> tags.
+  // Valid image tags look like: <img src="https://cdn.shopify.com/...image.png" alt="..." ...>
+  // Broken fragments look like: png" alt="something" loading="lazy"> (no <img or src= prefix)
 
-  // Remove fragments like: 1);" loading="lazy"> (broken CSS values)
-  fixed = fixed.replace(/\d+\);\s*"\s*loading="lazy"\s*>/gi, '');
-  fixed = fixed.replace(/[0-9.]+\);\s*"\s*>/gi, '');
+  // Remove fragments like: 1);" loading="lazy"> (broken CSS values with no tag context)
+  fixed = fixed.replace(/(?<!<img[^>]*)\d+\);\s*"\s*loading="lazy"\s*>/gi, '');
+  fixed = fixed.replace(/(?<!<img[^>]*)[0-9.]+\);\s*"\s*>/gi, '');
 
-  // Remove fragments that START with a file extension (broken img tag where src got stripped)
-  // Only match if NOT preceded by a quote (which would indicate a valid src="...png")
-  fixed = fixed.replace(/(?<!")(?:png|jpg|jpeg|gif|webp|svg)"\s*alt="[^"]*"[^>]*>/gi, '');
-
-  // Remove lines that are ONLY broken image attributes (no actual content)
-  // These start the line with alt=" which is never valid
+  // Remove orphaned image attribute fragments that appear at the START of a line
+  // (these are broken remnants, not inside a valid tag)
   fixed = fixed.replace(/^\s*alt="[^"]*"[^>]*>\s*$/gm, '');
 
-  // Remove leftover [IMAGE: ...] markers
+  // Remove leftover [IMAGE: ...] markers (these should have been replaced with real images)
   fixed = fixed.replace(/\[IMAGE:[^\]]*\]/g, '');
 
   // ============ FIX BROKEN TABLE ARTIFACTS ============
@@ -134,8 +132,9 @@ SPECIFIC PATTERNS TO REMOVE:
 - Any "<img" tags that don't have proper src attributes
 
 IMPORTANT:
+- NEVER remove or modify <figure>, <img>, or <figcaption> tags that have valid src= attributes
+- NEVER remove [IMAGE: ...] markers - these are placeholders for images added later
 - Keep all properly formatted HTML elements with their inline styles
-- Keep all properly formed <figure> and <img> tags
 - Keep all <table> elements that are properly formatted
 - Don't change the content meaning
 - Return clean, valid HTML only

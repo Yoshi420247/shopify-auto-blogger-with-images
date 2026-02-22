@@ -1152,12 +1152,16 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
   // Determine primary keyword early (needed for image alt text and quality scoring)
   const primaryKeyword = (plan.targetKeywords || getKeywordsForTopic(finalTopic))[0];
 
-  // STEP 4: Prepare content with images (passes primaryKeyword for alt text SEO)
-  let finalContent = await prepareContentWithImages(generatedPost, images, generatedPost.title, primaryKeyword);
+  // STEP 4: Upload images and convert markdown to HTML (keeps [IMAGE:] markers intact)
+  const { html: htmlContent, uploadedImages } = await uploadImagesAndConvertHtml(generatedPost, images, generatedPost.title, primaryKeyword);
 
-  // STEP 5: AI Content Review
+  // STEP 5: AI Content Review (safe - no <img> tags to break, only [IMAGE:] markers)
   console.log('\n--- AI Content Review ---');
-  finalContent = await reviewAndFixContent(finalContent, generatedPost.title);
+  let finalContent = await reviewAndFixContent(htmlContent, generatedPost.title);
+
+  // STEP 5b: NOW insert actual images (after review can't touch them)
+  finalContent = insertImagesIntoContent(finalContent, uploadedImages);
+  console.log(`Inserted ${uploadedImages.length} inline image(s) into content`);
 
   // STEP 6: Quality Gate
   console.log('\n--- Content Quality Check ---');
@@ -1564,7 +1568,12 @@ ${clusterLinks.map(l => `<li><a href="${l.url}" style="color: #2563eb; text-deco
   return content;
 }
 
-async function prepareContentWithImages(post, images, title, primaryKeyword = '') {
+/**
+ * Phase 1: Upload images to Shopify and convert markdown to HTML.
+ * Preserves [IMAGE:] markers so content review doesn't break <img> tags.
+ * Returns { html, uploadedImages } for Phase 2.
+ */
+async function uploadImagesAndConvertHtml(post, images, title, primaryKeyword = '') {
   let content = post.body;
   const successfulImages = images.filter(img => img.success && img.imageData);
 
@@ -1579,7 +1588,6 @@ async function prepareContentWithImages(post, images, title, primaryKeyword = ''
       // Build SEO-optimized alt text: include primary keyword if not already present
       let altText = img.altText || img.description || `${title} image ${i + 1}`;
       if (primaryKeyword && !altText.toLowerCase().includes(primaryKeyword.toLowerCase())) {
-        // Prepend keyword context naturally (keep under 125 chars)
         const keywordPrefix = primaryKeyword.charAt(0).toUpperCase() + primaryKeyword.slice(1);
         altText = `${keywordPrefix} - ${altText}`;
         if (altText.length > 125) {
@@ -1603,24 +1611,26 @@ async function prepareContentWithImages(post, images, title, primaryKeyword = ''
     }
   }
 
-  let imageIndex = 0;
-  content = content.replace(/\[IMAGE:[^\]]+\]/g, () => {
-    if (imageIndex < uploadedImages.length) {
-      const img = uploadedImages[imageIndex++];
-      return `
-<figure style="margin: 1.2em 0 0.6em 0; text-align: center;">
-  <img src="${img.url}" alt="${img.altText}" style="max-width: 100%; height: auto; border-radius: 12px;" loading="lazy">
-  <figcaption style="font-size: 15px; line-height: 1.5; font-weight: 400; color: #666; margin-top: 0.4em; margin-bottom: 1.2em; font-style: italic;">${img.altText}</figcaption>
-</figure>
-`;
-    }
-    return '';
-  });
-
+  // Convert markdown to HTML but keep [IMAGE:] markers intact
   content = markdownToHtml(content);
   content = content.replace(/\n{3,}/g, '\n\n');
 
-  return content;
+  return { html: content, uploadedImages };
+}
+
+/**
+ * Phase 2: Replace [IMAGE:] markers with actual <figure><img> HTML.
+ * Called AFTER content review so the reviewer can't break <img> tags.
+ */
+function insertImagesIntoContent(htmlContent, uploadedImages) {
+  let imageIndex = 0;
+  return htmlContent.replace(/\[IMAGE:[^\]]*\]/g, () => {
+    if (imageIndex < uploadedImages.length) {
+      const img = uploadedImages[imageIndex++];
+      return `<figure style="margin: 1.2em 0 0.6em 0; text-align: center;"><img src="${img.url}" alt="${img.altText}" style="max-width: 100%; height: auto; border-radius: 12px;" loading="lazy"><figcaption style="font-size: 15px; line-height: 1.5; font-weight: 400; color: #666; margin-top: 0.4em; margin-bottom: 1.2em; font-style: italic;">${img.altText}</figcaption></figure>`;
+    }
+    return '';
+  });
 }
 
 /**

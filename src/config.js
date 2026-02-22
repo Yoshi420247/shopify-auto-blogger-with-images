@@ -12,8 +12,8 @@ export const config = {
   },
 
   // AI Model Selection
-  // Options: 'gpt-5.2' (default, cheapest), 'claude-sonnet' (Claude Sonnet 4.6)
-  aiModel: process.env.AI_MODEL || 'gpt-5.2',
+  // Options: 'claude-sonnet' (default, Claude Sonnet 4.6), 'gpt-5.2' (OpenAI GPT-5.2)
+  aiModel: process.env.AI_MODEL || 'claude-sonnet',
 
   // OpenAI Configuration (GPT-5.2 - current best model)
   // Note: GPT-5.2 with reasoning_effort does not support custom temperature
