@@ -11,15 +11,11 @@
  * maximize the value of incoming organic traffic.
  */
 
-import OpenAI from 'openai';
 import config from '../config.js';
-import { withRetry } from '../utils/apiRetry.js';
-import {
-  PRIORITY_COLLECTIONS,
-  SECONDARY_COLLECTIONS,
-  getLinkStats
-} from '../utils/hyperlinkInjector.js';
+import hyperlinkInjectorDefaults, { getLinkStats } from '../utils/hyperlinkInjector.js';
 import { extractHandle } from './trendAnalyzer.js';
+
+const { PRIORITY_COLLECTIONS, SECONDARY_COLLECTIONS } = hyperlinkInjectorDefaults;
 
 const BASE_URL = 'https://oilslickpad.com';
 
