@@ -1180,6 +1180,11 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
     finalContent = addClusterPillarLink(finalContent, plan.clusterInfo.pillar, existingArticlesList);
   }
 
+  // If this is a pillar article, add links DOWN to existing cluster articles
+  if (plan.clusterInfo?.type === 'pillar' || !plan.clusterInfo) {
+    finalContent = addPillarToClusterLinks(finalContent, generatedPost.title, existingArticlesList);
+  }
+
   const linkStats = getLinkStats(finalContent);
   console.log(`Links: ${linkStats.internalLinks} internal, ${linkStats.externalLinks} external`);
 
@@ -1421,32 +1426,55 @@ function getTagsForTopic(topic, category) {
 function addRelatedReadingSection(content, currentTitle, existingArticles) {
   if (!existingArticles || existingArticles.length === 0) return content;
 
-  const titleWords = currentTitle.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+  // Use meaningful words (4+ chars, excluding stop words)
+  const stopWords = ['the', 'and', 'for', 'your', 'that', 'this', 'with', 'from', 'best', 'guide', 'complete', 'what', 'how', 'will', 'have', 'about', 'into', 'more', 'when', 'than'];
+  const titleWords = currentTitle.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !stopWords.includes(w));
   const related = [];
+
+  // Check if current article belongs to a topic cluster
+  let currentCluster = null;
+  for (const cluster of (config.seo?.topicClusters || [])) {
+    const clusterKeywords = [cluster.pillar, ...cluster.clusterArticles].map(t => t.toLowerCase());
+    if (clusterKeywords.some(kw => currentTitle.toLowerCase().includes(kw.split(' ').slice(0, 3).join(' ')))) {
+      currentCluster = cluster;
+      break;
+    }
+  }
 
   for (const article of existingArticles) {
     if ((article.title || '').toLowerCase() === currentTitle.toLowerCase()) continue;
     if (!article.url && !article.handle) continue;
 
     const articleTitleLower = (article.title || '').toLowerCase();
+    // Require 2+ meaningful word overlap (not just 1 random match)
     const overlap = titleWords.filter(w => articleTitleLower.includes(w)).length;
 
-    if (overlap >= 1) {
+    let score = overlap;
+
+    // Boost articles in the same topic cluster
+    if (currentCluster) {
+      const clusterKeywords = [currentCluster.pillar, ...currentCluster.clusterArticles].map(t => t.toLowerCase());
+      if (clusterKeywords.some(kw => articleTitleLower.includes(kw.split(' ').slice(0, 3).join(' ')))) {
+        score += 3; // Strong boost for same-cluster articles
+      }
+    }
+
+    if (overlap >= 2 || score >= 3) {
       const url = article.url || `https://oilslickpad.com/blogs/news/${article.handle}`;
-      related.push({ title: article.title, url, overlap });
+      related.push({ title: article.title, url, score });
     }
   }
 
-  related.sort((a, b) => b.overlap - a.overlap);
+  related.sort((a, b) => b.score - a.score);
   const topRelated = related.slice(0, 3);
 
-  if (topRelated.length < 2) return content;
+  if (topRelated.length < 1) return content;
 
   const relatedHtml = `
-<div style="margin-top: 2em; padding: 1.5em; background: #f8f8f8; border-radius: 12px;">
-<h3 style="margin-top: 0; font-size: 1.1em;">Related Reading</h3>
+<div style="margin-top: 2em; padding: 1.5em; background: #f8f8f8; border-radius: 12px; text-align: left;">
+<h3 style="margin-top: 0; font-size: 1.1em; text-align: left;">Related Reading</h3>
 <ul style="list-style: none; padding: 0; margin: 0;">
-${topRelated.map(r => `<li style="margin-bottom: 0.5em;"><a href="${r.url}">${r.title}</a></li>`).join('\n')}
+${topRelated.map(r => `<li style="margin-bottom: 0.5em;"><a href="${r.url}" style="color: #2563eb; text-decoration: underline;">${r.title}</a></li>`).join('\n')}
 </ul>
 </div>`;
 
@@ -1469,6 +1497,68 @@ function addClusterPillarLink(content, pillarTitle, existingArticles) {
   if (firstH2 > 0) {
     const pillarCallout = `<p style="font-size: 0.95em; color: #555; margin-bottom: 1em;"><em>This article is part of our comprehensive <a href="${pillarUrl}">${pillarTitle}</a>.</em></p>\n`;
     content = content.substring(0, firstH2) + pillarCallout + content.substring(firstH2);
+  }
+
+  return content;
+}
+
+/**
+ * For pillar articles: add links DOWN to existing cluster articles
+ * Creates a "Topics in this guide" section before the last H2
+ */
+function addPillarToClusterLinks(content, currentTitle, existingArticles) {
+  // Find which cluster this pillar belongs to
+  let matchedCluster = null;
+  for (const cluster of (config.seo?.topicClusters || [])) {
+    if (similarityScore(currentTitle.toLowerCase(), cluster.pillar.toLowerCase()) > 0.4) {
+      matchedCluster = cluster;
+      break;
+    }
+  }
+  if (!matchedCluster) return content;
+
+  // Find existing cluster articles
+  const clusterLinks = [];
+  for (const clusterTopic of matchedCluster.clusterArticles) {
+    const match = existingArticles.find(a =>
+      similarityScore((a.title || '').toLowerCase(), clusterTopic.toLowerCase()) > 0.3
+    );
+    if (match) {
+      const url = match.url || `https://oilslickpad.com/blogs/news/${match.handle}`;
+      clusterLinks.push({ title: match.title, url });
+    }
+  }
+
+  if (clusterLinks.length === 0) return content;
+
+  console.log(`Pillar article: adding ${clusterLinks.length} cluster link(s)`);
+
+  // Build "Explore This Topic" section
+  const clusterHtml = `
+<div style="background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 12px; padding: 1.2em 1.5em; margin: 1.5em 0; text-align: left;">
+<p style="font-weight: 700; margin: 0 0 0.6em 0; font-size: 16px;">Explore This Topic</p>
+<ul style="margin: 0; padding-left: 1.2em; line-height: 1.8;">
+${clusterLinks.map(l => `<li><a href="${l.url}" style="color: #2563eb; text-decoration: underline;">${l.title}</a></li>`).join('\n')}
+</ul>
+</div>`;
+
+  // Insert before the last H2 (near end of content, before conclusion)
+  const h2Positions = [];
+  let searchIdx = 0;
+  while (true) {
+    const pos = content.indexOf('<h2', searchIdx);
+    if (pos === -1) break;
+    h2Positions.push(pos);
+    searchIdx = pos + 1;
+  }
+
+  if (h2Positions.length >= 2) {
+    // Insert before last H2
+    const insertPos = h2Positions[h2Positions.length - 1];
+    content = content.substring(0, insertPos) + clusterHtml + '\n' + content.substring(insertPos);
+  } else {
+    // Append near end
+    content = content + '\n' + clusterHtml;
   }
 
   return content;

@@ -314,7 +314,7 @@ FORMATTING - THIS IS CRITICAL FOR READABILITY:
 - ALWAYS put a blank line between paragraphs
 - ALWAYS put a blank line before and after lists
 - Use --- on its own line sparingly for major topic transitions only
-- Mark EXACTLY ${config.blog.imagesPerPost} image placements with: [IMAGE: description] spread throughout the article
+- Mark image placements with: [IMAGE: description] spread throughout the article (exact count specified below)
 - Lists should have each item on its own line starting with "- "
 - Use numbered lists (1. 2. 3.) for step-by-step instructions
 - DO NOT use markdown tables (|---|) - they render poorly. Use structured lists instead.
@@ -413,9 +413,11 @@ ${naturalTransitions.slice(0, 10).join(', ')}
 CONTENT FORMAT: ${contentFormat.name}
 ${contentFormat.promptInstructions}
 Target word count: ${wordRange[0]}-${wordRange[1]} words.
-Images to include: ${contentFormat.imagesPerPost || config.blog.imagesPerPost} [IMAGE: ...] markers.
+Images to include: EXACTLY ${contentFormat.imagesPerPost || config.blog.imagesPerPost} [IMAGE: ...] markers spread evenly throughout the article.
 
 `;
+  } else {
+    prompt += `\nImages to include: EXACTLY ${config.blog.imagesPerPost} [IMAGE: ...] markers spread evenly throughout the article.\n`;
   }
 
   // Add pillar/cluster linking instructions if this is a cluster article
@@ -470,7 +472,7 @@ CONTENT FRESHNESS:
   prompt += `
 FINAL REMINDERS:
 - Write ${config.blog.minWords}+ words
-- Include ${config.blog.imagesPerPost} [IMAGE: ...] markers where images would enhance the content
+- Include the specified number of [IMAGE: ...] markers where images would enhance the content
 - Sound like ${authorStyle.author}, not like AI
 - Make it genuinely useful and interesting
 - Include specific recommendations and opinions
