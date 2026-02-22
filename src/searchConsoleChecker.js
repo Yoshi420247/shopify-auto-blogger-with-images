@@ -45,7 +45,7 @@ import { scrapeAllBlogs } from './scrapers/blogScraper.js';
 import { generateBlogPost } from './generators/contentGenerator.js';
 import { generateBlogImages } from './generators/imageGenerator.js';
 import { reviewAndFixContent } from './generators/contentReviewer.js';
-import { injectHyperlinks, getLinkStats } from './utils/hyperlinkInjector.js';
+import { injectHyperlinks, getLinkStats, cleanOrphanedBoldText } from './utils/hyperlinkInjector.js';
 import { scoreContent, generateImageFilename } from './utils/seoOptimizer.js';
 import { getRandomPseudonym } from './utils/authorStyles.js';
 import { getCachedOrFetch } from './utils/researchCache.js';
@@ -361,6 +361,9 @@ async function writeProductTargetedBlog(target, existingArticles, dryRun) {
   // Then run the standard hyperlink injector
   finalContent = injectHyperlinks(finalContent, generatedPost.title, existingArticles);
 
+  // Clean up orphaned bold text (bold phrases that should be links or plain text)
+  finalContent = cleanOrphanedBoldText(finalContent);
+
   const linkStats = getLinkStats(finalContent);
   console.log(`Links: ${linkStats.internalLinks} internal, ${linkStats.externalLinks} external`);
 
@@ -521,19 +524,39 @@ async function prepareContent(post, images, title) {
  * Build tags for a product-targeted blog post
  */
 function buildProductBlogTags(target, topicData) {
-  const tags = ['search-console-targeted', 'seo-boost'];
+  // Use consumer-facing tags only - never expose internal SEO strategy in tags
+  const tags = ['dabbing', 'cannabis accessories'];
 
-  if (target.type === 'product') tags.push('product-spotlight');
-  if (target.type === 'collection') tags.push('collection-guide');
+  // Add product-relevant category tags based on the target
+  const name = (target.humanName || '').toLowerCase();
+  if (name.includes('dab') || name.includes('rig')) tags.push('dab rigs');
+  if (name.includes('bong') || name.includes('water pipe')) tags.push('bongs');
+  if (name.includes('pipe') || name.includes('hand pipe')) tags.push('hand pipes');
+  if (name.includes('silicone') || name.includes('pad') || name.includes('mat')) tags.push('dab pads');
+  if (name.includes('banger') || name.includes('quartz')) tags.push('quartz bangers');
+  if (name.includes('grinder')) tags.push('grinders');
+  if (name.includes('torch')) tags.push('torches');
+  if (name.includes('jar') || name.includes('container') || name.includes('storage')) tags.push('concentrate storage');
+  if (name.includes('nectar') || name.includes('straw')) tags.push('nectar collectors');
+  if (name.includes('carb cap')) tags.push('carb caps');
+  if (name.includes('tool')) tags.push('dab tools');
 
-  // Add keywords as tags
+  // Add topic-derived tags (consumer-friendly keywords only)
+  const topicLower = (topicData.topic || '').toLowerCase();
+  if (topicLower.includes('guide') || topicLower.includes('how to')) tags.push('guide');
+  if (topicLower.includes('review')) tags.push('product review');
+  if (topicLower.includes('clean')) tags.push('maintenance');
+  if (topicLower.includes('beginner')) tags.push('beginners');
+  if (topicLower.includes('compare') || topicLower.includes('vs')) tags.push('comparison');
+
+  // Add clean keyword tags (skip anything that sounds like SEO jargon)
+  const seoJargon = ['seo', 'search', 'console', 'targeted', 'boost', 'optimize', 'keyword', 'ranking', 'traffic'];
   for (const kw of (topicData.targetKeywords || []).slice(0, 3)) {
-    tags.push(kw.toLowerCase().replace(/\s+/g, '-'));
-  }
-
-  // Add content type
-  if (topicData.contentType) {
-    tags.push(topicData.contentType);
+    const cleanKw = kw.toLowerCase().replace(/\s+/g, '-');
+    const isSeoJargon = seoJargon.some(j => cleanKw.includes(j));
+    if (!isSeoJargon && cleanKw.length > 2) {
+      tags.push(cleanKw);
+    }
   }
 
   return [...new Set(tags)].slice(0, 8);

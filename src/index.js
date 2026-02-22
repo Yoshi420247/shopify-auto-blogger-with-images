@@ -32,7 +32,7 @@ import {
   getUniqueTopic
 } from './generators/contentReviewer.js';
 import { getRandomPseudonym, getAuthorBio } from './utils/authorStyles.js';
-import { injectHyperlinks, getLinkStats } from './utils/hyperlinkInjector.js';
+import { injectHyperlinks, getLinkStats, cleanOrphanedBoldText } from './utils/hyperlinkInjector.js';
 import {
   testConnection,
   getOrCreateBlog,
@@ -632,6 +632,10 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
   console.log('\n--- Injecting SEO Hyperlinks ---');
   const existingArticlesList = existingBlogs?.blogs || [];
   finalContent = injectHyperlinks(finalContent, generatedPost.title, existingArticlesList);
+
+  // Clean up orphaned bold text (bold phrases that should be links or plain text)
+  finalContent = cleanOrphanedBoldText(finalContent);
+
   const linkStats = getLinkStats(finalContent);
   console.log(`Link stats: ${linkStats.internalLinks} internal, ${linkStats.externalLinks} external (${linkStats.internalLinkDensity} per 1K words)`);
 

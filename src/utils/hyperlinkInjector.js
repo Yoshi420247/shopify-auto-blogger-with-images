@@ -430,9 +430,89 @@ export function getLinkStats(htmlContent) {
   };
 }
 
+/**
+ * Clean up orphaned bold text that looks like missing hyperlinks.
+ * AI sometimes bolds phrases it intends as link anchors, but the hyperlink
+ * injector doesn't always match them. This converts matching bold text to
+ * collection links, and strips bold from the rest so it doesn't look broken.
+ */
+export function cleanOrphanedBoldText(htmlContent) {
+  if (!htmlContent) return htmlContent;
+
+  let content = htmlContent;
+
+  // Build a lookup: keyword -> collection URL (all collections)
+  const allCollections = [...PRIORITY_COLLECTIONS, ...SECONDARY_COLLECTIONS];
+  const keywordMap = new Map();
+  for (const col of allCollections) {
+    for (const kw of col.keywords) {
+      keywordMap.set(kw.toLowerCase(), col.url);
+    }
+  }
+
+  // Find all <strong>...</strong> tags
+  // We process them in reverse order to preserve string positions
+  const strongRegex = /<strong>([^<]+)<\/strong>/g;
+  const matches = [];
+  let m;
+  while ((m = strongRegex.exec(content)) !== null) {
+    matches.push({
+      fullMatch: m[0],
+      innerText: m[1],
+      index: m.index
+    });
+  }
+
+  // Process in reverse so replacements don't shift indices
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const { fullMatch, innerText, index } = matches[i];
+
+    // Skip if inside a callout box (these are styled divs with colored backgrounds)
+    const before = content.substring(Math.max(0, index - 300), index);
+    if (before.includes('border-left: 4px solid') && !before.includes('</div>')) continue;
+
+    // Skip if this is a callout label (Pro Tip:, Warning:, Note:, Important:)
+    if (/^(Pro Tip|Warning|Note|Important):?$/i.test(innerText.trim())) continue;
+
+    // Skip if this is inside a heading
+    if (isInsideHeading(content, index)) continue;
+
+    // Skip if already inside a link
+    if (isInsideLink(content, index)) continue;
+
+    // Skip structured data labels (e.g., "Budget Option ($15-25)" used for comparison lists)
+    // These start lines and are followed by a list
+    const afterBold = content.substring(index + fullMatch.length, index + fullMatch.length + 50);
+    if (/^\s*\n\s*[-•]/.test(afterBold)) continue;
+
+    // Try to match the bold text to a collection
+    const textLower = innerText.toLowerCase().trim();
+    let matched = false;
+
+    for (const [keyword, url] of keywordMap) {
+      if (textLower.includes(keyword) || keyword.includes(textLower)) {
+        // Convert bold to a link
+        const fullUrl = `${BASE_URL}${url}`;
+        const replacement = `<a href="${fullUrl}">${innerText}</a>`;
+        content = content.substring(0, index) + replacement + content.substring(index + fullMatch.length);
+        matched = true;
+        break;
+      }
+    }
+
+    // If no collection match, strip the bold entirely (plain text)
+    if (!matched) {
+      content = content.substring(0, index) + innerText + content.substring(index + fullMatch.length);
+    }
+  }
+
+  return content;
+}
+
 export default {
   injectHyperlinks,
   getLinkStats,
+  cleanOrphanedBoldText,
   PRIORITY_COLLECTIONS,
   SECONDARY_COLLECTIONS
 };
