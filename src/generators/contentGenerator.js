@@ -270,6 +270,27 @@ To get cited and referenced by these systems:
    - concentrate storage solutions
    This builds the brand's knowledge graph presence in AI systems.
 
+FEATURED SNIPPET OPTIMIZATION (Position Zero):
+Your content should be structured to win featured snippets in Google:
+
+1. DIRECT ANSWER FIRST: After every question heading, answer in 1-2 complete sentences.
+   These sentences should work as standalone answers. Google extracts these verbatim.
+   Example:
+   ## How hot can a quartz banger get?
+   A quartz banger can safely reach temperatures of 800-1000°F, though optimal dabbing occurs between 350-550°F depending on the concentrate type.
+
+2. NUMBERED LISTS: When listing items, use numbered lists of 5-9 items.
+   Google strongly favors this range for list-based snippets.
+   Each item should start with a bold keyword: **Item Name** - Description.
+
+3. CLEAR DEFINITIONS: Define key terms using this pattern:
+   "[Term] is a [category] that [specific description]."
+   Example: "A cold start dab is a low-temperature technique that involves loading concentrate into a cool banger before gradually applying heat."
+   These definitions get pulled directly into AI Overviews and Knowledge Panels.
+
+4. PARAGRAPH SNIPPETS: Your intro paragraph should be 40-60 words and directly address the topic.
+   This is the most common snippet format. Make your opening paragraph quotable.
+
 FORMATTING - THIS IS CRITICAL FOR READABILITY:
 - Output in clean Markdown format with PROPER LINE BREAKS
 - Start with a SHORT title (50-60 chars max) on the first line
@@ -520,11 +541,36 @@ function fixIncorrectYears(content) {
  * Remove AI tells from generated content
  * IMPORTANT: Preserve markdown formatting (newlines, headers, etc.)
  */
+// Vendor/supplier brand names that should NEVER appear in published content
+// These are wholesale suppliers, not consumer-facing brands
+const VENDOR_BRANDS_TO_STRIP = [
+  'What You Need',
+  'Blazy Susan',
+  'Pulsar',
+  'Ooze',
+  'Eyce',
+  'Valiant Distribution',
+  'Famous Brandz',
+  'Cheech & Chong',
+  'Empire Glassworks'
+];
+
 function removeAiTells(content) {
   let cleaned = content;
 
   // First, fix any incorrect years
   cleaned = fixIncorrectYears(cleaned);
+
+  // Strip vendor/supplier brand names from content
+  for (const brand of VENDOR_BRANDS_TO_STRIP) {
+    // Remove "by [Brand]", "[Brand]'s", "from [Brand]", and standalone mentions
+    const brandRegex = new RegExp(`\\b(?:by |from |the )?${brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:'s)?\\b`, 'gi');
+    const beforeCount = (cleaned.match(brandRegex) || []).length;
+    if (beforeCount > 0) {
+      cleaned = cleaned.replace(brandRegex, '');
+      console.log(`Stripped vendor brand "${brand}" (${beforeCount} occurrence(s))`);
+    }
+  }
 
   // Remove em dashes and en dashes
   cleaned = cleaned.replace(/—/g, ',');
@@ -724,21 +770,64 @@ function parseCompactContent(content) {
 }
 
 /**
- * Generate a meta description from title and body
+ * Generate an SEO-optimized meta description from title and body
+ * Targets 150-160 characters with keyword inclusion and action language
  */
 function generateMetaDescription(title, body) {
   // Clean up body text
-  const cleanBody = body.replace(/\[IMAGE:[^\]]+\]/g, '').replace(/---/g, '').trim();
+  const cleanBody = body
+    .replace(/\[IMAGE:[^\]]+\]/g, '')
+    .replace(/---/g, '')
+    .replace(/^#+\s*/gm, '')
+    .replace(/\*\*/g, '')
+    .trim();
 
-  // Take first sentence or 150 chars
-  const firstSentenceEnd = cleanBody.search(/[.!?]/);
-  if (firstSentenceEnd > 20 && firstSentenceEnd < 160) {
-    return cleanBody.substring(0, firstSentenceEnd + 1).trim();
+  // Extract the first meaningful sentence as a base
+  const sentences = cleanBody.split(/[.!?]+/).filter(s => s.trim().length > 15);
+  const firstSentence = sentences[0]?.trim() || '';
+
+  // Extract a key topic word from the title for keyword inclusion
+  const titleWords = title.toLowerCase().split(/\s+/).filter(w =>
+    w.length > 3 && !['the', 'your', 'this', 'that', 'with', 'from', 'about', 'guide', 'best'].includes(w)
+  );
+  const keyTopic = titleWords[0] || '';
+
+  // Action verbs that drive clicks in meta descriptions
+  const actionPrefixes = [
+    'Learn', 'Discover', 'Master', 'Find out', 'Get the facts on'
+  ];
+
+  // Strategy 1: If first sentence is good length (50-155 chars) and contains a key word, use it
+  if (firstSentence.length >= 50 && firstSentence.length <= 155) {
+    if (keyTopic && firstSentence.toLowerCase().includes(keyTopic)) {
+      return firstSentence + '.';
+    }
   }
 
-  // Fallback: first 150 chars of body or derived from title
+  // Strategy 2: Build from title + first sentence
+  if (firstSentence.length > 20) {
+    const prefix = actionPrefixes[Math.floor(Math.random() * actionPrefixes.length)];
+    const topicPhrase = title.replace(/[:?!]/g, '').trim();
+
+    // Try: "Learn about [topic]. [first sentence fragment]."
+    let meta = `${prefix} about ${topicPhrase.toLowerCase()}. ${firstSentence.substring(0, 80).trim()}`;
+    if (meta.length > 160) {
+      meta = meta.substring(0, 157).trim();
+      // Cut at last space to avoid mid-word truncation
+      const lastSpace = meta.lastIndexOf(' ');
+      if (lastSpace > 120) meta = meta.substring(0, lastSpace);
+      meta += '...';
+    } else {
+      meta += '.';
+    }
+    return meta;
+  }
+
+  // Strategy 3: Fallback - use first 150 chars of body
   if (cleanBody.length > 20) {
-    return cleanBody.substring(0, 150).trim() + '...';
+    const truncated = cleanBody.substring(0, 155).trim();
+    const lastSpace = truncated.lastIndexOf(' ');
+    return (lastSpace > 100 ? truncated.substring(0, lastSpace) : truncated) + '...';
   }
 
   return title.substring(0, 150);

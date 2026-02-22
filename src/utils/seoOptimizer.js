@@ -129,11 +129,13 @@ SEO REQUIREMENTS (Follow these naturally without making content feel keyword-stu
    - Include "according to" or "based on our testing" attribution phrases - gives LLMs citation hooks
    - Each H2 section should work as a standalone answer if extracted by an AI search engine
 
-4. FAQ-STYLE CONTENT (for FAQ schema generation):
-   - Include at least 3-4 question-based H2 or H3 headings
+4. FAQ-STYLE CONTENT (MANDATORY for FAQ schema + featured snippets):
+   - You MUST include at least 3 question-based H2 or H3 headings (this is NOT optional)
    - Format as: "## What is the best [topic]?" or "## How do you [action]?"
-   - Answer the question completely in the first 2-3 sentences after the heading
-   - These get extracted into FAQ rich snippets AND cited by LLM search engines
+   - Answer the question DIRECTLY in the first 1-2 sentences (Google extracts these for featured snippets)
+   - Then elaborate with supporting details in the following paragraph
+   - These get extracted into FAQ rich snippets AND cited by AI search engines (ChatGPT, Perplexity, Google AI Overviews)
+   - Without 3+ question headings, the article will NOT get FAQ rich results in Google
 
 5. E-E-A-T SIGNALS:
    - Share specific personal experience or testing details
@@ -470,11 +472,16 @@ export function scoreContent(content, targetKeyword, title) {
     issues.push(`Only ${headings} subheadings. Add more for structure (target 5+).`);
   }
 
-  // Question headings (important for GEO)
+  // Question headings (critical for FAQ schema + featured snippets + GEO)
   const questionHeadings = (content.match(/<h[23][^>]*>[^<]*\?/gi) || []).length;
-  if (questionHeadings === 0) {
-    score -= 5;
-    issues.push('No question-based headings. Add for FAQ schema and LLM search.');
+  const questionPatternHeadings = (content.match(/<h[23][^>]*>(?:What|How|Why|When|Where|Which|Can|Should|Is|Are|Do|Does)[^<]*/gi) || []).length;
+  const totalQuestionHeadings = Math.max(questionHeadings, questionPatternHeadings);
+  if (totalQuestionHeadings === 0) {
+    score -= 15;
+    issues.push('CRITICAL: No question-based headings. Need 3+ for FAQ schema, featured snippets, and LLM search.');
+  } else if (totalQuestionHeadings < 3) {
+    score -= 8;
+    issues.push(`Only ${totalQuestionHeadings} question heading(s). Need 3+ for FAQ rich snippets.`);
   }
 
   // Readability: average sentence length
@@ -506,20 +513,40 @@ export function scoreContent(content, targetKeyword, title) {
 
   // GEO/LLM optimization check
   const hasDefinitionalSentence = /\b(?:is a|are a|refers to|means|defined as)\b/i.test(plainText);
-  const hasAttribution = /\b(?:based on|according to|after testing|after comparing)\b/i.test(plainText);
-  const hasSpecificData = /\b\d+°F|\$\d+|\d+\s*(?:inches|mm|cm|grams|mg|hours|minutes)\b/i.test(plainText);
+  const hasAttribution = /\b(?:based on|according to|after testing|after comparing|in our experience|we tested|we found)\b/i.test(plainText);
+  const hasSpecificData = /\b\d+°F|\$\d+|\d+\s*(?:inches|mm|cm|grams|mg|hours|minutes|seconds|days|weeks)\b/i.test(plainText);
+  const hasExperienceSignal = /\b(?:I tested|I found|I've been|in my experience|after \d+ (?:years|months)|hands-on|first-hand)\b/i.test(plainText);
 
   if (!hasDefinitionalSentence) {
-    score -= 3;
-    issues.push('No definitional sentences found. Add "[Term] is a..." for LLM citation.');
+    score -= 5;
+    issues.push('No definitional sentences found. Add "[Term] is a..." for LLM citation and featured snippets.');
   }
   if (!hasAttribution) {
-    score -= 3;
+    score -= 5;
     issues.push('No attribution phrases. Add "based on our testing..." for LLM citation hooks.');
   }
   if (!hasSpecificData) {
-    score -= 3;
+    score -= 5;
     issues.push('No specific data points. Include temperatures, prices, or measurements for LLM search.');
+  }
+  if (!hasExperienceSignal) {
+    score -= 3;
+    issues.push('No first-hand experience signals (E-E-A-T). Add "I tested", "in my experience", etc.');
+  }
+
+  // Featured snippet readiness check
+  const firstParagraph = plainText.substring(0, 300);
+  const hasDirectAnswer = firstParagraph.length >= 40 && /[.!]/.test(firstParagraph.substring(0, 200));
+  if (!hasDirectAnswer) {
+    score -= 3;
+    issues.push('First paragraph too short or missing direct answer. Needs 40-60 word opening for featured snippet.');
+  }
+
+  // Numbered/bulleted list check (Google loves lists of 5-9 items)
+  const listItems = (content.match(/<li[^>]*>/gi) || []).length;
+  if (listItems === 0) {
+    score -= 3;
+    issues.push('No lists found. Add numbered/bulleted lists (5-9 items) for featured snippet eligibility.');
   }
 
   return {
@@ -528,7 +555,12 @@ export function scoreContent(content, targetKeyword, title) {
     wordCount,
     keywordDensity: ((keywordCount / wordCount) * 100).toFixed(2) + '%',
     headings,
-    questionHeadings,
+    questionHeadings: totalQuestionHeadings,
+    listItems,
+    hasDefinitionalSentence,
+    hasAttribution,
+    hasSpecificData,
+    hasExperienceSignal,
     issues,
     passesQualityGate: score >= 50
   };

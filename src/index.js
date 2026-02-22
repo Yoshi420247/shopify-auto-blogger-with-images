@@ -1161,6 +1161,8 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
   const primaryKeyword = (plan.targetKeywords || getKeywordsForTopic(finalTopic))[0];
   const qualityScore = scoreContent(finalContent, primaryKeyword, generatedPost.title);
   console.log(`Quality: ${qualityScore.score}/100 (${qualityScore.grade})`);
+  console.log(`  GEO signals: definitions=${qualityScore.hasDefinitionalSentence ? 'YES' : 'NO'}, attribution=${qualityScore.hasAttribution ? 'YES' : 'NO'}, data=${qualityScore.hasSpecificData ? 'YES' : 'NO'}, experience=${qualityScore.hasExperienceSignal ? 'YES' : 'NO'}`);
+  console.log(`  Snippet readiness: ${qualityScore.questionHeadings} question headings, ${qualityScore.listItems} list items`);
   if (qualityScore.issues.length > 0) {
     console.log(`  Issues: ${qualityScore.issues.join('; ')}`);
   }
@@ -1193,7 +1195,16 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
 
   if (structuredData) {
     finalContent = structuredData + '\n' + finalContent;
-    console.log('Structured data injected (Article, Breadcrumb, FAQ, HowTo schemas)');
+    const hasFAQ = structuredData.includes('FAQPage');
+    const hasHowTo = structuredData.includes('"HowTo"');
+    const schemaTypes = ['Article', 'Breadcrumb', hasFAQ ? 'FAQ' : null, hasHowTo ? 'HowTo' : null].filter(Boolean);
+    console.log(`Structured data injected: ${schemaTypes.join(', ')}`);
+    if (!hasFAQ && qualityScore.questionHeadings >= 2) {
+      console.warn('WARNING: Content has question headings but FAQ schema was not generated. Check heading format.');
+    }
+    if (!hasFAQ && qualityScore.questionHeadings < 2) {
+      console.warn('WARNING: Not enough question headings for FAQ schema. Articles with FAQ rich results get 2-3x more clicks.');
+    }
   }
 
   // STEP 9: Add "Related Reading" section
