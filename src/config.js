@@ -6,7 +6,7 @@
 export const config = {
   // Your Shopify store
   shopify: {
-    storeDomain: process.env.SHOPIFY_STORE_DOMAIN || 'oilslickpad.com',
+    storeDomain: (process.env.SHOPIFY_STORE_DOMAIN || 'oilslickpad.com').trim(),
     adminApiToken: process.env.SHOPIFY_ADMIN_API_TOKEN,
     apiVersion: '2025-04'
   },
