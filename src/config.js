@@ -28,8 +28,15 @@ export const config = {
   anthropic: {
     apiKey: process.env.ANTHROPIC_API_KEY,
     model: 'claude-sonnet-4-6', // Claude Sonnet 4.6
+    utilityModel: 'claude-haiku-4-5-20251001', // Haiku 4.5 for utility tasks (review, dedup) - saves ~40% on text costs
     maxOutputTokens: 8192
   },
+
+  // Image Provider Selection
+  // Options: 'gemini' (default, Gemini 3 Pro Image - $0.039/image),
+  //          'gpt-image-1' (OpenAI gpt-image-1 High quality - $0.167/image)
+  // gpt-image-1 produces higher quality images but costs ~4x more per image
+  imageProvider: process.env.IMAGE_PROVIDER || 'gemini',
 
   // Gemini Configuration (Nano Banana Pro 3.0 for image generation)
   gemini: {
@@ -38,6 +45,14 @@ export const config = {
     textModel: 'gemini-3-pro',
     imageSize: '1K', // Use 1K for faster uploads and smaller file sizes (Options: 1K, 2K, 4K)
     aspectRatio: '16:9'
+  },
+
+  // GPT Image Configuration (gpt-image-1 - premium image generation)
+  gptImage: {
+    model: 'gpt-image-1',
+    quality: process.env.GPT_IMAGE_QUALITY || 'high', // Options: 'low', 'medium', 'high'
+    size: '1536x1024', // Landscape format (closest to 16:9)
+    outputFormat: 'png'
   },
 
   // Blog generation settings

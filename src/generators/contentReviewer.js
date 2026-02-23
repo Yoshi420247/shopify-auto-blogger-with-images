@@ -153,7 +153,8 @@ Return the fixed HTML:`;
         { role: 'user', content: prompt }
       ],
       maxTokens: 8192,
-      reasoningEffort: 'low'
+      reasoningEffort: 'low',
+      useUtilityModel: true // Route to Haiku 4.5 - this is HTML cleanup, not creative writing
     });
 
     if (!reviewedHtml) {
@@ -248,7 +249,8 @@ Respond in JSON format only:
         { role: 'user', content: prompt }
       ],
       maxTokens: 500,
-      reasoningEffort: 'low'
+      reasoningEffort: 'low',
+      useUtilityModel: true // Route to Haiku 4.5 - JSON dedup check doesn't need Sonnet
     });
 
     // Parse JSON response
