@@ -873,7 +873,17 @@ function markdownToHtml(markdown) {
     html = html.replace(/\[IMAGE:[^\]]+\]/g, '');
   }
 
-  // STEP 0: Extract headings for Table of Contents
+  // STEP 0a: Strip markdown code fences and backticks
+  html = html.replace(/```[\w]*\n?/g, '');   // Opening/closing ``` (with optional language tag)
+  html = html.replace(/`([^`]+)`/g, '$1');    // Inline `code` → plain text
+
+  // STEP 0b: Clean stray bracket artifacts (e.g. "][image]" remnants)
+  // "][" not part of a markdown reference link — collapse to space
+  html = html.replace(/\]\s*\[(?!IMAGE:)/gi, ' ');
+  // Bare "[image]" (lowercase, not a valid [IMAGE: desc] marker) — remove
+  html = html.replace(/\[image\]/gi, '');
+
+  // STEP 0c: Extract headings for Table of Contents
   const headings = [];
   const headingRegex = /^(#{2,3})\s+(.+)$/gm;
   let match;

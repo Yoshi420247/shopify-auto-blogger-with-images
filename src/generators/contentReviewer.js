@@ -48,6 +48,17 @@ function programmaticFixes(html) {
   // Remove lines that are just dashes
   fixed = fixed.replace(/^-{2,}$/gm, '');
 
+  // ============ FIX CODE FENCE ARTIFACTS ============
+  // Strip leftover markdown code fences that survived HTML conversion
+  fixed = fixed.replace(/```[\w]*\n?/g, '');
+  fixed = fixed.replace(/`([^`]+)`/g, '$1');
+
+  // ============ FIX STRAY BRACKET ARTIFACTS ============
+  // "][" not part of an image marker — collapse to space
+  fixed = fixed.replace(/\]\s*\[(?!IMAGE:)/gi, ' ');
+  // Bare "[image]" (lowercase, not a valid [IMAGE: desc] marker) — remove
+  fixed = fixed.replace(/\[image\]/gi, '');
+
   // ============ FIX MARKDOWN LEFTOVERS ============
   // Remove leftover markdown headers that weren't converted
   fixed = fixed.replace(/^#{1,6}\s+/gm, '');
