@@ -89,6 +89,14 @@ on:
         options:
           - claude-sonnet
           - gpt-5.2
+      image_provider:
+        description: 'Image generation provider'
+        required: false
+        default: 'gemini'
+        type: choice
+        options:
+          - gemini
+          - gpt-image-1
       topic:
         description: 'Specific topic to write about (overrides strategy)'
         required: false
@@ -145,7 +153,7 @@ jobs:
             echo "WARNING: GEMINI_API_KEY is not set - images will be skipped"
           fi
           if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
-            echo "WARNING: OPENAI_API_KEY is not set - only needed if using gpt-5.2 model"
+            echo "WARNING: OPENAI_API_KEY is not set - needed if using gpt-5.2 model or gpt-image-1 image provider"
           fi
           if [ -z "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}" ]; then
             echo "WARNING: GOOGLE_SERVICE_ACCOUNT_JSON is not set - GSC features will be skipped"
@@ -215,6 +223,7 @@ jobs:
           CONTENT_FORMAT: ${{ github.event.inputs.content_format || 'auto' }}
           CUSTOM_TOPIC: ${{ github.event.inputs.topic || '' }}
           AI_MODEL: ${{ github.event.inputs.ai_model || 'claude-sonnet' }}
+          IMAGE_PROVIDER: ${{ github.event.inputs.image_provider || 'gemini' }}
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
           PRODUCT_BLOG_DAY: '1'
         run: |
@@ -227,6 +236,7 @@ jobs:
           echo "Content category: $CONTENT_CATEGORY"
           echo "Content format: $CONTENT_FORMAT"
           echo "AI model: $AI_MODEL"
+          echo "Image provider: $IMAGE_PROVIDER"
           echo "Dry run: $DRY_RUN"
           if [ -n "$CUSTOM_TOPIC" ]; then
             echo "Custom topic: $CUSTOM_TOPIC"
