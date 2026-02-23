@@ -437,8 +437,8 @@ async function createArticle(blogId, article) {
   // Ensure title is not too long (Shopify max is 255 characters)
   const safeTitle = finalTitle.length > 250 ? finalTitle.substring(0, 247) + '...' : finalTitle;
 
-  // If we have image data, use REST API directly (GraphQL doesn't support image attachments)
-  if (imageData) {
+  // If we have image data or a URL, use REST API directly (GraphQL doesn't support image attachments)
+  if (imageData || imageUrl) {
     console.log('Using REST API for image attachment support...');
     return await createArticleViaRest(blogId, {
       title: safeTitle,
@@ -447,6 +447,7 @@ async function createArticle(blogId, article) {
       tags,
       published,
       imageData,
+      imageUrl,
       imageAlt,
       metaDescription
     });
@@ -564,6 +565,7 @@ async function createArticleViaRest(blogId, options) {
     tags = [],
     published = true,
     imageData,
+    imageUrl,
     imageAlt,
     metaDescription
   } = options;
@@ -580,7 +582,7 @@ async function createArticleViaRest(blogId, options) {
     }
   };
 
-  // Attach image
+  // Attach image — prefer base64 data, fall back to URL
   if (imageData) {
     let cleanBase64 = imageData;
     if (cleanBase64.includes('base64,')) {
@@ -591,6 +593,12 @@ async function createArticleViaRest(blogId, options) {
 
     articleData.article.image = {
       attachment: cleanBase64,
+      alt: imageAlt || title
+    };
+  } else if (imageUrl && imageUrl.startsWith('http')) {
+    console.log(`Attaching featured image from product URL`);
+    articleData.article.image = {
+      src: imageUrl,
       alt: imageAlt || title
     };
   }
@@ -873,7 +881,17 @@ function markdownToHtml(markdown) {
     html = html.replace(/\[IMAGE:[^\]]+\]/g, '');
   }
 
-  // STEP 0: Extract headings for Table of Contents
+  // STEP 0a: Strip markdown code fences and backticks
+  html = html.replace(/```[\w]*\n?/g, '');   // Opening/closing ``` (with optional language tag)
+  html = html.replace(/`([^`]+)`/g, '$1');    // Inline `code` → plain text
+
+  // STEP 0b: Clean stray bracket artifacts (e.g. "][image]" remnants)
+  // "][" not part of a markdown reference link — collapse to space
+  html = html.replace(/\]\s*\[(?!IMAGE:)/gi, ' ');
+  // Bare "[image]" (lowercase, not a valid [IMAGE: desc] marker) — remove
+  html = html.replace(/\[image\]/gi, '');
+
+  // STEP 0c: Extract headings for Table of Contents
   const headings = [];
   const headingRegex = /^(#{2,3})\s+(.+)$/gm;
   let match;
