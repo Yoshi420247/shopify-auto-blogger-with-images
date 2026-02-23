@@ -1,17 +1,23 @@
 # Unified Shopify Auto-Blogger
-# Publishes 1 quality blog post per day + GSC maintenance
+# Publishes 3 quality blog posts per day + GSC maintenance
 #
 # Schedule (all times UTC):
 #   5 AM  - GSC analysis + link optimization (no new blog)
-#   14:00 - Daily blog: AI picks the best strategy + category automatically
+#   10 AM - Blog 1: GSC-informed (data-driven topic from Search Console)
+#   15:00 - Blog 2: Strategic (pillar/cluster gaps, strike-distance keywords)
+#   21:00 - Blog 3: Category rotation (auto-picks next category for variety)
 name: Unified Auto-Blogger
 
 on:
   schedule:
     # GSC analysis + link optimization only (no new blog)
     - cron: '0 5 * * *'
-    # Single daily blog — auto-picks best strategy and category
-    - cron: '0 14 * * *'
+    # Blog 1: GSC-informed — pick the highest-opportunity topic from search data
+    - cron: '0 10 * * *'
+    # Blog 2: Strategic — pillar/cluster gaps, strike-distance, content gaps
+    - cron: '0 15 * * *'
+    # Blog 3: Category rotation — cycle through categories for breadth
+    - cron: '0 21 * * *'
 
   workflow_dispatch:
     inputs:
@@ -178,17 +184,32 @@ jobs:
             exit 0
           fi
 
-          # Schedule-based strategy selection
+          # Schedule-based strategy selection — each slot gets a distinct strategy
           HOUR=$(date -u +%H)
           echo "Current UTC hour: $HOUR"
 
-          if [ "$HOUR" = "05" ]; then
-            echo "strategy=gsc-analyze" >> $GITHUB_OUTPUT
-            echo "Schedule: GSC analysis + link optimization"
-          else
-            echo "strategy=auto" >> $GITHUB_OUTPUT
-            echo "Schedule: Daily blog (auto strategy)"
-          fi
+          case "$HOUR" in
+            05)
+              echo "strategy=gsc-analyze" >> $GITHUB_OUTPUT
+              echo "Schedule: 5 AM — GSC analysis + link optimization (no blog)"
+              ;;
+            10)
+              echo "strategy=gsc-informed" >> $GITHUB_OUTPUT
+              echo "Schedule: 10 AM — Blog 1: GSC-informed (data-driven topic)"
+              ;;
+            15)
+              echo "strategy=strategic" >> $GITHUB_OUTPUT
+              echo "Schedule: 3 PM — Blog 2: Strategic (pillar/cluster/gaps)"
+              ;;
+            21)
+              echo "strategy=category-rotate" >> $GITHUB_OUTPUT
+              echo "Schedule: 9 PM — Blog 3: Category rotation (breadth)"
+              ;;
+            *)
+              echo "strategy=auto" >> $GITHUB_OUTPUT
+              echo "Schedule: Off-schedule run, using auto strategy"
+              ;;
+          esac
 
       - name: Run Unified Auto-Blogger
         env:

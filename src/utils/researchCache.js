@@ -18,12 +18,13 @@ const CACHE_DIR = path.join(__dirname, '../../.cache');
 // Cache configuration
 const CACHE_CONFIG = {
   // How long cache is considered fresh (in hours)
+  // Tuned for 3 blogs/day schedule (runs at 10 AM, 3 PM, 9 PM UTC — 5h apart)
   maxAgeHours: {
     competitorData: 12,    // Competitor analysis - refresh every 12 hours
-    existingBlogs: 6,      // Own blog analysis - refresh every 6 hours
+    existingBlogs: 4,      // Own blog analysis - refresh before each blog run
     trendingTopics: 12,    // Trending topics - refresh every 12 hours
-    contentIdeas: 24,      // Content ideas - refresh every 24 hours
-    allArticleTitles: 6,   // All published titles for dedup - refresh every 6 hours
+    contentIdeas: 8,       // Content ideas - refresh ~twice per day for variety
+    allArticleTitles: 4,   // All published titles for dedup - must see prior run's post
     vendorProducts: 12     // Shopify product catalog - refresh every 12 hours
   }
 };
