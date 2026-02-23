@@ -1,26 +1,31 @@
 /**
  * Image Generator Module
  *
- * Uses Google Gemini's Nano Banana Pro 3.0 (gemini-3-pro-image-preview) for AI image generation.
- * Creates relevant, high-quality images for blog posts.
+ * Supports two image providers (controlled by IMAGE_PROVIDER env var):
  *
- * Nano Banana Pro 3.0 features (Gemini 3 Pro Image):
- * - High-resolution output: 1K, 2K, and 4K visuals
- * - Advanced text rendering for infographics and marketing assets
- * - Reasoning-enhanced composition
- * - Character consistency with up to 14 reference inputs
- * - SynthID watermarking for AI detection
+ * 1. Gemini (default) - Google Gemini's Nano Banana Pro 3.0 (gemini-3-pro-image-preview)
+ *    - Cost: ~$0.039/image at 1K resolution
+ *    - Good quality, very affordable
+ *
+ * 2. gpt-image-1 - OpenAI's gpt-image-1 model
+ *    - Cost: ~$0.167/image at High quality (1536x1024)
+ *    - Premium quality, ~4x more expensive
+ *    - Requires OPENAI_API_KEY
+ *
+ * Both produce high-quality images suitable for blog posts.
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 import fs from 'fs/promises';
 import path from 'path';
 import config from '../config.js';
 import { withRetry } from '../utils/apiRetry.js';
 import { generateImageFilename } from '../utils/seoOptimizer.js';
 
-// Initialize Gemini client
+// Initialize clients lazily
 let genAI = null;
+let openaiClient = null;
 
 function getGenAI() {
   if (!genAI) {
@@ -29,8 +34,16 @@ function getGenAI() {
   return genAI;
 }
 
+function getOpenAI() {
+  if (!openaiClient) {
+    openaiClient = new OpenAI({ apiKey: config.openai.apiKey });
+  }
+  return openaiClient;
+}
+
 /**
- * Generate an image based on a description
+ * Generate an image based on a description.
+ * Routes to the configured provider (gemini or gpt-image-1).
  */
 export async function generateImage(description, options = {}) {
   const {
@@ -40,7 +53,74 @@ export async function generateImage(description, options = {}) {
 
   console.log(`Generating image: ${description}`);
 
-  // Build enhanced prompt for better image generation
+  if (config.imageProvider === 'gpt-image-1') {
+    return generateImageGPT(description, { aspectRatio, style });
+  }
+
+  return generateImageGemini(description, { aspectRatio, style });
+}
+
+// ============================================================
+// GPT Image-1 Provider
+// ============================================================
+
+/**
+ * Generate an image using OpenAI gpt-image-1
+ */
+async function generateImageGPT(description, options = {}) {
+  const { style = 'photorealistic' } = options;
+  const enhancedPrompt = buildImagePrompt(description, style);
+
+  try {
+    const client = getOpenAI();
+
+    const result = await withRetry(
+      () => client.images.generate({
+        model: config.gptImage.model,
+        prompt: enhancedPrompt,
+        n: 1,
+        size: config.gptImage.size,
+        quality: config.gptImage.quality,
+        output_format: config.gptImage.outputFormat
+      }),
+      { maxRetries: 2, operationName: 'Image generation (gpt-image-1)' }
+    );
+
+    const imageData = result.data?.[0]?.b64_json;
+    if (imageData) {
+      return {
+        success: true,
+        imageData,
+        mimeType: 'image/png',
+        prompt: enhancedPrompt,
+        generatedAt: new Date().toISOString(),
+        model: `gpt-image-1 (${config.gptImage.quality} quality)`
+      };
+    }
+
+    throw new Error('No image data returned from gpt-image-1');
+
+  } catch (error) {
+    console.error('Error generating image with gpt-image-1:', error.message);
+    // Fall back to Gemini if gpt-image-1 fails
+    console.log('Falling back to Gemini for image generation...');
+    return generateImageGemini(description, options);
+  }
+}
+
+// ============================================================
+// Gemini Provider (default)
+// ============================================================
+
+/**
+ * Generate an image using Gemini Nano Banana Pro 3.0
+ */
+async function generateImageGemini(description, options = {}) {
+  const {
+    aspectRatio = config.blog.imageAspectRatio,
+    style = 'photorealistic'
+  } = options;
+
   const enhancedPrompt = buildImagePrompt(description, style);
 
   try {
@@ -211,6 +291,8 @@ Technical specifications:
  */
 export async function generateBlogImages(imageMarkers, blogTitle) {
   const results = [];
+
+  console.log(`Using image provider: ${config.imageProvider}`);
 
   for (let i = 0; i < imageMarkers.length; i++) {
     const marker = imageMarkers[i];

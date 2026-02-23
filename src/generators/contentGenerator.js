@@ -49,6 +49,8 @@ export async function generateBlogPost(options) {
 
   try {
     // AI API call with adaptive reasoning and retry logic
+    // cacheSystemPrompt: the system prompt is ~3,500 tokens and identical across all blog posts.
+    // Caching it saves ~90% on those input tokens for every call after the first.
     const rawContent = await withRetry(
       () => createCompletion({
         messages: [
@@ -56,7 +58,8 @@ export async function generateBlogPost(options) {
           { role: 'user', content: userPrompt }
         ],
         maxTokens: config.openai.maxOutputTokens,
-        reasoningEffort: config.openai.reasoningEffort || 'medium'
+        reasoningEffort: config.openai.reasoningEffort || 'medium',
+        cacheSystemPrompt: true
       }),
       { maxRetries: 3, operationName: 'Content generation' }
     );
@@ -1007,7 +1010,8 @@ Format as JSON array.`;
         { role: 'user', content: prompt }
       ],
       maxTokens: 2000,
-      reasoningEffort: 'low'
+      reasoningEffort: 'low',
+      useUtilityModel: true // Route to Haiku 4.5 - topic brainstorming doesn't need Sonnet
     });
 
     // Extract JSON from response
