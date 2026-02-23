@@ -1206,6 +1206,8 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
 
   // STEP 5b: NOW insert actual images (after review can't touch them)
   finalContent = insertImagesIntoContent(finalContent, uploadedImages);
+  // Clean up any leftover [IMAGE:] markers that weren't matched (more markers than images)
+  finalContent = finalContent.replace(/\[IMAGE:[^\]]*\]/g, '');
   console.log(`Inserted ${uploadedImages.length} inline image(s) into content`);
 
   // STEP 6: Quality Gate
