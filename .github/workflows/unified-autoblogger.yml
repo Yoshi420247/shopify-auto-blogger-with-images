@@ -89,6 +89,14 @@ on:
         options:
           - claude-sonnet
           - gpt-5.2
+      image_provider:
+        description: 'Image generation provider'
+        required: false
+        default: 'gemini'
+        type: choice
+        options:
+          - gemini
+          - gpt-image-1
       topic:
         description: 'Specific topic to write about (overrides strategy)'
         required: false
@@ -145,7 +153,7 @@ jobs:
             echo "WARNING: GEMINI_API_KEY is not set - images will be skipped"
           fi
           if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
-            echo "WARNING: OPENAI_API_KEY is not set - only needed if using gpt-5.2 model"
+            echo "WARNING: OPENAI_API_KEY is not set - needed for gpt-5.2 model or gpt-image-1 images"
           fi
           if [ -z "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}" ]; then
             echo "WARNING: GOOGLE_SERVICE_ACCOUNT_JSON is not set - GSC features will be skipped"
@@ -155,13 +163,21 @@ jobs:
           fi
           echo "All required secrets are configured"
 
-          # Validate OpenAI key if GPT model selected
+          # Validate OpenAI key if GPT model or gpt-image-1 selected
           AI_MODEL="${{ github.event.inputs.ai_model || 'claude-sonnet' }}"
+          IMAGE_PROVIDER="${{ github.event.inputs.image_provider || 'gemini' }}"
           if [ "$AI_MODEL" = "gpt-5.2" ]; then
             if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
               echo "WARNING: OPENAI_API_KEY not set but GPT model selected, falling back to Claude Sonnet"
             else
               echo "OpenAI API key configured for GPT-5.2"
+            fi
+          fi
+          if [ "$IMAGE_PROVIDER" = "gpt-image-1" ]; then
+            if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
+              echo "WARNING: OPENAI_API_KEY not set but gpt-image-1 selected, falling back to Gemini"
+            else
+              echo "OpenAI API key configured for gpt-image-1 images"
             fi
           fi
 
@@ -215,6 +231,7 @@ jobs:
           CONTENT_FORMAT: ${{ github.event.inputs.content_format || 'auto' }}
           CUSTOM_TOPIC: ${{ github.event.inputs.topic || '' }}
           AI_MODEL: ${{ github.event.inputs.ai_model || 'claude-sonnet' }}
+          IMAGE_PROVIDER: ${{ github.event.inputs.image_provider || 'gemini' }}
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
           PRODUCT_BLOG_DAY: '1'
         run: |
@@ -227,6 +244,7 @@ jobs:
           echo "Content category: $CONTENT_CATEGORY"
           echo "Content format: $CONTENT_FORMAT"
           echo "AI model: $AI_MODEL"
+          echo "Image provider: $IMAGE_PROVIDER"
           echo "Dry run: $DRY_RUN"
           if [ -n "$CUSTOM_TOPIC" ]; then
             echo "Custom topic: $CUSTOM_TOPIC"
