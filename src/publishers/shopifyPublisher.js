@@ -483,6 +483,8 @@ async function createArticle(blogId, article) {
   if (isAlreadyHtml) {
     console.log('Body already contains HTML, skipping markdown conversion');
     htmlBody = body;
+    // Strip any code fences that survived earlier processing
+    htmlBody = htmlBody.replace(/```[\w]*\n?/g, '');
   } else {
     // Convert body markdown to HTML
     htmlBody = markdownToHtml(body);
@@ -933,11 +935,10 @@ function markdownToHtml(markdown) {
 
   let html = markdown;
 
-  // Remove image markers that weren't replaced (but keep any remaining ones for cleanup)
-  // Only remove if there are no figure tags (meaning images were handled)
-  if (!html.includes('<figure')) {
-    html = html.replace(/\[IMAGE:[^\]]+\]/g, '');
-  }
+  // NOTE: Do NOT remove [IMAGE:] markers here.
+  // They are replaced with <figure><img> by insertImagesIntoContent() AFTER
+  // this conversion and the AI review step. Removing them here kills all
+  // inline images from the final blog post.
 
   // STEP 0a: Strip markdown code fences and backticks
   html = html.replace(/```[\w]*\n?/g, '');   // Opening/closing ``` (with optional language tag)

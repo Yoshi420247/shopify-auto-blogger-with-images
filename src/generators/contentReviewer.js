@@ -181,8 +181,15 @@ Return the fixed HTML:`;
       return htmlContent;
     }
 
+    // Strip code fences the AI reviewer may have wrapped around its response
+    // (e.g. ```html ... ```)
+    let cleaned = reviewedHtml.trim();
+    cleaned = cleaned.replace(/^```[\w]*\n?/, '');  // Opening fence at start
+    cleaned = cleaned.replace(/\n?```\s*$/, '');     // Closing fence at end
+    cleaned = cleaned.trim();
+
     console.log('AI review complete - formatting issues fixed');
-    return reviewedHtml.trim();
+    return cleaned;
 
   } catch (error) {
     console.error('AI review failed:', error.message);
