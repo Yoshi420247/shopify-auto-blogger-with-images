@@ -155,7 +155,8 @@ Return the fixed HTML:`;
       ],
       maxTokens: 8192,
       reasoningEffort: 'low',
-      useUtilityModel: true // Route to Haiku 4.5 - this is HTML cleanup, not creative writing
+      useUtilityModel: true, // Route to Haiku 4.5 - this is HTML cleanup, not creative writing
+      label: 'Content review (HTML cleanup)'
     });
 
     if (!reviewedHtml) {
@@ -251,7 +252,8 @@ Respond in JSON format only:
       ],
       maxTokens: 500,
       reasoningEffort: 'low',
-      useUtilityModel: true // Route to Haiku 4.5 - JSON dedup check doesn't need Sonnet
+      useUtilityModel: true, // Route to Haiku 4.5 - JSON dedup check doesn't need Sonnet
+      label: 'Topic deduplication check'
     });
 
     // Parse JSON response

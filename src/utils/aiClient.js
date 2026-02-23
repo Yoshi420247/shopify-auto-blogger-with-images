@@ -15,6 +15,7 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import config from '../config.js';
+import { trackTextCall } from './costTracker.js';
 
 let openaiClient = null;
 let anthropicClient = null;
@@ -61,14 +62,14 @@ export function getActiveModelName() {
  * @param {boolean} [options.cacheSystemPrompt] - Set to true to enable prompt caching on the system prompt (Claude only)
  * @returns {Promise<string>} The assistant's text response
  */
-export async function createCompletion({ messages, maxTokens, reasoningEffort, useUtilityModel, cacheSystemPrompt }) {
+export async function createCompletion({ messages, maxTokens, reasoningEffort, useUtilityModel, cacheSystemPrompt, label }) {
   if (isClaudeModel()) {
-    return createClaudeCompletion({ messages, maxTokens, useUtilityModel, cacheSystemPrompt });
+    return createClaudeCompletion({ messages, maxTokens, useUtilityModel, cacheSystemPrompt, label });
   }
-  return createOpenAICompletion({ messages, maxTokens, reasoningEffort });
+  return createOpenAICompletion({ messages, maxTokens, reasoningEffort, label });
 }
 
-async function createOpenAICompletion({ messages, maxTokens, reasoningEffort }) {
+async function createOpenAICompletion({ messages, maxTokens, reasoningEffort, label }) {
   const client = getOpenAI();
 
   const response = await client.chat.completions.create({
@@ -78,10 +79,19 @@ async function createOpenAICompletion({ messages, maxTokens, reasoningEffort }) 
     reasoning_effort: reasoningEffort || config.openai.reasoningEffort || 'medium'
   });
 
+  if (response.usage) {
+    trackTextCall({
+      model: config.openai.model,
+      label: label || 'OpenAI call',
+      inputTokens: response.usage.prompt_tokens || 0,
+      outputTokens: response.usage.completion_tokens || 0
+    });
+  }
+
   return response.choices[0]?.message?.content || '';
 }
 
-async function createClaudeCompletion({ messages, maxTokens, useUtilityModel, cacheSystemPrompt }) {
+async function createClaudeCompletion({ messages, maxTokens, useUtilityModel, cacheSystemPrompt, label }) {
   const client = getAnthropic();
 
   // Use utility model (Haiku) for cheap tasks, primary model (Sonnet) for content generation
@@ -134,7 +144,7 @@ async function createClaudeCompletion({ messages, maxTokens, useUtilityModel, ca
 
   const response = await client.messages.create(params);
 
-  // Log cache performance if available
+  // Log cache performance and track cost
   if (response.usage) {
     const cached = response.usage.cache_read_input_tokens || 0;
     const created = response.usage.cache_creation_input_tokens || 0;
@@ -143,6 +153,15 @@ async function createClaudeCompletion({ messages, maxTokens, useUtilityModel, ca
     } else if (created > 0) {
       console.log(`  Prompt cache miss: ${created} tokens cached for next call`);
     }
+
+    trackTextCall({
+      model,
+      label: label || (useUtilityModel ? 'Utility call' : 'Claude call'),
+      inputTokens: response.usage.input_tokens || 0,
+      outputTokens: response.usage.output_tokens || 0,
+      cacheRead: cached,
+      cacheCreation: created
+    });
   }
 
   // Claude returns content as an array of blocks

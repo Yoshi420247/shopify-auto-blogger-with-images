@@ -22,6 +22,7 @@ import path from 'path';
 import config from '../config.js';
 import { withRetry } from '../utils/apiRetry.js';
 import { generateImageFilename } from '../utils/seoOptimizer.js';
+import { trackImageCall } from '../utils/costTracker.js';
 
 // Initialize clients lazily
 let genAI = null;
@@ -307,6 +308,13 @@ export async function generateBlogImages(imageMarkers, blogTitle) {
       aspectRatio: config.blog.imageAspectRatio
     });
 
+    // Track image generation cost
+    trackImageCall({
+      model: getImageCostKey(result),
+      label: `Blog image ${i + 1}: ${marker.description.substring(0, 50)}`,
+      success: result.success
+    });
+
     results.push({
       ...result,
       originalMarker: marker.marker,
@@ -322,6 +330,19 @@ export async function generateBlogImages(imageMarkers, blogTitle) {
   }
 
   return results;
+}
+
+/**
+ * Map an image generation result to its cost tracker model key
+ */
+function getImageCostKey(result) {
+  if (!result.success) return 'unknown';
+  const m = (result.model || '').toLowerCase();
+  if (m.includes('gpt-image-1'))          return `gpt-image-1-${config.gptImage.quality || 'high'}`;
+  if (m.includes('gemini-3') || m.includes('nano banana pro')) return 'gemini-3-pro-image-preview';
+  if (m.includes('flash') || m.includes('nano banana'))        return 'gemini-2.5-flash-image';
+  if (m.includes('imagen'))               return 'imagen-4.0-generate-001';
+  return 'unknown';
 }
 
 /**
