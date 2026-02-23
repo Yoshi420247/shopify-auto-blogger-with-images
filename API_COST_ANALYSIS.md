@@ -130,7 +130,8 @@ Each blog post generation involves these AI API calls:
 | **GPT-5.2 Pro** | OpenAI | $21.00 | $168.00 | 400K | N/A |
 | **GPT-4.1** | OpenAI | $2.00 | $8.00 | 1M | ~50% |
 | **GPT-4o** | OpenAI | $2.50 | $10.00 | 128K | ~50% |
-| **o3** | OpenAI | $2.00 | $8.00 | 200K | ~50% |
+| **o3** (post-June 2025 cut) | OpenAI | $0.40 | $1.60 | 200K | ~50% |
+| **o3-pro** | OpenAI | $20.00 | $80.00 | 200K | N/A |
 | **o4-mini** | OpenAI | $1.10 | $4.40 | 200K | 50% |
 | **Gemini 2.5 Pro** | Google | $1.25 | $10.00 | 1M | 50% |
 | **Gemini 2.5 Flash** | Google | $0.15 | $0.60 (no reasoning) / $3.50 (reasoning) | 1M | 50% |
@@ -149,7 +150,7 @@ Each blog post generation involves these AI API calls:
 | Claude Sonnet 4.6 | $0.041 | $0.171 | **$0.212** | **$19.08** | Current default, high quality |
 | GPT-4o | $0.034 | $0.114 | **$0.148** | **$13.32** | Reliable, well-tested |
 | GPT-5.2 | $0.024 | $0.350* | **$0.374** | **$33.66** | *Includes reasoning overhead |
-| o3 | $0.027 | $0.091+ | **$0.118+** | **$10.62+** | Reasoning tokens add cost |
+| o3 (post-cut) | $0.005 | $0.018+ | **$0.023+** | **$2.07+** | 80% price cut; reasoning tokens add cost |
 | Claude Opus 4.6 | $0.068 | $0.285 | **$0.353** | **$31.77** | Most capable, premium price |
 | Gemini 3 Pro | $0.027-0.054 | $0.137-0.205 | **$0.164-0.259** | **$14.76-23.31** | Latest generation |
 
@@ -173,24 +174,35 @@ Each blog post generation involves these AI API calls:
 | **gpt-image-1 Low** | OpenAI | $0.011 | 1024x1024 | Basic | Cheapest OpenAI option |
 | **gpt-image-1 Medium** | OpenAI | $0.042 | 1024x1024 | Good | Best value OpenAI |
 | **gpt-image-1 High** | OpenAI | $0.167 | 1024x1024 | Excellent | Premium quality |
-| **Stable Diffusion XL** | Stability AI | $0.011 | 1024x1024 | Good | Open-source available |
-| **Stable Diffusion 3** | Stability AI | $0.037 | 1024x1024 | Very Good | Latest SD |
-| **Flux Dev** | Third-party | ~$0.01-0.03 | 1024x1024 | Excellent | Best text, slow (57s) |
+| **Stable Image Core** | Stability AI | $0.030 | 1024x1024 | Good | Fast generation |
+| **SD 3.5 Medium** | Stability AI | $0.035 | 1024x1024 | Good | 2.5B param |
+| **SD 3.5 Large Turbo** | Stability AI | $0.040 | 1024x1024 | Very Good | Fast + quality |
+| **Stable Image Ultra** | Stability AI | $0.080 | 1024x1024 | Excellent | SD 3.5 Large based |
+| **FLUX.2 [pro]** | Black Forest Labs | $0.030 | 1MP base | Excellent | Best text rendering |
+| **FLUX.2 [klein]** | Black Forest Labs | $0.014 | 1MP base | Very Good | Open weights |
+| **FLUX.1 [schnell] (Replicate)** | Third-party | ~$0.003 | 1024x1024 | Good | Cheapest option |
 
 ### Monthly Image Cost Comparison (180 images/month = 90 blogs x 2 images)
 
 | Model | Cost/Image | Monthly Cost | Quality Rating |
 |-------|-----------|-------------|----------------|
+| FLUX.1 schnell (Replicate) | $0.003 | **$0.54** | Good |
 | gpt-image-1 Low | $0.011 | **$1.98** | Basic |
-| Stable Diffusion XL | $0.011 | **$1.98** | Good |
+| FLUX.2 klein | $0.014 | **$2.52** | Very Good |
 | Gemini 2.5 Flash Image | $0.020 | **$3.60** | Good |
 | Imagen 4 Fast | $0.020 | **$3.60** | Good |
+| Imagen 3 | $0.030 | **$5.40** | Very Good |
+| FLUX.2 pro | $0.030 | **$5.40** | Excellent |
+| Stable Image Core | $0.030 | **$5.40** | Good |
+| SD 3.5 Medium | $0.035 | **$6.30** | Good |
 | Gemini 3 Pro Image (current) | $0.039 | **$7.02** | Excellent |
 | DALL-E 3 Standard | $0.040 | **$7.20** | Very Good |
 | Imagen 4 Standard | $0.040 | **$7.20** | Very Good |
+| SD 3.5 Large Turbo | $0.040 | **$7.20** | Very Good |
 | gpt-image-1 Medium | $0.042 | **$7.56** | Good |
-| Imagen 4 Ultra | $0.060 | **$10.80** | Best |
+| Imagen 4 Ultra | $0.060 | **$10.80** | Best (Google) |
 | DALL-E 3 HD | $0.080 | **$14.40** | Excellent |
+| Stable Image Ultra | $0.080 | **$14.40** | Excellent |
 | gpt-image-1 High | $0.167 | **$30.06** | Excellent |
 
 ---
@@ -308,10 +320,20 @@ Since image generation is your primary concern, here's a quality-focused ranking
    - Well-documented API, good text rendering
    - *Recommendation: Good fallback option*
 
-4. **Imagen 4 Ultra - Google's Best**
+4. **FLUX.2 [pro] - Best Text Rendering**
+   - $0.030/image, excellent quality, industry-leading text in images
+   - Requires Black Forest Labs API integration (new dependency)
+   - *Recommendation: Strong option if text-in-image quality matters*
+
+5. **Imagen 4 Ultra - Google's Best**
    - $0.060/image, highest quality Imagen
    - Already on Google's platform (easy to add)
    - *Recommendation: Add as an option for premium posts*
+
+6. **Midjourney - No API Available**
+   - Subscription only ($10-120/mo), no public API as of Feb 2026
+   - Third-party unofficial APIs exist but risk account bans
+   - *Not recommended for automated workflows*
 
 ### For Text Generation
 
@@ -346,3 +368,8 @@ Your current Claude Sonnet 4.6 setup is a reasonable middle ground. However:
 - [LLM API Pricing Comparison 2025](https://intuitionlabs.ai/articles/llm-api-pricing-comparison-2025)
 - [AI API Pricing Comparison 2026](https://intuitionlabs.ai/articles/ai-api-pricing-comparison-grok-gemini-openai-claude)
 - [Gemini Image API Pricing Guide](https://blog.laozhang.ai/en/posts/cheap-gemini-image-api)
+- [Black Forest Labs FLUX Pricing](https://bfl.ai/pricing)
+- [Black Forest Labs FLUX Docs](https://docs.bfl.ml/quick_start/pricing)
+- [Stability AI API Pricing Update](https://stability.ai/api-pricing-update-25)
+- [Midjourney Plans](https://docs.midjourney.com/hc/en-us/articles/27870484040333-Comparing-Midjourney-Plans)
+- [AI Image Generation Pricing Comparison](https://intuitionlabs.ai/articles/ai-image-generation-pricing-google-openai)
