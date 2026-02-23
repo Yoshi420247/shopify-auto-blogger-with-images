@@ -87,7 +87,8 @@ Return ONLY the JSON object, no other text.`;
           { role: 'user', content: prompt }
         ],
         maxTokens: 500,
-        reasoningEffort: 'low'
+        reasoningEffort: 'low',
+        label: 'Product blog topic generation'
       }),
       { maxRetries: 2, operationName: 'Topic generation' }
     );

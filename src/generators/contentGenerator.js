@@ -59,7 +59,8 @@ export async function generateBlogPost(options) {
         ],
         maxTokens: config.openai.maxOutputTokens,
         reasoningEffort: config.openai.reasoningEffort || 'medium',
-        cacheSystemPrompt: true
+        cacheSystemPrompt: true,
+        label: 'Blog content generation'
       }),
       { maxRetries: 3, operationName: 'Content generation' }
     );
@@ -1011,7 +1012,8 @@ Format as JSON array.`;
       ],
       maxTokens: 2000,
       reasoningEffort: 'low',
-      useUtilityModel: true // Route to Haiku 4.5 - topic brainstorming doesn't need Sonnet
+      useUtilityModel: true, // Route to Haiku 4.5 - topic brainstorming doesn't need Sonnet
+      label: 'Topic idea generation'
     });
 
     // Extract JSON from response

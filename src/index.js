@@ -51,6 +51,7 @@ import {
   generateImageFilename,
   generateAllStructuredData
 } from './utils/seoOptimizer.js';
+import { printCostReport } from './utils/costTracker.js';
 
 // Search Console imports (optional - only used when GSC credentials available)
 let gscAvailable = false;
@@ -141,6 +142,7 @@ async function main() {
     }
 
     console.log(`\nCompleted at: ${new Date().toISOString()}`);
+    printCostReport();
     return result;
 
   } catch (error) {
@@ -149,6 +151,7 @@ async function main() {
     console.error('='.repeat(60));
     console.error(error.message);
     console.error(error.stack);
+    printCostReport();
     return { success: false, error: error.message };
   }
 }
