@@ -88,6 +88,7 @@ on:
         type: choice
         options:
           - claude-sonnet
+          - claude-opus
           - gpt-5.2
       image_provider:
         description: 'Image generation provider'

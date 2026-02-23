@@ -31,8 +31,9 @@ function programmaticFixes(html) {
   // (these are broken remnants, not inside a valid tag)
   fixed = fixed.replace(/^\s*alt="[^"]*"[^>]*>\s*$/gm, '');
 
-  // Remove leftover [IMAGE: ...] markers (these should have been replaced with real images)
-  fixed = fixed.replace(/\[IMAGE:[^\]]*\]/g, '');
+  // NOTE: Do NOT remove [IMAGE: ...] markers here.
+  // They are replaced with actual <img> tags by insertImagesIntoContent()
+  // which runs AFTER this review step.
 
   // ============ FIX BROKEN TABLE ARTIFACTS ============
   // Remove lines that are just pipes, dashes, colons, and spaces (broken tables)
