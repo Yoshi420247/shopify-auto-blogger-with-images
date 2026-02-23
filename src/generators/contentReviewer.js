@@ -219,8 +219,8 @@ export async function isTopicRecentlyCovered(proposedTopic, recentArticles, days
       return articleDate >= cutoffDate;
     })
     .map(a => a.title || a.topic) // Also check 'topic' field for this-run tracking
-    .filter(t => t) // Remove nulls
-    .slice(0, 30); // Check last 30 articles
+    .filter(t => t)
+    .slice(0, 100); // Check up to 100 recent articles (was 30 — too few to catch repeats)
 
   if (recentTitles.length === 0) {
     return { covered: false };

@@ -1,23 +1,17 @@
 # Unified Shopify Auto-Blogger
-# Consolidates blog generation + Search Console optimization into one workflow
+# Publishes 1 quality blog post per day + GSC maintenance
 #
-# Schedule (all times UTC, spaced ~5 hours apart for even crawl signals):
-#   5 AM UTC  - GSC analysis + link optimization (no new blog)
-#   8 AM UTC  - GSC-informed blog: trending data picks the topic
-#   2 PM UTC  - Category rotation blog: cycles through all content categories
-#   8 PM UTC  - Strategic blog: pillar/cluster, content gaps, or strike-distance targeting
+# Schedule (all times UTC):
+#   5 AM  - GSC analysis + link optimization (no new blog)
+#   14:00 - Daily blog: AI picks the best strategy + category automatically
 name: Unified Auto-Blogger
 
 on:
   schedule:
-    # GSC analysis + link optimization only (no blog)
+    # GSC analysis + link optimization only (no new blog)
     - cron: '0 5 * * *'
-    # GSC-informed blog generation
-    - cron: '0 8 * * *'
-    # Category rotation blog
+    # Single daily blog — auto-picks best strategy and category
     - cron: '0 14 * * *'
-    # Strategic blog (pillar/cluster, gaps, strike-distance)
-    - cron: '0 20 * * *'
 
   workflow_dispatch:
     inputs:
@@ -191,18 +185,9 @@ jobs:
           if [ "$HOUR" = "05" ]; then
             echo "strategy=gsc-analyze" >> $GITHUB_OUTPUT
             echo "Schedule: GSC analysis + link optimization"
-          elif [ "$HOUR" = "08" ]; then
-            echo "strategy=gsc-informed" >> $GITHUB_OUTPUT
-            echo "Schedule: GSC-informed blog generation"
-          elif [ "$HOUR" = "14" ]; then
-            echo "strategy=category-rotate" >> $GITHUB_OUTPUT
-            echo "Schedule: Category rotation blog"
-          elif [ "$HOUR" = "20" ]; then
-            echo "strategy=strategic" >> $GITHUB_OUTPUT
-            echo "Schedule: Strategic blog (pillar/cluster/gaps)"
           else
             echo "strategy=auto" >> $GITHUB_OUTPUT
-            echo "Default: auto strategy"
+            echo "Schedule: Daily blog (auto strategy)"
           fi
 
       - name: Run Unified Auto-Blogger

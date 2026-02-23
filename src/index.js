@@ -41,6 +41,7 @@ import {
   createArticle,
   updateArticle,
   getArticles,
+  getAllArticleTitles,
   uploadImageToFiles,
   markdownToHtml,
   getProductsByVendor
@@ -52,6 +53,7 @@ import {
   generateAllStructuredData
 } from './utils/seoOptimizer.js';
 import { printCostReport } from './utils/costTracker.js';
+import { createCompletion } from './utils/aiClient.js';
 
 // Search Console imports (optional - only used when GSC credentials available)
 let gscAvailable = false;
@@ -433,6 +435,19 @@ async function doResearch() {
   });
   console.log(`Found ${existingBlogs.blogs.length} existing blog posts`);
 
+  // Fetch ALL article titles from Shopify API for accurate dedup (cached for 6 hours)
+  console.log('Fetching all article titles for dedup...');
+  let allArticleTitles = [];
+  try {
+    allArticleTitles = await getCachedOrFetch('allArticleTitles', async () => {
+      const blog = await getOrCreateBlog('News');
+      return await getAllArticleTitles(blog.id);
+    });
+    console.log(`Total articles for dedup: ${allArticleTitles.length}`);
+  } catch (e) {
+    console.log(`Failed to fetch article titles, falling back to scraped data: ${e.message}`);
+  }
+
   // Analyze competitors (cached for 12 hours)
   console.log('Analyzing competitors...');
   const competitorData = await getCachedOrFetch('competitorData', async () => {
@@ -458,14 +473,16 @@ async function doResearch() {
   });
   console.log(`Generated ${contentIdeas.length} content ideas`);
 
-  // Fetch vendor products if using product_spotlight category
+  // Always fetch vendor products so they're available for any strategy/category
+  // (Previously only fetched when CONTENT_CATEGORY was explicitly product_spotlight,
+  // which meant auto-rotation to product_spotlight had no products)
   let vendorProducts = [];
-  const contentCategory = config.blog.contentCategory;
-  const categoryConfig = config.contentCategories?.[contentCategory];
-
-  if (categoryConfig?.vendor) {
-    console.log(`Fetching products from vendor: ${categoryConfig.vendor}...`);
-    vendorProducts = await getProductsByVendor(categoryConfig.vendor, 25);
+  const productVendor = config.contentCategories?.product_spotlight?.vendor;
+  if (productVendor) {
+    console.log(`Fetching products from vendor: ${productVendor}...`);
+    vendorProducts = await getCachedOrFetch('vendorProducts', async () => {
+      return await getProductsByVendor(productVendor, 25);
+    });
     console.log(`Found ${vendorProducts.length} products from vendor`);
   }
 
@@ -484,6 +501,7 @@ async function doResearch() {
 
   return {
     existingBlogs,
+    allArticleTitles,
     competitorData,
     trendingTopics,
     industryContext,
@@ -763,26 +781,34 @@ async function planCategoryBlogs(researchData, category, format, count) {
   const categoryConfig = config.contentCategories[category];
   if (!categoryConfig) return [];
 
-  const existingTitles = (researchData.existingBlogs?.blogs || [])
-    .map(b => (b.title || '').toLowerCase());
+  // Use ALL article titles from Shopify API for dedup (not just scraped 15)
+  const existingTitles = getAllExistingTitles(researchData);
 
   // Normalize to { topic, productImage } objects
   let topicPool = (categoryConfig.topicPool || []).map(t => ({ topic: t, productImage: null }));
 
-  // For product_spotlight, add vendor product topics (these already include productImage)
+  // For product_spotlight, use AI to generate creative product-specific topics
   if (category === 'product_spotlight' && researchData.vendorProducts?.length > 0) {
-    const productTopics = generateProductTopics(researchData.vendorProducts);
+    const productTopics = await generateProductTopics(researchData.vendorProducts, existingTitles);
     topicPool = [...productTopics, ...topicPool];
   }
 
-  // Filter out topics similar to existing content
-  topicPool = topicPool.filter(item => {
-    const topicLower = item.topic.toLowerCase();
-    return !existingTitles.some(existing =>
-      existing.includes(topicLower.substring(0, 20)) ||
-      topicLower.includes(existing.substring(0, 20))
+  // Filter out topics that overlap with ANY existing article
+  topicPool = topicPool.filter(item => !isTopicCoveredByExisting(item.topic, existingTitles));
+
+  // If hardcoded pool is exhausted, ask AI for fresh topics
+  if (topicPool.length < count) {
+    console.log(`Only ${topicPool.length} unused topics remain in ${category}, generating fresh ones with AI...`);
+    const freshTopics = await generateFreshCategoryTopics(
+      categoryConfig.name,
+      categoryConfig.keywords || [],
+      existingTitles
     );
-  });
+    const freshFiltered = freshTopics
+      .filter(t => !isTopicCoveredByExisting(t, existingTitles))
+      .map(t => ({ topic: t, productImage: null }));
+    topicPool = [...topicPool, ...freshFiltered];
+  }
 
   // Shuffle for variety
   topicPool = shuffleArray(topicPool);
@@ -830,28 +856,38 @@ async function planMultipleBlogs(researchData, count) {
   const outdatedPosts = existingBlogs.analysis.outdatedPosts || [];
   const contentGaps = existingBlogs.analysis.contentGaps || [];
 
+  // Use ALL article titles for dedup
+  const existingTitles = getAllExistingTitles(researchData);
+
   // Check if we're using a specific content category
   const categoryConfig = config.contentCategories?.[contentCategory];
 
   if (categoryConfig) {
     console.log(`Using content category: ${categoryConfig.name}`);
-    const existingTitles = (existingBlogs.blogs || []).map(b => b.title?.toLowerCase() || '');
 
     // Normalize to { topic, productImage } objects
     let topicPool = (categoryConfig.topicPool || []).map(t => ({ topic: t, productImage: null }));
 
     if (contentCategory === 'product_spotlight' && vendorProducts && vendorProducts.length > 0) {
-      const productTopics = generateProductTopics(vendorProducts);
+      const productTopics = await generateProductTopics(vendorProducts, existingTitles);
       topicPool = [...productTopics, ...topicPool];
     }
 
-    topicPool = topicPool.filter(item => {
-      const topicLower = item.topic.toLowerCase();
-      return !existingTitles.some(existing =>
-        existing.includes(topicLower.substring(0, 20)) ||
-        topicLower.includes(existing.substring(0, 20))
+    topicPool = topicPool.filter(item => !isTopicCoveredByExisting(item.topic, existingTitles));
+
+    // If pool is exhausted, generate fresh topics with AI
+    if (topicPool.length < count) {
+      console.log(`Only ${topicPool.length} unused topics in ${contentCategory}, generating fresh ones...`);
+      const freshTopics = await generateFreshCategoryTopics(
+        categoryConfig.name,
+        categoryConfig.keywords || [],
+        existingTitles
       );
-    });
+      const freshFiltered = freshTopics
+        .filter(t => !isTopicCoveredByExisting(t, existingTitles))
+        .map(t => ({ topic: t, productImage: null }));
+      topicPool = [...topicPool, ...freshFiltered];
+    }
 
     topicPool = shuffleArray(topicPool);
 
@@ -1098,8 +1134,10 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
   let finalTopic = plan.topic;
   if (plan.action !== 'update') {
     console.log('\n--- Checking Topic Uniqueness ---');
+    // Combine API-fetched titles + scraped blogs + topics from this run
     const existingArticles = existingBlogs?.blogs || [];
-    const allRecentArticles = [...existingArticles, ...topicsUsedThisRun];
+    const apiTitles = (researchData.allArticleTitles || []).map(a => ({ title: a.title, publishedAt: a.publishedAt }));
+    const allRecentArticles = [...apiTitles, ...existingArticles, ...topicsUsedThisRun];
 
     const topicCheck = await getUniqueTopic(plan.topic, allRecentArticles, contentIdeas);
     if (topicCheck.wasChanged) {
@@ -1315,34 +1353,184 @@ function validateEnvironment() {
   return true;
 }
 
+// ============================================================
+// DEDUP HELPERS
+// ============================================================
+
 /**
- * Generate product-specific topic objects (preserves product image for featured image use)
- * Returns array of { topic, productImage } objects instead of plain strings.
+ * Combine all article titles from Shopify API + scraped data into one lowercase list.
+ * Ensures dedup checks against EVERY published article, not just 15.
  */
-function generateProductTopics(products) {
-  const seen = new Set();
-  const topics = [];
-  for (const product of products) {
-    const title = product.title || '';
-    const type = product.productType || '';
-    const productImage = product.featuredImage || null;
-    const entries = [];
-    if (title) {
-      entries.push(`${title}: Complete Review and Guide`);
-      entries.push(`Is the ${title} Worth It? Honest Review`);
-    }
-    if (type) {
-      entries.push(`Best ${type} for Beginners in ${new Date().getFullYear()}`);
-      entries.push(`How to Choose the Right ${type}`);
-    }
-    for (const topic of entries) {
-      if (!seen.has(topic)) {
-        seen.add(topic);
-        topics.push({ topic, productImage });
-      }
+function getAllExistingTitles(researchData) {
+  const titleSet = new Set();
+
+  // Primary: API-fetched titles (all articles)
+  if (researchData.allArticleTitles?.length > 0) {
+    for (const a of researchData.allArticleTitles) {
+      if (a.title) titleSet.add(a.title.toLowerCase().trim());
     }
   }
-  return topics.slice(0, 15);
+
+  // Secondary: scraped titles (fallback / overlap is fine)
+  if (researchData.existingBlogs?.blogs?.length > 0) {
+    for (const b of researchData.existingBlogs.blogs) {
+      if (b.title) titleSet.add(b.title.toLowerCase().trim());
+    }
+  }
+
+  return [...titleSet];
+}
+
+/**
+ * Check if a proposed topic is already covered by any existing article.
+ * Uses word-overlap scoring instead of brittle substring matching.
+ */
+function isTopicCoveredByExisting(proposedTopic, existingTitles) {
+  const proposed = proposedTopic.toLowerCase();
+
+  // Extract meaningful words (drop common filler words)
+  const stopWords = new Set(['the', 'a', 'an', 'is', 'it', 'to', 'of', 'for', 'and', 'or',
+    'in', 'on', 'at', 'by', 'how', 'what', 'why', 'your', 'you', 'our', 'its', 'with',
+    'vs', 'best', 'top', 'guide', 'complete', 'ultimate', 'review', 'honest', 'worth']);
+
+  const proposedWords = proposed.split(/\W+/).filter(w => w.length > 2 && !stopWords.has(w));
+  if (proposedWords.length === 0) return false;
+
+  for (const existing of existingTitles) {
+    const existingWords = new Set(existing.split(/\W+/).filter(w => w.length > 2 && !stopWords.has(w)));
+
+    // Count how many meaningful proposed words appear in the existing title
+    const overlap = proposedWords.filter(w => existingWords.has(w)).length;
+    const overlapRatio = overlap / proposedWords.length;
+
+    // If 60%+ of the meaningful words match, it's a duplicate subject
+    if (overlapRatio >= 0.6 && overlap >= 2) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Use AI to generate diverse, creative blog topic angles for real products.
+ * Avoids the template trap ("X: Complete Review and Guide" for every product).
+ * Returns array of { topic, productImage } objects.
+ */
+async function generateProductTopics(products, existingTitles = []) {
+  if (!products || products.length === 0) return [];
+
+  // Build a product summary for the AI
+  const productList = products.slice(0, 15).map(p => {
+    const parts = [p.title];
+    if (p.productType) parts.push(`(${p.productType})`);
+    if (p.description) parts.push(`- ${p.description.substring(0, 100)}`);
+    return parts.join(' ');
+  }).join('\n');
+
+  const existingSample = existingTitles.slice(0, 30).join('\n');
+
+  const prompt = `You are a cannabis accessories content strategist for oilslickpad.com.
+
+PRODUCTS WE SELL:
+${productList}
+
+ARTICLES WE ALREADY HAVE (do NOT repeat these subjects):
+${existingSample || '(none yet)'}
+
+Generate 8 unique blog topic ideas that feature specific products from our catalog. Requirements:
+- Each topic should naturally reference a specific product by name
+- Use diverse angles: how-to, comparison, lifestyle, seasonal, problem-solving, myths
+- Do NOT use generic templates like "X: Complete Review" or "Is X Worth It?" for every product
+- Make topics that a real person would search for
+- Each topic should be genuinely DIFFERENT in angle and subject matter
+- Keep titles under 70 characters
+
+Respond with ONLY a JSON array of strings, one topic per element. Example:
+["Why the Mini Recycler is Perfect for Solo Sessions", "Cold Start Dabbing With a Quartz Banger: Step by Step"]`;
+
+  try {
+    const result = await createCompletion({
+      messages: [
+        { role: 'system', content: 'You are a content strategist. Respond only with a JSON array of topic strings.' },
+        { role: 'user', content: prompt }
+      ],
+      maxTokens: 800,
+      useUtilityModel: true,
+      label: 'Product topic generation'
+    });
+
+    const jsonMatch = result.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return [];
+
+    const topics = JSON.parse(jsonMatch[0]);
+    if (!Array.isArray(topics)) return [];
+
+    // Match each topic to a product by checking which product name appears in it
+    return topics.filter(t => typeof t === 'string' && t.length > 10).map(topic => {
+      const matchedProduct = products.find(p =>
+        p.title && topic.toLowerCase().includes(p.title.toLowerCase().split(' ').slice(0, 3).join(' '))
+      );
+      return {
+        topic,
+        productImage: matchedProduct?.featuredImage || null
+      };
+    });
+  } catch (error) {
+    console.error('AI product topic generation failed, using simple fallback:', error.message);
+    // Simple fallback — pick 3 random products, 1 topic each
+    const shuffled = shuffleArray([...products]).slice(0, 3);
+    return shuffled.map(p => ({
+      topic: `${p.title}: What to Know Before You Buy`,
+      productImage: p.featuredImage || null
+    }));
+  }
+}
+
+/**
+ * Use AI to generate fresh topics for a category when the hardcoded pool is exhausted.
+ * Returns array of topic strings.
+ */
+async function generateFreshCategoryTopics(categoryName, keywords, existingTitles) {
+  const existingSample = existingTitles.slice(0, 40).join('\n');
+
+  const prompt = `You are a cannabis accessories content strategist for oilslickpad.com.
+
+CONTENT CATEGORY: ${categoryName}
+RELEVANT KEYWORDS: ${keywords.join(', ')}
+
+ARTICLES WE ALREADY HAVE (do NOT repeat these subjects):
+${existingSample || '(none yet)'}
+
+Generate 5 unique blog topic ideas for this category. Requirements:
+- Topics must be genuinely different from existing articles
+- Mix formats: how-to, listicle, comparison, myth-busting, seasonal
+- Target real search queries people actually type
+- Be specific — not vague fluff like "Everything About Dabs"
+- Keep titles under 70 characters
+
+Respond with ONLY a JSON array of strings.`;
+
+  try {
+    const result = await createCompletion({
+      messages: [
+        { role: 'system', content: 'You are a content strategist. Respond only with a JSON array of topic strings.' },
+        { role: 'user', content: prompt }
+      ],
+      maxTokens: 500,
+      useUtilityModel: true,
+      label: 'Fresh category topic generation'
+    });
+
+    const jsonMatch = result.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return [];
+
+    const topics = JSON.parse(jsonMatch[0]);
+    return Array.isArray(topics) ? topics.filter(t => typeof t === 'string' && t.length > 10) : [];
+  } catch (error) {
+    console.error('AI topic generation failed:', error.message);
+    return [];
+  }
 }
 
 function shuffleArray(array) {
@@ -1355,12 +1543,15 @@ function shuffleArray(array) {
 }
 
 /**
- * Get the next content category in the rotation
+ * Get the next content category in the rotation.
+ * Cycles through all 7 categories — one per day, repeating weekly.
  */
 function getNextCategory() {
   const order = config.categoryRotation.order;
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
-  return order[dayOfYear % order.length];
+  const idx = dayOfYear % order.length;
+  console.log(`Category rotation: day ${dayOfYear} → index ${idx} → ${order[idx]} (cycle: ${order.join(' → ')})`);
+  return order[idx];
 }
 
 /**
