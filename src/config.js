@@ -12,7 +12,7 @@ export const config = {
   },
 
   // AI Model Selection
-  // Options: 'claude-sonnet' (default, Claude Sonnet 4.6), 'gpt-5.2' (OpenAI GPT-5.2)
+  // Options: 'claude-sonnet' (default, Claude Sonnet 4.6), 'claude-opus' (Claude Opus 4.6), 'gpt-5.2' (OpenAI GPT-5.2)
   aiModel: process.env.AI_MODEL || 'claude-sonnet',
 
   // OpenAI Configuration (GPT-5.2 - current best model)
@@ -24,10 +24,10 @@ export const config = {
     reasoningEffort: 'medium' // Options: 'none', 'low', 'medium', 'high'
   },
 
-  // Anthropic Configuration (Claude Sonnet 4.6 - alternative model)
+  // Anthropic Configuration (Claude Sonnet 4.6 / Opus 4.6)
   anthropic: {
     apiKey: process.env.ANTHROPIC_API_KEY,
-    model: 'claude-sonnet-4-6', // Claude Sonnet 4.6
+    model: (process.env.AI_MODEL || 'claude-sonnet') === 'claude-opus' ? 'claude-opus-4-6' : 'claude-sonnet-4-6',
     utilityModel: 'claude-haiku-4-5-20251001', // Haiku 4.5 for utility tasks (review, dedup) - saves ~40% on text costs
     maxOutputTokens: 8192
   },
