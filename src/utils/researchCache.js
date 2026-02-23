@@ -22,7 +22,9 @@ const CACHE_CONFIG = {
     competitorData: 12,    // Competitor analysis - refresh every 12 hours
     existingBlogs: 6,      // Own blog analysis - refresh every 6 hours
     trendingTopics: 12,    // Trending topics - refresh every 12 hours
-    contentIdeas: 24       // Content ideas - refresh every 24 hours
+    contentIdeas: 24,      // Content ideas - refresh every 24 hours
+    allArticleTitles: 6,   // All published titles for dedup - refresh every 6 hours
+    vendorProducts: 12     // Shopify product catalog - refresh every 12 hours
   }
 };
 
