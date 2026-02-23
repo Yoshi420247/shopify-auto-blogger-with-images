@@ -198,6 +198,64 @@ async function getArticles(blogId, limit = 50) {
 }
 
 /**
+ * Fetch ALL article titles from a blog (paginated).
+ * Used for deduplication — we need every published title to avoid repeats.
+ */
+async function getAllArticleTitles(blogId) {
+  const gid = blogId.includes('gid://') ? blogId : `gid://shopify/Blog/${blogId}`;
+  const allTitles = [];
+  let cursor = null;
+
+  const query = `
+    query GetAllArticleTitles($blogId: ID!, $first: Int!, $after: String) {
+      blog(id: $blogId) {
+        articles(first: $first, after: $after) {
+          edges {
+            node {
+              title
+              publishedAt
+            }
+            cursor
+          }
+          pageInfo {
+            hasNextPage
+          }
+        }
+      }
+    }
+  `;
+
+  // Paginate through all articles (250 per page)
+  for (let page = 0; page < 20; page++) { // Safety cap at 5000 articles
+    const vars = { blogId: gid, first: 250 };
+    if (cursor) vars.after = cursor;
+
+    try {
+      const data = await graphqlQuery(query, vars);
+      const edges = data.blog?.articles?.edges || [];
+
+      for (const edge of edges) {
+        if (edge.node.title) {
+          allTitles.push({
+            title: edge.node.title,
+            publishedAt: edge.node.publishedAt
+          });
+        }
+        cursor = edge.cursor;
+      }
+
+      if (!data.blog?.articles?.pageInfo?.hasNextPage) break;
+    } catch (error) {
+      console.error(`Failed to fetch article titles page ${page}:`, error.message);
+      break;
+    }
+  }
+
+  console.log(`Fetched ${allTitles.length} total article titles for dedup`);
+  return allTitles;
+}
+
+/**
  * Upload an image to Shopify Files and get a permanent CDN URL
  * Used for inline blog images that need to be embedded in content
  */
@@ -1137,6 +1195,7 @@ export {
   getBlogs,
   getOrCreateBlog,
   getArticles,
+  getAllArticleTitles,
   uploadImage,
   uploadImageToFiles,
   createArticle,
