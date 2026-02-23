@@ -766,17 +766,18 @@ async function planCategoryBlogs(researchData, category, format, count) {
   const existingTitles = (researchData.existingBlogs?.blogs || [])
     .map(b => (b.title || '').toLowerCase());
 
-  let topicPool = [...(categoryConfig.topicPool || [])];
+  // Normalize to { topic, productImage } objects
+  let topicPool = (categoryConfig.topicPool || []).map(t => ({ topic: t, productImage: null }));
 
-  // For product_spotlight, add vendor product topics
+  // For product_spotlight, add vendor product topics (these already include productImage)
   if (category === 'product_spotlight' && researchData.vendorProducts?.length > 0) {
     const productTopics = generateProductTopics(researchData.vendorProducts);
     topicPool = [...productTopics, ...topicPool];
   }
 
   // Filter out topics similar to existing content
-  topicPool = topicPool.filter(topic => {
-    const topicLower = topic.toLowerCase();
+  topicPool = topicPool.filter(item => {
+    const topicLower = item.topic.toLowerCase();
     return !existingTitles.some(existing =>
       existing.includes(topicLower.substring(0, 20)) ||
       topicLower.includes(existing.substring(0, 20))
@@ -790,16 +791,17 @@ async function planCategoryBlogs(researchData, category, format, count) {
   const usedTopics = new Set();
 
   for (let i = 0; i < count && i < topicPool.length; i++) {
-    const topic = topicPool[i];
-    if (!usedTopics.has(topic.toLowerCase())) {
+    const item = topicPool[i];
+    if (!usedTopics.has(item.topic.toLowerCase())) {
       plans.push({
         action: 'new',
-        topic,
+        topic: item.topic,
+        productImage: item.productImage,
         reason: `Category: ${categoryConfig.name}`,
         category,
         format
       });
-      usedTopics.add(topic.toLowerCase());
+      usedTopics.add(item.topic.toLowerCase());
     }
   }
 
@@ -835,15 +837,16 @@ async function planMultipleBlogs(researchData, count) {
     console.log(`Using content category: ${categoryConfig.name}`);
     const existingTitles = (existingBlogs.blogs || []).map(b => b.title?.toLowerCase() || '');
 
-    let topicPool = [...(categoryConfig.topicPool || [])];
+    // Normalize to { topic, productImage } objects
+    let topicPool = (categoryConfig.topicPool || []).map(t => ({ topic: t, productImage: null }));
 
     if (contentCategory === 'product_spotlight' && vendorProducts && vendorProducts.length > 0) {
       const productTopics = generateProductTopics(vendorProducts);
       topicPool = [...productTopics, ...topicPool];
     }
 
-    topicPool = topicPool.filter(topic => {
-      const topicLower = topic.toLowerCase();
+    topicPool = topicPool.filter(item => {
+      const topicLower = item.topic.toLowerCase();
       return !existingTitles.some(existing =>
         existing.includes(topicLower.substring(0, 20)) ||
         topicLower.includes(existing.substring(0, 20))
@@ -853,15 +856,16 @@ async function planMultipleBlogs(researchData, count) {
     topicPool = shuffleArray(topicPool);
 
     for (let i = 0; i < count && i < topicPool.length; i++) {
-      const topic = topicPool[i];
-      if (!usedTopics.has(topic.toLowerCase())) {
+      const item = topicPool[i];
+      if (!usedTopics.has(item.topic.toLowerCase())) {
         plans.push({
           action: 'new',
-          topic,
+          topic: item.topic,
+          productImage: item.productImage,
           reason: `Content category: ${categoryConfig.name}`,
           category: contentCategory
         });
-        usedTopics.add(topic.toLowerCase());
+        usedTopics.add(item.topic.toLowerCase());
       }
     }
 
@@ -1246,18 +1250,31 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
   // STEP 10: Publish to Shopify
   console.log('\n--- Publishing to Shopify ---');
   const blog = await getOrCreateBlog('News');
+
+  // For product blogs, prefer the real product image from the store over AI-generated ones
+  const hasProductImage = plan.productImage?.url;
   const featuredImage = images.find(img => img.success && img.imageData);
 
-  const publishedArticle = await createArticle(blog.id, {
+  const articleOptions = {
     title: generatedPost.title,
     body: finalContent,
     metaDescription: generatedPost.metaDescription,
     author: authorName,
     tags: getTagsForTopic(finalTopic, plan.category),
     published: true,
-    imageData: featuredImage?.imageData || null,
-    imageAlt: featuredImage?.altText || generatedPost.title
-  });
+    imageAlt: generatedPost.title
+  };
+
+  if (hasProductImage) {
+    console.log(`Using real product image: ${plan.productImage.url}`);
+    articleOptions.imageUrl = plan.productImage.url;
+    articleOptions.imageAlt = plan.productImage.altText || generatedPost.title;
+  } else if (featuredImage) {
+    articleOptions.imageData = featuredImage.imageData;
+    articleOptions.imageAlt = featuredImage.altText || generatedPost.title;
+  }
+
+  const publishedArticle = await createArticle(blog.id, articleOptions);
 
   console.log(`Published: ${publishedArticle?.onlineStoreUrl || publishedArticle?.id || 'Success'}`);
 
@@ -1298,21 +1315,34 @@ function validateEnvironment() {
   return true;
 }
 
+/**
+ * Generate product-specific topic objects (preserves product image for featured image use)
+ * Returns array of { topic, productImage } objects instead of plain strings.
+ */
 function generateProductTopics(products) {
+  const seen = new Set();
   const topics = [];
   for (const product of products) {
     const title = product.title || '';
     const type = product.productType || '';
+    const productImage = product.featuredImage || null;
+    const entries = [];
     if (title) {
-      topics.push(`${title}: Complete Review and Guide`);
-      topics.push(`Is the ${title} Worth It? Honest Review`);
+      entries.push(`${title}: Complete Review and Guide`);
+      entries.push(`Is the ${title} Worth It? Honest Review`);
     }
     if (type) {
-      topics.push(`Best ${type} for Beginners in ${new Date().getFullYear()}`);
-      topics.push(`How to Choose the Right ${type}`);
+      entries.push(`Best ${type} for Beginners in ${new Date().getFullYear()}`);
+      entries.push(`How to Choose the Right ${type}`);
+    }
+    for (const topic of entries) {
+      if (!seen.has(topic)) {
+        seen.add(topic);
+        topics.push({ topic, productImage });
+      }
     }
   }
-  return [...new Set(topics)].slice(0, 15);
+  return topics.slice(0, 15);
 }
 
 function shuffleArray(array) {
