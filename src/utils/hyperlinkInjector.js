@@ -231,7 +231,7 @@ function addBlogToBlogLinks(content, existingArticles, currentTitle, existingPos
       if (!match) continue;
 
       const matchPosition = match.index;
-      if (isInsideHeading(modifiedContent, matchPosition) || isInsideLink(modifiedContent, matchPosition)) continue;
+      if (isInsideHeading(modifiedContent, matchPosition) || isInsideLink(modifiedContent, matchPosition) || isInsideHtmlTag(modifiedContent, matchPosition)) continue;
 
       // Check spacing
       let tooClose = false;
@@ -291,8 +291,8 @@ function addInternalLink(content, keyword, collectionUrl, existingPositions, art
   const matchPosition = match.index;
   const matchedText = match[1];
 
-  // Check if this position is inside a heading or existing link
-  if (isInsideHeading(content, matchPosition) || isInsideLink(content, matchPosition)) {
+  // Check if this position is inside a heading, existing link, or HTML tag attributes
+  if (isInsideHeading(content, matchPosition) || isInsideLink(content, matchPosition) || isInsideHtmlTag(content, matchPosition)) {
     return { added: false };
   }
 
@@ -339,7 +339,7 @@ function addExternalLinks(content, existingPositions) {
     if (count >= maxExternal) break;
 
     const match = modifiedContent.match(opportunity.pattern);
-    if (match && !isInsideLink(modifiedContent, match.index) && !isInsideHeading(modifiedContent, match.index)) {
+    if (match && !isInsideLink(modifiedContent, match.index) && !isInsideHeading(modifiedContent, match.index) && !isInsideHtmlTag(modifiedContent, match.index)) {
       // Check spacing
       let tooClose = false;
       for (const pos of existingPositions) {
@@ -394,6 +394,22 @@ function isInsideHeading(content, position) {
   if (lastH4Open > lastH4Close) return true;
 
   return false;
+}
+
+/**
+ * Check if a position is inside any HTML tag's attributes
+ * (e.g. inside <img alt="...">, <figure style="...">, <figcaption ...>)
+ * Prevents injecting <a> tags into attribute values which breaks the tag.
+ */
+function isInsideHtmlTag(content, position) {
+  const beforeText = content.substring(0, position);
+
+  // Find the last '<' and '>' before this position
+  const lastOpenAngle = beforeText.lastIndexOf('<');
+  const lastCloseAngle = beforeText.lastIndexOf('>');
+
+  // If the last '<' is after the last '>', we're inside a tag
+  return lastOpenAngle > lastCloseAngle;
 }
 
 /**
