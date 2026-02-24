@@ -483,6 +483,7 @@ FINAL REMINDERS:
 - No em dashes (—), no en dashes (–)
 - Don't start the article with a question
 - NEVER include meta-commentary about your writing strategy (no "this is where I would link to...", "if I were writing...", "for internal links...", "content map", etc.)
+- NEVER include editor notes, bracketed comments, or asides like [Note to editor: ...], [Editor's note: ...], [Author's note: ...], or any [bracketed commentary]
 - Just write the actual content, don't comment on what you would do or where you would put links
 - CRITICAL: The current year is ${currentYear}. Use ${currentYear} for any "best of", "guide for", or "top picks" references. NEVER use ${currentYear - 1} or earlier years unless discussing past events.
 

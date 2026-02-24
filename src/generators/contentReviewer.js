@@ -69,6 +69,13 @@ function programmaticFixes(html) {
   fixed = fixed.replace(/\*([^*]+)\*/g, '<em>$1</em>');
 
   // ============ REMOVE AI META-COMMENTARY ============
+  // Remove bracketed editor/author notes the AI inserts
+  // e.g. [Note to editor: ...], [Editor's note: ...], [Author's note: ...]
+  fixed = fixed.replace(/\[(?:Note to editor|Editor'?s? note|Author'?s? note|Note|Disclaimer)[:\s][^\]]*\]/gi, '');
+
+  // Remove full paragraphs that are just a bracketed note
+  fixed = fixed.replace(/<p[^>]*>\s*\[(?:Note|Editor|Author|Disclaimer)[^\]]*\]\s*<\/p>/gi, '');
+
   // Remove sentences/paragraphs that are AI thinking out loud about linking strategy
   const metaPatterns = [
     /[^<]*If I were writing[^<]*(?:<\/p>|<br|$)/gi,
