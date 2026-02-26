@@ -39,3 +39,9 @@ coverage/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Link audit data files
+all-articles.json
+link-report.json
+internal-link-check.json
+fix-report.json
