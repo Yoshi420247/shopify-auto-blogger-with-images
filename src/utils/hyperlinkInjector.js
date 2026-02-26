@@ -60,7 +60,7 @@ const SECONDARY_COLLECTIONS = [
   { name: 'Concentrate Containers', url: '/collections/concentrate-containers', keywords: ['concentrate container', 'dab container', 'wax container'] },
   { name: 'Mylar Bags', url: '/collections/mylar-bags', keywords: ['mylar bag', 'smell proof bag'] },
   // Rolling
-  { name: 'Rolling Papers', url: '/collections/rolling-papers', keywords: ['rolling paper', 'papers'] },
+  { name: 'Rolling Papers', url: '/collections/rolling-papers-cones', keywords: ['rolling paper', 'papers'] },
   { name: 'Cones', url: '/collections/rolling-papers-cones', keywords: ['cone', 'pre-roll', 'pre-rolled cone'] }
 ];
 
