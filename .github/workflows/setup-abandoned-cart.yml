@@ -1,0 +1,49 @@
+# Setup Abandoned Cart Recovery Automation
+# Verifies email assets are uploaded and configures the abandoned checkout email.
+# Run manually via Actions > Setup Abandoned Cart Recovery > Run workflow
+name: Setup Abandoned Cart Recovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      verify_only:
+        description: 'Only verify files (skip email template setup)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  setup-automation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup abandoned cart automation
+        env:
+          SHOPIFY_ADMIN_API_TOKEN: ${{ secrets.SHOPIFY_ADMIN_API_TOKEN }}
+          SHOPIFY_STORE_DOMAIN: ${{ secrets.SHOPIFY_STORE_DOMAIN }}
+        run: |
+          echo "=========================================="
+          echo "ABANDONED CART AUTOMATION SETUP"
+          echo "=========================================="
+          echo "Verify only: ${{ github.event.inputs.verify_only }}"
+          echo "=========================================="
+
+          ARGS=""
+          if [ "${{ github.event.inputs.verify_only }}" = "true" ]; then
+            ARGS="--verify-only"
+          fi
+
+          node src/marketing/setupAutomation.js $ARGS
