@@ -361,7 +361,19 @@ async function uploadImageToFiles(imageData, filename, altText) {
     }
 
     const createdFile = fileData.fileCreate?.files?.[0];
-    const imageUrl = createdFile?.image?.url || createdFile?.image?.originalSrc || target.resourceUrl;
+    let imageUrl = createdFile?.image?.url || createdFile?.image?.originalSrc;
+
+    // Shopify processes images asynchronously. The CDN URL may not be available
+    // immediately after fileCreate. Poll until we get a permanent URL.
+    if (!imageUrl && createdFile?.id) {
+      imageUrl = await pollForFileUrl(createdFile.id);
+    }
+
+    // Final fallback to staged URL (temporary, but better than nothing)
+    if (!imageUrl) {
+      console.warn(`Could not get permanent CDN URL for ${filename}, using staged URL`);
+      imageUrl = target.resourceUrl;
+    }
 
     console.log(`Uploaded image to Shopify Files: ${filename}`);
 
@@ -375,6 +387,51 @@ async function uploadImageToFiles(imageData, filename, altText) {
     console.error('Error uploading to Shopify Files:', error.message);
     return null;
   }
+}
+
+/**
+ * Poll Shopify for a file's permanent CDN URL.
+ * After fileCreate, Shopify processes images async. This polls until the
+ * image URL is available (up to ~15 seconds with exponential backoff).
+ */
+async function pollForFileUrl(fileId, maxAttempts = 5) {
+  const query = `
+    query GetFile($id: ID!) {
+      node(id: $id) {
+        ... on MediaImage {
+          image {
+            url
+            originalSrc
+          }
+          fileStatus
+        }
+      }
+    }
+  `;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const delay = attempt * 2000; // 2s, 4s, 6s, 8s, 10s
+    await new Promise(resolve => setTimeout(resolve, delay));
+
+    try {
+      const data = await graphqlQuery(query, { id: fileId });
+      const url = data.node?.image?.url || data.node?.image?.originalSrc;
+      if (url) {
+        console.log(`  CDN URL ready after ${attempt} poll(s)`);
+        return url;
+      }
+      const status = data.node?.fileStatus;
+      if (status === 'FAILED') {
+        console.warn(`  File processing failed for ${fileId}`);
+        return null;
+      }
+    } catch (err) {
+      console.warn(`  Poll attempt ${attempt} failed: ${err.message}`);
+    }
+  }
+
+  console.warn(`  CDN URL not available after ${maxAttempts} polls`);
+  return null;
 }
 
 /**

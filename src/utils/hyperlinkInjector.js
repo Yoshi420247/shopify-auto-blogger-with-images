@@ -231,7 +231,7 @@ function addBlogToBlogLinks(content, existingArticles, currentTitle, existingPos
       if (!match) continue;
 
       const matchPosition = match.index;
-      if (isInsideHeading(modifiedContent, matchPosition) || isInsideLink(modifiedContent, matchPosition) || isInsideHtmlTag(modifiedContent, matchPosition)) continue;
+      if (isInsideHeading(modifiedContent, matchPosition) || isInsideLink(modifiedContent, matchPosition) || isInsideHtmlTag(modifiedContent, matchPosition) || isInsideFigure(modifiedContent, matchPosition)) continue;
 
       // Check spacing
       let tooClose = false;
@@ -291,8 +291,8 @@ function addInternalLink(content, keyword, collectionUrl, existingPositions, art
   const matchPosition = match.index;
   const matchedText = match[1];
 
-  // Check if this position is inside a heading, existing link, or HTML tag attributes
-  if (isInsideHeading(content, matchPosition) || isInsideLink(content, matchPosition) || isInsideHtmlTag(content, matchPosition)) {
+  // Check if this position is inside a heading, existing link, HTML tag attributes, or figure element
+  if (isInsideHeading(content, matchPosition) || isInsideLink(content, matchPosition) || isInsideHtmlTag(content, matchPosition) || isInsideFigure(content, matchPosition)) {
     return { added: false };
   }
 
@@ -339,7 +339,7 @@ function addExternalLinks(content, existingPositions) {
     if (count >= maxExternal) break;
 
     const match = modifiedContent.match(opportunity.pattern);
-    if (match && !isInsideLink(modifiedContent, match.index) && !isInsideHeading(modifiedContent, match.index) && !isInsideHtmlTag(modifiedContent, match.index)) {
+    if (match && !isInsideLink(modifiedContent, match.index) && !isInsideHeading(modifiedContent, match.index) && !isInsideHtmlTag(modifiedContent, match.index) && !isInsideFigure(modifiedContent, match.index)) {
       // Check spacing
       let tooClose = false;
       for (const pos of existingPositions) {
@@ -424,6 +424,19 @@ function isInsideLink(content, position) {
 }
 
 /**
+ * Check if a position is inside a <figure> element.
+ * Prevents injecting links into <img> alt text and <figcaption> content,
+ * which corrupts the HTML and breaks image display.
+ */
+function isInsideFigure(content, position) {
+  const beforeText = content.substring(0, position);
+  const lastFigureOpen = beforeText.lastIndexOf('<figure');
+  const lastFigureClose = beforeText.lastIndexOf('</figure>');
+
+  return lastFigureOpen > lastFigureClose;
+}
+
+/**
  * Count words in HTML content (excluding tags)
  */
 function countWords(html) {
@@ -504,6 +517,9 @@ export function cleanOrphanedBoldText(htmlContent) {
 
     // Skip if already inside a link
     if (isInsideLink(content, index)) continue;
+
+    // Skip if inside a figure element (img alt or figcaption)
+    if (isInsideFigure(content, index)) continue;
 
     // Skip structured data labels (e.g., "Budget Option ($15-25)" used for comparison lists)
     // These start lines and are followed by a list

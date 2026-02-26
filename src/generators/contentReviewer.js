@@ -137,7 +137,7 @@ CRITICAL ISSUES TO FIX:
 2. Remove excessive blank lines (more than one empty line between elements)
 3. Fix any broken HTML tags (unclosed tags, malformed tags like 'png" alt="...')
 4. Fix any broken image tags - if you see fragments like 'png" alt="...' or orphaned img attributes, remove them entirely
-5. Remove any leftover markdown: **, ##, |---|, [IMAGE: ...], etc.
+5. Remove any leftover markdown: **, ##, |---|, etc.
 6. Remove any pipe characters | that look like broken table remnants
 7. Fix weird spacing around punctuation
 8. Ensure proper paragraph separation
@@ -152,7 +152,7 @@ SPECIFIC PATTERNS TO REMOVE:
 
 IMPORTANT:
 - NEVER remove or modify <figure>, <img>, or <figcaption> tags that have valid src= attributes
-- NEVER remove [IMAGE: ...] markers - these are placeholders for images added later
+- NEVER remove or modify HTML comments (<!-- ... -->) - these are system placeholders
 - Keep all properly formatted HTML elements with their inline styles
 - Keep all <table> elements that are properly formatted
 - Don't change the content meaning

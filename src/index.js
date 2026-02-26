@@ -1197,17 +1197,21 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
   // Determine primary keyword early (needed for image alt text and quality scoring)
   const primaryKeyword = (plan.targetKeywords || getKeywordsForTopic(finalTopic))[0];
 
-  // STEP 4: Upload images and convert markdown to HTML (keeps [IMAGE:] markers intact)
+  // STEP 4: Upload images and convert markdown to HTML
   const { html: htmlContent, uploadedImages } = await uploadImagesAndConvertHtml(generatedPost, images, generatedPost.title, primaryKeyword);
 
-  // STEP 5: AI Content Review (safe - no <img> tags to break, only [IMAGE:] markers)
-  console.log('\n--- AI Content Review ---');
-  let finalContent = await reviewAndFixContent(htmlContent, generatedPost.title);
+  // STEP 4b: Replace [IMAGE:] markers with HTML comment placeholders BEFORE review.
+  // The AI reviewer was destroying [IMAGE:] markers by converting them to empty
+  // <figure><figcaption> tags without <img>. HTML comments are invisible to the
+  // reviewer and survive intact.
+  const { content: protectedContent, markers: savedMarkers } = protectImageMarkers(htmlContent);
 
-  // STEP 5b: NOW insert actual images (after review can't touch them)
-  finalContent = insertImagesIntoContent(finalContent, uploadedImages);
-  // Clean up any leftover [IMAGE:] markers that weren't matched (more markers than images)
-  finalContent = finalContent.replace(/\[IMAGE:[^\]]*\]/g, '');
+  // STEP 5: AI Content Review (HTML comments are invisible to the reviewer)
+  console.log('\n--- AI Content Review ---');
+  let finalContent = await reviewAndFixContent(protectedContent, generatedPost.title);
+
+  // STEP 5b: Restore placeholders and insert actual images
+  finalContent = restoreAndInsertImages(finalContent, savedMarkers, uploadedImages);
   console.log(`Inserted ${uploadedImages.length} inline image(s) into content`);
 
   // STEP 6: Quality Gate
@@ -1858,18 +1862,65 @@ async function uploadImagesAndConvertHtml(post, images, title, primaryKeyword = 
 }
 
 /**
- * Phase 2: Replace [IMAGE:] markers with actual <figure><img> HTML.
- * Called AFTER content review so the reviewer can't break <img> tags.
+ * Protect [IMAGE:] markers from AI reviewer corruption.
+ * Replaces them with HTML comment placeholders that the reviewer ignores.
+ * Also unwraps any <p> wrapper so <figure> won't end up inside <p>.
  */
-function insertImagesIntoContent(htmlContent, uploadedImages) {
-  let imageIndex = 0;
-  return htmlContent.replace(/\[IMAGE:[^\]]*\]/g, () => {
-    if (imageIndex < uploadedImages.length) {
-      const img = uploadedImages[imageIndex++];
-      return `<figure style="margin: 1.2em 0 0.6em 0; text-align: center;"><img src="${img.url}" alt="${img.altText}" style="max-width: 100%; height: auto; border-radius: 12px;" loading="lazy"><figcaption style="font-size: 15px; line-height: 1.5; font-weight: 400; color: #666; margin-top: 0.4em; margin-bottom: 1.2em; font-style: italic;">${img.altText}</figcaption></figure>`;
-    }
-    return '';
+function protectImageMarkers(htmlContent) {
+  const markers = [];
+  let index = 0;
+
+  const content = htmlContent.replace(/(<p[^>]*>)?\s*\[IMAGE:([^\]]*)\]\s*(<\/p>)?/g, (match, pOpen, desc, pClose) => {
+    markers.push(desc.trim());
+    return `<!--IMG_PLACEHOLDER_${index++}-->`;
   });
+
+  return { content, markers };
+}
+
+/**
+ * Restore image placeholders and insert actual <figure><img> HTML.
+ * Runs AFTER AI review so images can't be corrupted.
+ * Uses clean description for figcaption, SEO text for alt attribute.
+ */
+function restoreAndInsertImages(htmlContent, savedMarkers, uploadedImages) {
+  let content = htmlContent;
+
+  // Replace each placeholder with the corresponding uploaded image
+  for (let i = 0; i < savedMarkers.length; i++) {
+    const placeholder = `<!--IMG_PLACEHOLDER_${i}-->`;
+
+    if (i < uploadedImages.length) {
+      const img = uploadedImages[i];
+      // Use original description for figcaption (human-readable),
+      // and SEO-optimized altText for the alt attribute
+      const caption = savedMarkers[i];
+      // Unwrap surrounding <p> tags if the placeholder ended up inside one
+      const figureHtml = `<figure style="margin: 1.2em 0 0.6em 0; text-align: center;"><img src="${img.url}" alt="${img.altText}" style="max-width: 100%; height: auto; border-radius: 12px;" loading="lazy"><figcaption style="font-size: 15px; line-height: 1.5; font-weight: 400; color: #666; margin-top: 0.4em; margin-bottom: 1.2em; font-style: italic;">${caption}</figcaption></figure>`;
+
+      // If placeholder is wrapped in a <p>, replace the whole <p>
+      const wrappedPattern = new RegExp(`<p[^>]*>\\s*${placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*</p>`);
+      if (wrappedPattern.test(content)) {
+        content = content.replace(wrappedPattern, figureHtml);
+      } else {
+        content = content.replace(placeholder, figureHtml);
+      }
+    } else {
+      // No image available - remove placeholder cleanly
+      const wrappedPattern = new RegExp(`<p[^>]*>\\s*${placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*</p>`);
+      content = content.replace(wrappedPattern, '');
+      content = content.replace(placeholder, '');
+    }
+  }
+
+  // Clean up any leftover [IMAGE:] markers that survived (shouldn't happen, but safety net)
+  content = content.replace(/\[IMAGE:[^\]]*\]/g, '');
+  // Clean up any leftover placeholders
+  content = content.replace(/<!--IMG_PLACEHOLDER_\d+-->/g, '');
+  // Clean up empty <figure> tags the AI reviewer may have created from old markers
+  content = content.replace(/<figure[^>]*>\s*(?:&lt;)?\s*<figcaption[^>]*>[^<]*<\/figcaption>\s*<\/figure>/g, '');
+
+  return content;
 }
 
 /**
