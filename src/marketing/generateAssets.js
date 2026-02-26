@@ -50,11 +50,13 @@ async function main() {
       console.log('\nAll assets generated successfully.');
       if (!dryRun) {
         console.log('\nNext steps:');
-        console.log('1. Go to Shopify Admin > Settings > Files to verify uploads');
-        console.log('2. Copy the CDN URLs into your email template');
-        console.log('3. Go to Marketing > Automations > Create automation');
-        console.log('4. Choose "Recover abandoned carts" template');
+        console.log('1. Run: node src/marketing/setupAutomation.js --verify-only');
+        console.log('   (or go to Shopify Admin > Settings > Files to verify uploads)');
+        console.log('2. Go to Marketing > Automations > View templates');
+        console.log('3. Select "Abandoned checkout" automation');
+        console.log('4. Click Edit, switch to HTML/Code view');
         console.log('5. Paste the email HTML from: src/marketing/templates/abandoned-cart-recovery.html');
+        console.log('6. Click "Turn on automation"');
       }
     } else {
       console.log('\nSome assets failed. Check the errors above and retry.');

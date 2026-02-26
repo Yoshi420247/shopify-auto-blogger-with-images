@@ -210,52 +210,28 @@ async function setupAbandonedCartEmail() {
       }
     }
 
-    // Fallback: Use the built-in Shopify notification for abandoned checkouts
-    // This is accessible to all plans and doesn't require Marketing Automations
-    console.log('\nUsing Shopify built-in abandoned checkout notification...');
+    // Shopify has moved abandoned checkout emails to Marketing > Automations.
+    // The old Settings > Checkout location is deprecated.
+    // We'll verify the store, save the template to theme assets, and guide the user.
+    console.log('\nNote: Shopify has moved abandoned checkout emails to Marketing > Automations.');
+    console.log('The old Settings > Checkout location is deprecated.\n');
 
-    // Update via the checkouts notification body
-    // Shopify stores abandoned checkout email in the notification templates
-    // We can update it via PUT /admin/api/{version}/email_templates/{id}.json
-    // But first we need to get the template ID
-
-    // Alternative: Use the Shopify Storefront/Admin theme API to inject the template
-    // The most reliable approach: use the notification webhook approach
-
-    // Actually, let's try the direct approach with notification templates
-    // Shopify doesn't expose a notification REST endpoint for direct HTML editing,
-    // but we can verify the template is ready and provide the setup command.
-
-    // The most reliable automated approach: create a page/asset with the template
-    // so it can be copy-pasted, OR use Shopify's built-in abandoned checkout toggle.
-
-    // Let's check if abandoned checkout emails are enabled
     const shopData = await rest('GET', '/shop.json');
     const shop = shopData.shop;
     console.log(`Store: ${shop.name} (${shop.myshopify_domain})`);
     console.log(`Plan: ${shop.plan_name}`);
-    console.log(`Checkout API: ${shop.checkout_api_supported ? 'supported' : 'not supported'}`);
-
-    // Enable abandoned checkout notifications if not already enabled
-    // This is done through the shop settings
-    console.log('\nAbandoned checkout notification status: checking...');
-
-    // The abandoned_checkout_emails_enabled is controlled through the admin UI
-    // We can't directly toggle it via API, but we can verify the shop supports it
     console.log(`Email: ${shop.email}`);
     console.log(`Customer email: ${shop.customer_email}`);
 
-    // Save the template as a Shopify asset (theme file) so it's accessible
+    // Save the template as a Shopify asset (theme file) so it's accessible from the admin
     console.log('\nSaving email template to shop theme assets...');
 
-    // Get the active theme
     const themesData = await rest('GET', '/themes.json');
     const activeTheme = themesData.themes.find(t => t.role === 'main');
 
     if (activeTheme) {
       console.log(`Active theme: ${activeTheme.name} (ID: ${activeTheme.id})`);
 
-      // Save our email template as a theme asset for easy reference
       try {
         await rest('PUT', `/themes/${activeTheme.id}/assets.json`, {
           asset: {
@@ -265,34 +241,38 @@ async function setupAbandonedCartEmail() {
         });
         console.log('  [OK] Email template saved to theme as templates/abandoned-cart-email.liquid');
       } catch (assetError) {
-        // Theme assets might be read-only on some plans
         console.log(`  [SKIP] Could not save to theme assets: ${assetError.message}`);
       }
     }
 
-    // Final step: provide instructions for the manual part
+    // Instructions for the new Marketing > Automations location
     console.log('\n=== Setup Summary ===\n');
     console.log('Automated steps completed:');
     console.log('  [OK] Email asset images verified in Shopify Files');
     console.log('  [OK] Email template stored in theme assets');
     console.log('');
     console.log('To activate the abandoned cart recovery email:');
-    console.log(`  1. Go to: https://${shop.myshopify_domain}/admin/settings/checkout`);
-    console.log('  2. Under "Abandoned checkouts" section, enable email notifications');
-    console.log('  3. Click "Customize email" to edit the template');
-    console.log('  4. Switch to HTML/Code view');
-    console.log('  5. Replace the content with the template from:');
-    console.log('     templates/abandoned-cart-email.liquid (already in your theme)');
-    console.log('  6. Or paste from: src/marketing/templates/abandoned-cart-recovery.html');
+    console.log(`  1. Go to: https://${shop.myshopify_domain}/admin/marketing/automations`);
+    console.log('  2. Click "View templates" or "Create automation"');
+    console.log('  3. Select the "Abandoned checkout" automation template');
+    console.log('  4. Click "Edit" to customize the email content');
+    console.log('  5. Switch to HTML/Code view');
+    console.log('  6. Paste the template from: src/marketing/templates/abandoned-cart-recovery.html');
     console.log('  7. Send a test email to verify rendering');
-    console.log('  8. Save and activate');
+    console.log('  8. Click "Turn on automation"');
+    console.log('');
+    console.log('Important notes:');
+    console.log('  - Opting into the new automation is permanent (no going back to legacy)');
+    console.log('  - By default, only email subscribers receive the email');
+    console.log('  - Change to "Anyone who abandons their checkout" for broader reach');
+    console.log('  - Default timing is 10 hours; 1 hour is recommended for higher conversion');
     console.log('');
     console.log('Recommended abandoned checkout timing:');
     console.log('  - Email 1: 1 hour after abandonment (high purchase intent)');
     console.log('  - Email 2: 24 hours (with social proof)');
     console.log('  - Email 3: 3 days (with discount offer)');
 
-    return { success: true, method: 'notification', shopDomain: shop.myshopify_domain };
+    return { success: true, method: 'marketing-automations', shopDomain: shop.myshopify_domain };
 
   } catch (error) {
     console.error('Error setting up automation:', error.message);
@@ -302,10 +282,12 @@ async function setupAbandonedCartEmail() {
     console.log('The Shopify API could not configure the automation directly.');
     console.log('This may be due to plan limitations or API permissions.');
     console.log('\nManual steps:');
-    console.log(`  1. Go to: https://${STORE_DOMAIN}/admin/settings/checkout`);
-    console.log('  2. Enable abandoned checkout emails');
-    console.log('  3. Edit the email template with the HTML from:');
-    console.log('     src/marketing/templates/abandoned-cart-recovery.html');
+    console.log(`  1. Go to: https://${STORE_DOMAIN}/admin/marketing/automations`);
+    console.log('  2. Click "View templates" and select "Abandoned checkout"');
+    console.log('  3. Click "Edit" to customize the email');
+    console.log('  4. Switch to HTML/Code view');
+    console.log('  5. Paste the template from: src/marketing/templates/abandoned-cart-recovery.html');
+    console.log('  6. Click "Turn on automation"');
 
     return { success: false, error: error.message };
   }

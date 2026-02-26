@@ -27,6 +27,14 @@ This creates 4 images:
 
 ### Step 2: Verify Uploads in Shopify
 
+You can verify programmatically or manually:
+
+```bash
+# Verify via API
+node src/marketing/setupAutomation.js --verify-only
+```
+
+Or manually:
 1. Go to **Shopify Admin > Settings > Files**
 2. Confirm all 4 images were uploaded
 3. Note the CDN URLs (they look like `https://cdn.shopify.com/s/files/...`)
@@ -40,29 +48,47 @@ If you haven't already:
 
 ### Step 4: Activate the Automation
 
+> **Note:** Shopify has moved abandoned checkout emails from Settings > Checkout
+> to **Marketing > Automations**. The old location is deprecated.
+
 1. Go to **Marketing > Automations** in your Shopify admin
-2. Click **Create automation**
-3. Choose the **Recover abandoned carts** template
-4. In the email editor, switch to **HTML/Code view**
-5. Copy the entire contents of `src/marketing/templates/abandoned-cart-recovery.html`
-6. Paste it into the code editor
-7. Update these placeholder URLs with your actual CDN URLs:
+2. Click **View templates**
+3. Select the **Abandoned checkout** automation template
+4. Click **Edit** to customize the email content
+5. Switch to **HTML/Code view**
+6. Copy the entire contents of `src/marketing/templates/abandoned-cart-recovery.html`
+7. Paste it into the code editor
+8. Update these placeholder URLs with your actual CDN URLs:
    - Logo image src
    - Hero image src
    - Product recommendation image srcs and links
    - Social media links in the footer
-8. **Send a test email** to yourself to verify rendering
-9. Click **Turn on automation**
+9. **Send a test email** to yourself to verify rendering
+10. Click **Turn on automation**
+
+Or run the full automated setup:
+
+```bash
+node src/marketing/setupAutomation.js
+```
+
+**Important:**
+- Opting into the new automation is a **permanent change** — you can't revert to the legacy abandoned checkout emails
+- By default, only email marketing subscribers receive the email
+- Change the audience to "Anyone who abandons their checkout" for broader reach
 
 ### Step 5: Configure Timing
 
-Shopify's recommended timing for abandoned cart recovery:
+Default timing is 10 hours. Recommended timing for abandoned cart recovery:
 
 | Email | Delay | Purpose |
 |-------|-------|---------|
 | 1st | 1 hour | Quick reminder while intent is high |
 | 2nd | 24 hours | Follow-up with social proof |
 | 3rd | 3 days | Final reminder, consider adding a discount |
+
+To change timing: Go to **Marketing > Automations**, select your abandoned checkout
+automation, click **... > Edit settings**, and adjust "Send after."
 
 The provided template works for the first email. For follow-up emails, you can
 duplicate and modify the template (e.g., add a discount code section).
