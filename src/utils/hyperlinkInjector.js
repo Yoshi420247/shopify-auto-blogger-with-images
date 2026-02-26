@@ -52,16 +52,19 @@ const SECONDARY_COLLECTIONS = [
   { name: 'Nectar Collectors', url: '/collections/nectar-collectors', keywords: ['nectar collector', 'honey straw', 'dab straw'] },
   { name: 'Torches', url: '/collections/torches', keywords: ['torch', 'butane torch', 'dab torch'] },
   // Smoking
-  { name: 'Bongs', url: '/collections/bongs', keywords: ['bong', 'water pipe', 'glass bong'] },
+  { name: 'Bongs', url: '/collections/bongs-water-pipes', keywords: ['bong', 'water pipe', 'glass bong'] },
   { name: 'Hand Pipes', url: '/collections/hand-pipes', keywords: ['hand pipe', 'glass pipe', 'spoon pipe'] },
   { name: 'Bubblers', url: '/collections/bubblers', keywords: ['bubbler'] },
   { name: 'Grinders', url: '/collections/grinders', keywords: ['grinder', 'herb grinder'] },
+  { name: 'Silicone Rigs & Bongs', url: '/collections/silicone-rigs-bongs', keywords: ['silicone bong', 'silicone rig', 'silicone pipe', 'silicone dab rig'] },
+  { name: 'Ash Catchers', url: '/collections/ash-catchers', keywords: ['ash catcher', 'ashcatcher'] },
+  { name: 'Flower Bowls', url: '/collections/flower-bowls', keywords: ['flower bowl', 'bowl piece', 'slide'] },
   // Storage
   { name: 'Concentrate Containers', url: '/collections/concentrate-containers', keywords: ['concentrate container', 'dab container', 'wax container'] },
+  { name: 'Storage Containers', url: '/collections/storage-containers', keywords: ['storage container', 'stash jar', 'stash box'] },
   { name: 'Mylar Bags', url: '/collections/mylar-bags', keywords: ['mylar bag', 'smell proof bag'] },
   // Rolling
-  { name: 'Rolling Papers', url: '/collections/rolling-papers', keywords: ['rolling paper', 'papers'] },
-  { name: 'Cones', url: '/collections/rolling-papers-cones', keywords: ['cone', 'pre-roll', 'pre-rolled cone'] }
+  { name: 'Rolling Papers & Cones', url: '/collections/rolling-papers-cones', keywords: ['rolling paper', 'papers', 'cone', 'pre-roll', 'pre-rolled cone'] }
 ];
 
 // External authoritative sources by topic (expanded for E-E-A-T)
