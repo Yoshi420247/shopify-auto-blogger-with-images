@@ -25,11 +25,11 @@ on:
       image_provider:
         description: 'Image generation provider'
         required: false
-        default: 'gemini'
+        default: 'gpt-image-1'
         type: choice
         options:
-          - gemini
           - gpt-image-1
+          - gemini
 
 jobs:
   generate-assets:
@@ -55,7 +55,8 @@ jobs:
           SHOPIFY_STORE_DOMAIN: ${{ secrets.SHOPIFY_STORE_DOMAIN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          IMAGE_PROVIDER: ${{ github.event.inputs.image_provider || 'gemini' }}
+          IMAGE_PROVIDER: ${{ github.event.inputs.image_provider || 'gpt-image-1' }}
+          GPT_IMAGE_QUALITY: high
         run: |
           echo "=========================================="
           echo "EMAIL ASSET GENERATOR"
