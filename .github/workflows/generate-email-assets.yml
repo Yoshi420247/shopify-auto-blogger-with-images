@@ -1,0 +1,76 @@
+# Generate Email Marketing Assets
+# One-time workflow to create and upload visual assets for marketing emails.
+# Run manually via Actions > Generate Email Assets > Run workflow
+name: Generate Email Assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      asset:
+        description: 'Which asset to generate'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - abandoned-cart-hero
+          - rec-product-1
+          - rec-product-2
+          - rec-product-3
+      dry_run:
+        description: 'Dry run (generate images but skip Shopify upload)'
+        required: false
+        default: false
+        type: boolean
+      image_provider:
+        description: 'Image generation provider'
+        required: false
+        default: 'gemini'
+        type: choice
+        options:
+          - gemini
+          - gpt-image-1
+
+jobs:
+  generate-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate email assets
+        env:
+          SHOPIFY_ADMIN_API_TOKEN: ${{ secrets.SHOPIFY_ADMIN_API_TOKEN }}
+          SHOPIFY_STORE_DOMAIN: ${{ secrets.SHOPIFY_STORE_DOMAIN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          IMAGE_PROVIDER: ${{ github.event.inputs.image_provider || 'gemini' }}
+        run: |
+          echo "=========================================="
+          echo "EMAIL ASSET GENERATOR"
+          echo "=========================================="
+          echo "Asset: ${{ github.event.inputs.asset }}"
+          echo "Image provider: $IMAGE_PROVIDER"
+          echo "Dry run: ${{ github.event.inputs.dry_run }}"
+          echo "=========================================="
+
+          ARGS=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          if [ "${{ github.event.inputs.asset }}" != "all" ]; then
+            ARGS="$ARGS --only ${{ github.event.inputs.asset }}"
+          fi
+
+          node src/marketing/generateAssets.js $ARGS

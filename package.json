@@ -8,6 +8,7 @@
     "start": "node src/index.js",
     "generate": "node src/index.js",
     "check-gsc": "node src/searchConsoleChecker.js",
+    "generate-email-assets": "node src/marketing/generateAssets.js",
     "test": "node --test src/**/*.test.js",
     "lint": "eslint src/"
   },

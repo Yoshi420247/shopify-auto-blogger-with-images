@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <title>You left something behind | Oil Slick Pad</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+  <style>
+    /* Reset */
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+    body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; background-color: #f4f4f4; }
+
+    /* Dark mode */
+    @media (prefers-color-scheme: dark) {
+      .email-bg { background-color: #1a1a1a !important; }
+      .email-body { background-color: #2d2d2d !important; }
+      .email-body h1, .email-body h2, .email-body p, .email-body td { color: #e0e0e0 !important; }
+      .footer-text { color: #999 !important; }
+      .divider { border-top-color: #444 !important; }
+    }
+
+    /* Responsive */
+    @media only screen and (max-width: 600px) {
+      .email-container { width: 100% !important; max-width: 100% !important; }
+      .stack-column { display: block !important; width: 100% !important; }
+      .stack-column-center { text-align: center !important; }
+      .mobile-padding { padding-left: 20px !important; padding-right: 20px !important; }
+      .mobile-btn { width: 100% !important; }
+      .hero-img { width: 100% !important; height: auto !important; }
+    }
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4;">
+  <!-- Preview text (hidden in inbox preview) -->
+  <div style="display: none; font-size: 1px; color: #f4f4f4; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;">
+    Your gear is still waiting. Complete your order before it's gone.
+    &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847; &#847;
+  </div>
+
+  <!-- Outer wrapper -->
+  <table role="presentation" class="email-bg" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f4f4;">
+    <tr>
+      <td align="center" style="padding: 20px 10px;">
+
+        <!-- Email container -->
+        <table role="presentation" class="email-container" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; margin: 0 auto;">
+
+          <!-- ========== HEADER / LOGO ========== -->
+          <tr>
+            <td align="center" style="padding: 30px 0 20px 0;">
+              <!--
+                INSTRUCTIONS: Replace the src below with your Oil Slick Pad logo URL.
+                Upload your logo to Shopify: Settings > Files > Upload
+                Then paste the CDN URL here.
+              -->
+              <a href="{{ shop.url }}" target="_blank" style="text-decoration: none;">
+                <img src="{{ shop.url }}/cdn/shop/files/oil-slick-pad-logo.png" alt="Oil Slick Pad" width="200" style="display: block; width: 200px; max-width: 200px; font-family: Arial, sans-serif; color: #333; font-size: 24px; font-weight: bold;">
+              </a>
+            </td>
+          </tr>
+
+          <!-- ========== HERO SECTION ========== -->
+          <tr>
+            <td class="email-body" style="background-color: #ffffff; border-radius: 12px 12px 0 0; overflow: hidden;">
+              <!--
+                HERO IMAGE: This shows a lifestyle shot of dab gear.
+                Replace with your own hero image uploaded to Shopify Files.
+                Recommended size: 600x300px
+              -->
+              <img class="hero-img" src="{{ shop.url }}/cdn/shop/files/abandoned-cart-hero.png" alt="Premium dab accessories on a clean workspace" width="600" style="display: block; width: 600px; max-width: 100%; height: auto; background-color: #1a1a2e;">
+            </td>
+          </tr>
+
+          <!-- ========== MAIN CONTENT ========== -->
+          <tr>
+            <td class="email-body" style="background-color: #ffffff; padding: 40px 40px 20px 40px;">
+              <!-- Headline -->
+              <h1 style="margin: 0 0 16px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 700; color: #1a1a2e; line-height: 1.3; text-align: center;">
+                You Left Some Gear Behind
+              </h1>
+
+              <!-- Subtext -->
+              <p style="margin: 0 0 30px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; color: #555; line-height: 1.6; text-align: center;">
+                Your session setup isn't complete yet. We saved your cart so you can pick up right where you left off.
+              </p>
+            </td>
+          </tr>
+
+          <!-- ========== ABANDONED CART ITEMS (Shopify Liquid) ========== -->
+          <tr>
+            <td class="email-body" style="background-color: #ffffff; padding: 0 40px;">
+              <!--
+                Shopify will dynamically inject cart items here.
+                The {% for %} loop uses Shopify's abandoned checkout Liquid variables.
+              -->
+              {% for line in abandoned_checkout.line_items %}
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 16px; border: 1px solid #eee; border-radius: 8px; overflow: hidden;">
+                <tr>
+                  <!-- Product Image -->
+                  <td width="100" style="padding: 12px; vertical-align: top;">
+                    {% if line.image %}
+                    <img src="{{ line.image | img_url: 'compact_cropped' }}" alt="{{ line.title | escape }}" width="80" height="80" style="display: block; width: 80px; height: 80px; object-fit: cover; border-radius: 6px; background-color: #f0f0f0;">
+                    {% endif %}
+                  </td>
+                  <!-- Product Details -->
+                  <td style="padding: 12px 12px 12px 0; vertical-align: middle; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+                    <p style="margin: 0 0 4px 0; font-size: 15px; font-weight: 600; color: #1a1a2e; line-height: 1.4;">
+                      {{ line.title }}
+                    </p>
+                    {% if line.variant_title %}
+                    <p style="margin: 0 0 4px 0; font-size: 13px; color: #888; line-height: 1.4;">
+                      {{ line.variant_title }}
+                    </p>
+                    {% endif %}
+                    <p style="margin: 0; font-size: 14px; color: #555; line-height: 1.4;">
+                      Qty: {{ line.quantity }} &bull; {{ line.line_price | money }}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              {% endfor %}
+            </td>
+          </tr>
+
+          <!-- ========== CTA BUTTON ========== -->
+          <tr>
+            <td class="email-body" style="background-color: #ffffff; padding: 30px 40px 20px 40px; text-align: center;">
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
+                <tr>
+                  <td style="border-radius: 8px; background-color: #2e7d32;">
+                    <a class="mobile-btn" href="{{ abandoned_checkout.url }}" target="_blank" style="display: inline-block; padding: 16px 48px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; font-weight: 700; color: #ffffff; text-decoration: none; border-radius: 8px; letter-spacing: 0.5px;">
+                      Complete Your Order
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- ========== TRUST SIGNALS ========== -->
+          <tr>
+            <td class="email-body" style="background-color: #ffffff; padding: 20px 40px 30px 40px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td align="center" style="padding: 20px 0 0 0; border-top: 1px solid #eee;">
+                    <table role="presentation" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <!-- Free Shipping -->
+                        <td align="center" style="padding: 0 16px;">
+                          <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #2e7d32; font-weight: 600; line-height: 1.4;">
+                            &#x1F69A; Free Shipping
+                          </p>
+                          <p style="margin: 2px 0 0 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #888; line-height: 1.3;">
+                            On orders $50+
+                          </p>
+                        </td>
+                        <!-- Secure Checkout -->
+                        <td align="center" style="padding: 0 16px;">
+                          <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #2e7d32; font-weight: 600; line-height: 1.4;">
+                            &#x1F512; Secure Checkout
+                          </p>
+                          <p style="margin: 2px 0 0 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #888; line-height: 1.3;">
+                            SSL encrypted
+                          </p>
+                        </td>
+                        <!-- Fast Delivery -->
+                        <td align="center" style="padding: 0 16px;">
+                          <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #2e7d32; font-weight: 600; line-height: 1.4;">
+                            &#x1F4E6; Fast Delivery
+                          </p>
+                          <p style="margin: 2px 0 0 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #888; line-height: 1.3;">
+                            Ships in 1-2 days
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- ========== PRODUCT RECOMMENDATIONS ========== -->
+          <tr>
+            <td class="email-body" style="background-color: #ffffff; padding: 0 40px 30px 40px;">
+              <h2 style="margin: 0 0 16px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 600; color: #1a1a2e; text-align: center; line-height: 1.3;">
+                Customers Also Grabbed
+              </h2>
+              <!--
+                INSTRUCTIONS: Replace these placeholder product cards with your actual bestsellers.
+                Upload product images to Shopify Files and update the src URLs and links below.
+              -->
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <!-- Product 1 -->
+                  <td class="stack-column stack-column-center" width="33%" align="center" style="padding: 8px; vertical-align: top;">
+                    <a href="{{ shop.url }}/collections/all" target="_blank" style="text-decoration: none;">
+                      <img src="{{ shop.url }}/cdn/shop/files/rec-product-1.png" alt="Oil Slick Pad" width="150" style="display: block; width: 150px; max-width: 100%; height: auto; border-radius: 8px; background-color: #f0f0f0; margin: 0 auto;">
+                      <p style="margin: 8px 0 0 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #333; text-align: center; line-height: 1.3;">
+                        Oil Slick Pad
+                      </p>
+                    </a>
+                  </td>
+                  <!-- Product 2 -->
+                  <td class="stack-column stack-column-center" width="33%" align="center" style="padding: 8px; vertical-align: top;">
+                    <a href="{{ shop.url }}/collections/all" target="_blank" style="text-decoration: none;">
+                      <img src="{{ shop.url }}/cdn/shop/files/rec-product-2.png" alt="PTFE Sheets" width="150" style="display: block; width: 150px; max-width: 100%; height: auto; border-radius: 8px; background-color: #f0f0f0; margin: 0 auto;">
+                      <p style="margin: 8px 0 0 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #333; text-align: center; line-height: 1.3;">
+                        PTFE Sheets
+                      </p>
+                    </a>
+                  </td>
+                  <!-- Product 3 -->
+                  <td class="stack-column stack-column-center" width="33%" align="center" style="padding: 8px; vertical-align: top;">
+                    <a href="{{ shop.url }}/collections/all" target="_blank" style="text-decoration: none;">
+                      <img src="{{ shop.url }}/cdn/shop/files/rec-product-3.png" alt="Glass Jars" width="150" style="display: block; width: 150px; max-width: 100%; height: auto; border-radius: 8px; background-color: #f0f0f0; margin: 0 auto;">
+                      <p style="margin: 8px 0 0 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #333; text-align: center; line-height: 1.3;">
+                        Glass Jars
+                      </p>
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- ========== SECONDARY CTA ========== -->
+          <tr>
+            <td class="email-body" style="background-color: #ffffff; padding: 0 40px 40px 40px; text-align: center; border-radius: 0 0 12px 12px;">
+              <p style="margin: 0 0 16px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #888; line-height: 1.5;">
+                Need help? Just reply to this email.
+              </p>
+              <a href="{{ abandoned_checkout.url }}" target="_blank" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #2e7d32; text-decoration: underline; font-weight: 600;">
+                Return to your cart &rarr;
+              </a>
+            </td>
+          </tr>
+
+          <!-- ========== FOOTER ========== -->
+          <tr>
+            <td style="padding: 30px 40px; text-align: center;">
+              <!-- Social Links -->
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin: 0 auto 16px auto;">
+                <tr>
+                  <!--
+                    INSTRUCTIONS: Update the href values below with your actual social media URLs.
+                    Replace the img src with your social icon URLs from Shopify Files.
+                  -->
+                  <td style="padding: 0 8px;">
+                    <a href="https://instagram.com/oilslickpad" target="_blank" style="text-decoration: none; color: #888; font-family: Arial, sans-serif; font-size: 13px;">
+                      Instagram
+                    </a>
+                  </td>
+                  <td style="padding: 0 8px; color: #ccc;">|</td>
+                  <td style="padding: 0 8px;">
+                    <a href="https://facebook.com/oilslickpad" target="_blank" style="text-decoration: none; color: #888; font-family: Arial, sans-serif; font-size: 13px;">
+                      Facebook
+                    </a>
+                  </td>
+                  <td style="padding: 0 8px; color: #ccc;">|</td>
+                  <td style="padding: 0 8px;">
+                    <a href="{{ shop.url }}/blogs/news" target="_blank" style="text-decoration: none; color: #888; font-family: Arial, sans-serif; font-size: 13px;">
+                      Blog
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Company Info -->
+              <p class="footer-text" style="margin: 0 0 8px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #999; line-height: 1.5;">
+                Oil Slick Pad &mdash; Premium Dab Accessories
+              </p>
+              <p class="footer-text" style="margin: 0 0 8px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #bbb; line-height: 1.5;">
+                You're receiving this because you started a checkout at {{ shop.name }}.
+              </p>
+              <p class="footer-text" style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #bbb; line-height: 1.5;">
+                <a href="{{ unsubscribe_url }}" target="_blank" style="color: #bbb; text-decoration: underline;">Unsubscribe</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+        <!-- /Email container -->
+
+      </td>
+    </tr>
+  </table>
+  <!-- /Outer wrapper -->
+</body>
+</html>
