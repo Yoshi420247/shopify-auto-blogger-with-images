@@ -39,7 +39,7 @@ async function shopifyRequest(endpoint, options = {}) {
       method: options.method || 'GET',
       headers,
       data: options.data,
-      timeout: 30000
+      timeout: options.timeout || 60000
     });
 
     return response.data;
@@ -369,10 +369,12 @@ async function uploadImageToFiles(imageData, filename, altText) {
       imageUrl = await pollForFileUrl(createdFile.id);
     }
 
-    // Final fallback to staged URL (temporary, but better than nothing)
+    // If still no CDN URL, the image processing may have failed silently.
+    // Do NOT fall back to the staged URL (target.resourceUrl) because it is
+    // temporary and expires within hours, resulting in broken images on the blog.
     if (!imageUrl) {
-      console.warn(`Could not get permanent CDN URL for ${filename}, using staged URL`);
-      imageUrl = target.resourceUrl;
+      console.warn(`Could not get permanent CDN URL for ${filename} — image will be skipped`);
+      return null;
     }
 
     console.log(`Uploaded image to Shopify Files: ${filename}`);
@@ -391,10 +393,11 @@ async function uploadImageToFiles(imageData, filename, altText) {
 
 /**
  * Poll Shopify for a file's permanent CDN URL.
- * After fileCreate, Shopify processes images async. This polls until the
- * image URL is available (up to ~15 seconds with exponential backoff).
+ * After fileCreate, Shopify processes images async — especially for 2K+
+ * resolution images which can take 15-30 seconds to process.
+ * Polls up to 8 times with 3-second intervals (~24 seconds total wait).
  */
-async function pollForFileUrl(fileId, maxAttempts = 5) {
+async function pollForFileUrl(fileId, maxAttempts = 8) {
   const query = `
     query GetFile($id: ID!) {
       node(id: $id) {
@@ -410,7 +413,7 @@ async function pollForFileUrl(fileId, maxAttempts = 5) {
   `;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const delay = attempt * 2000; // 2s, 4s, 6s, 8s, 10s
+    const delay = attempt <= 3 ? 3000 : 4000; // 3s for first 3, 4s after
     await new Promise(resolve => setTimeout(resolve, delay));
 
     try {
@@ -424,6 +427,9 @@ async function pollForFileUrl(fileId, maxAttempts = 5) {
       if (status === 'FAILED') {
         console.warn(`  File processing failed for ${fileId}`);
         return null;
+      }
+      if (attempt < maxAttempts) {
+        console.log(`  Poll ${attempt}/${maxAttempts}: still processing (status: ${status || 'unknown'})...`);
       }
     } catch (err) {
       console.warn(`  Poll attempt ${attempt} failed: ${err.message}`);

@@ -1327,8 +1327,32 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
     articleOptions.imageUrl = plan.productImage.url;
     articleOptions.imageAlt = plan.productImage.altText || generatedPost.title;
   } else if (featuredImage) {
-    articleOptions.imageData = featuredImage.imageData;
-    articleOptions.imageAlt = featuredImage.altText || generatedPost.title;
+    // Upload featured image to Shopify Files first to get a permanent CDN URL.
+    // Sending large base64 data directly in the article JSON payload (via
+    // article.image.attachment) is unreliable for 2K+ images — the payload
+    // can exceed Shopify's API limits or timeout, causing the image to silently
+    // fail while the article still publishes (resulting in a tiny artifact
+    // where the featured image should be).
+    const featuredFilename = generateImageFilename(featuredImage.description || generatedPost.title, 'featured');
+    const featuredAlt = featuredImage.altText || generatedPost.title;
+    console.log('Uploading featured image to Shopify Files for CDN URL...');
+    try {
+      const uploaded = await uploadImageToFiles(featuredImage.imageData, featuredFilename, featuredAlt);
+      if (uploaded?.url) {
+        console.log(`Featured image CDN URL: ${uploaded.url.substring(0, 60)}...`);
+        articleOptions.imageUrl = uploaded.url;
+        articleOptions.imageAlt = featuredAlt;
+      } else {
+        // CDN upload failed — fall back to base64 attachment as last resort
+        console.warn('Featured image CDN upload returned no URL, falling back to base64 attachment');
+        articleOptions.imageData = featuredImage.imageData;
+        articleOptions.imageAlt = featuredAlt;
+      }
+    } catch (err) {
+      console.warn(`Featured image CDN upload failed: ${err.message}, falling back to base64 attachment`);
+      articleOptions.imageData = featuredImage.imageData;
+      articleOptions.imageAlt = featuredAlt;
+    }
   }
 
   const publishedArticle = await createArticle(blog.id, articleOptions);
