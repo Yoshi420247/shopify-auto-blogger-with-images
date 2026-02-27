@@ -9,6 +9,8 @@
     "generate": "node src/index.js",
     "check-gsc": "node src/searchConsoleChecker.js",
     "generate-email-assets": "node src/marketing/generateAssets.js",
+    "sync-inventory": "node src/inventory/syncRunner.js",
+    "sync-inventory:dry": "node src/inventory/syncRunner.js --dry-run",
     "test": "node --test src/**/*.test.js",
     "lint": "eslint src/"
   },
@@ -27,6 +29,7 @@
     "@google/generative-ai": "^0.21.0",
     "axios": "^1.7.7",
     "cheerio": "^1.0.0",
+    "dotenv": "^17.3.1",
     "googleapis": "^171.4.0",
     "openai": "^4.72.0",
     "sharp": "^0.33.5"

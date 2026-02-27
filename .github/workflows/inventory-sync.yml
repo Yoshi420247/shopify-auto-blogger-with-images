@@ -1,0 +1,50 @@
+name: Inventory Sync - WYN Distribution → Shopify
+
+on:
+  # Run every 2 hours during business hours (8am-10pm ET = 13:00-03:00 UTC)
+  schedule:
+    - cron: '0 */2 * * *'  # Every 2 hours
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (preview changes without applying)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+jobs:
+  sync-inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run inventory sync
+        env:
+          SHOPIFY_ADMIN_API_TOKEN: ${{ secrets.SHOPIFY_ADMIN_API_TOKEN }}
+          SHOPIFY_STORE_DOMAIN: ${{ secrets.SHOPIFY_STORE_DOMAIN }}
+          WC_STORE_URL: ${{ secrets.WC_STORE_URL }}
+          WC_CONSUMER_KEY: ${{ secrets.WC_CONSUMER_KEY }}
+          WC_CONSUMER_SECRET: ${{ secrets.WC_CONSUMER_SECRET }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            node src/inventory/syncRunner.js --dry-run
+          else
+            node src/inventory/syncRunner.js
+          fi
