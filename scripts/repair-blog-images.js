@@ -139,19 +139,19 @@ function descriptionToSlug(description) {
     .substring(0, 60);
 }
 
-/**
- * Search Shopify Files for images whose filename or alt text matches
- * the given description. Returns the CDN URL if found.
- */
-async function findImageInFiles(description) {
-  const slug = descriptionToSlug(description);
-  // Take key words from the slug for a broader search
-  const searchTerms = slug.split('-').slice(0, 5).join(' ');
+// Cache of all recent files (loaded once, shared across lookups)
+let _recentFilesCache = null;
 
-  // Search by filename first
+/**
+ * Load all recent image files from Shopify Files (last 50).
+ * Cached after first call.
+ */
+async function loadRecentFiles() {
+  if (_recentFilesCache) return _recentFilesCache;
+
   const query = `
-    query SearchFiles($query: String!) {
-      files(first: 10, query: $query) {
+    query RecentFiles {
+      files(first: 50, sortKey: CREATED_AT, reverse: true, query: "media_type:IMAGE") {
         edges {
           node {
             ... on MediaImage {
@@ -161,6 +161,7 @@ async function findImageInFiles(description) {
                 url
                 originalSrc
               }
+              createdAt
             }
           }
         }
@@ -168,37 +169,123 @@ async function findImageInFiles(description) {
     }
   `;
 
-  // Try filename-based search
   try {
-    const data = await gql(query, { query: `filename:${slug}*` });
+    const data = await gql(query);
+    _recentFilesCache = (data.files?.edges || [])
+      .map(e => e.node)
+      .filter(n => n?.image?.url || n?.image?.originalSrc);
+    console.log(`  Loaded ${_recentFilesCache.length} recent files from Shopify Files`);
+  } catch (err) {
+    console.warn(`  Could not load recent files: ${err.message}`);
+    _recentFilesCache = [];
+  }
+  return _recentFilesCache;
+}
+
+const SEARCH_FILES_QUERY = `
+  query SearchFiles($query: String!) {
+    files(first: 10, query: $query) {
+      edges {
+        node {
+          ... on MediaImage {
+            id
+            alt
+            image {
+              url
+              originalSrc
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * Search Shopify Files for images whose filename or alt text matches
+ * the given description. Uses three strategies:
+ *  1. Filename slug search
+ *  2. Keyword search on alt text
+ *  3. Fuzzy match against all recent files
+ * Returns the CDN URL if found.
+ */
+async function findImageInFiles(description) {
+  const slug = descriptionToSlug(description);
+  const searchTerms = slug.split('-').slice(0, 5).join(' ');
+
+  // Strategy 1: Search by filename slug
+  try {
+    const data = await gql(SEARCH_FILES_QUERY, { query: `filename:${slug}*` });
     const files = data.files?.edges || [];
     for (const edge of files) {
       const url = edge.node?.image?.url || edge.node?.image?.originalSrc;
       if (url) {
+        console.log(`    [match: filename]`);
         return { url, alt: edge.node.alt || description };
       }
     }
   } catch (err) {
-    console.warn(`  Filename search failed: ${err.message}`);
+    console.warn(`    Filename search failed: ${err.message}`);
   }
 
-  // Try alt text search
+  // Strategy 2: Search by keywords
   try {
-    const data = await gql(query, { query: searchTerms });
+    const data = await gql(SEARCH_FILES_QUERY, { query: searchTerms });
     const files = data.files?.edges || [];
     for (const edge of files) {
       const url = edge.node?.image?.url || edge.node?.image?.originalSrc;
       const alt = edge.node?.alt || '';
-      // Check if the alt text is related to the description
       if (url && isRelatedText(alt, description)) {
+        console.log(`    [match: keyword search]`);
         return { url, alt: alt || description };
       }
     }
   } catch (err) {
-    console.warn(`  Alt text search failed: ${err.message}`);
+    console.warn(`    Keyword search failed: ${err.message}`);
+  }
+
+  // Strategy 3: Fuzzy match against all recent files (loaded once)
+  const recentFiles = await loadRecentFiles();
+  let bestMatch = null;
+  let bestScore = 0;
+
+  for (const file of recentFiles) {
+    const alt = file.alt || '';
+    const url = file.image?.url || file.image?.originalSrc || '';
+    // Check filename in URL
+    const urlSlug = url.split('/').pop()?.replace(/\.\w+$/, '') || '';
+
+    const altScore = getTextSimilarity(alt, description);
+    const urlScore = getTextSimilarity(urlSlug.replace(/-/g, ' '), description);
+    const score = Math.max(altScore, urlScore);
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = { url, alt: alt || description };
+    }
+  }
+
+  if (bestMatch && bestScore >= 0.3) {
+    console.log(`    [match: fuzzy ${(bestScore * 100).toFixed(0)}%]`);
+    return bestMatch;
   }
 
   return null;
+}
+
+/**
+ * Get similarity score (0-1) between two text strings.
+ */
+function getTextSimilarity(text1, text2) {
+  const words1 = new Set(text1.toLowerCase().split(/\W+/).filter(w => w.length > 2));
+  const words2 = new Set(text2.toLowerCase().split(/\W+/).filter(w => w.length > 2));
+  if (words1.size === 0 || words2.size === 0) return 0;
+
+  let overlap = 0;
+  for (const w of words2) {
+    if (words1.has(w)) overlap++;
+  }
+  return overlap / Math.max(words1.size, words2.size);
 }
 
 /**
