@@ -1291,19 +1291,6 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
     return { success: true, dryRun: true, title: generatedPost.title, wordCount: generatedPost.wordCount, qualityScore: qualityScore.score };
   }
 
-  // FINAL SAFETY: Remove broken image tag fragments that leaked as visible text.
-  // When hyperlink injection (or AI review) corrupts an <img> tag, the tail end
-  // renders as raw text like: `dab tools on ..." style="max-width: 100%; height: auto; border-radius: 12px;" loading="lazy">`
-  // Match our specific image style signature that is NOT inside a valid <img> tag.
-  finalContent = finalContent.replace(/[^<>]*?"\s*style="max-width:\s*100%;\s*height:\s*auto;\s*border-radius:\s*12px;"\s*loading="lazy"\s*>/g, (match, offset) => {
-    // Check if this is inside a valid <img> tag by looking backwards for <img
-    const before = finalContent.substring(Math.max(0, offset - 500), offset);
-    if (/<img\s[^>]*$/.test(before)) {
-      return match; // Part of a valid tag, keep it
-    }
-    return ''; // Orphaned fragment, remove it
-  });
-
   // STEP 10: Publish to Shopify
   console.log('\n--- Publishing to Shopify ---');
   const blog = await getOrCreateBlog('News');
