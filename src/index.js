@@ -44,6 +44,7 @@ import {
 } from './publishers/shopifyPublisher.js';
 import { getCachedOrFetch, getCacheStatus } from './utils/researchCache.js';
 import { scoreContent, generateImageFilename } from './utils/seoOptimizer.js';
+import { findMatchingProducts, matchImagesToProducts, getProductUrl } from './utils/productMatcher.js';
 
 /**
  * Main execution function
@@ -582,28 +583,53 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
   console.log(`Word count: ${generatedPost.wordCount}`);
   console.log(`Author style: ${generatedPost.authorStyle}`);
 
+  // STEP 2.5: Match topic to real products in Shopify inventory
+  console.log('\n--- Matching Products from Inventory ---');
+  const cachedProducts = researchData.vendorProducts || [];
+  const productMatch = await findMatchingProducts(finalTopic, cachedProducts);
+  let enrichedMarkers = generatedPost.imageMarkers || [];
+
+  if (productMatch.products.length > 0) {
+    console.log(`Matched ${productMatch.products.length} product(s) for "${productMatch.searchTermUsed}"`);
+    productMatch.products.forEach(p => {
+      const hasImg = p.featuredImage?.url || (p.images && p.images.length > 0);
+      console.log(`  - ${p.title} (${hasImg ? 'has photos' : 'no photos'})`);
+    });
+
+    // Enrich image markers with product reference photos
+    enrichedMarkers = matchImagesToProducts(enrichedMarkers, productMatch.products);
+    const withRef = enrichedMarkers.filter(m => m.referenceProduct?.imageUrl);
+    if (withRef.length > 0) {
+      console.log(`${withRef.length}/${enrichedMarkers.length} images will use product photos as reference`);
+    }
+  } else {
+    console.log('No matching products found — images will be AI-generated from scratch');
+  }
+
   // STEP 3: Generate images (skip in dry-run mode to save API costs)
   console.log('\n--- Generating Images ---');
   let images = [];
   if (config.blog.dryRun) {
     console.log('[DRY RUN] Skipping image generation to save API costs');
     // Create placeholder entries so content flow works
-    if (generatedPost.imageMarkers && generatedPost.imageMarkers.length > 0) {
-      images = generatedPost.imageMarkers.map(marker => ({
+    if (enrichedMarkers.length > 0) {
+      images = enrichedMarkers.map(marker => ({
         success: false,
         description: marker.description,
         skipped: true,
-        reason: 'dry-run'
+        reason: 'dry-run',
+        referenceProduct: marker.referenceProduct || null
       }));
       console.log(`Would have generated ${images.length} images`);
     }
-  } else if (generatedPost.imageMarkers && generatedPost.imageMarkers.length > 0) {
-    images = await generateBlogImages(generatedPost.imageMarkers, generatedPost.title);
+  } else if (enrichedMarkers.length > 0) {
+    images = await generateBlogImages(enrichedMarkers, generatedPost.title);
     const successfulImages = images.filter(i => i.success);
     console.log(`Generated ${successfulImages.length}/${images.length} images`);
 
     successfulImages.forEach((img, idx) => {
-      console.log(`  Image ${idx + 1}: ${img.imageData ? `${Math.round(img.imageData.length / 1024)}KB` : 'NO DATA'} - ${img.model || 'unknown model'}`);
+      const refNote = img.usedProductReference ? ` (ref: ${img.referenceProductTitle})` : '';
+      console.log(`  Image ${idx + 1}: ${img.imageData ? `${Math.round(img.imageData.length / 1024)}KB` : 'NO DATA'} - ${img.model || 'unknown model'}${refNote}`);
     });
   } else {
     console.log('No image markers found in content');
@@ -635,6 +661,11 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
 
   // Clean up orphaned bold text (bold phrases that should be links or plain text)
   finalContent = cleanOrphanedBoldText(finalContent);
+
+  // Inject links to matched products that were used as image references
+  if (productMatch.products.length > 0) {
+    finalContent = injectProductLinks(finalContent, productMatch.products);
+  }
 
   const linkStats = getLinkStats(finalContent);
   console.log(`Link stats: ${linkStats.internalLinks} internal, ${linkStats.externalLinks} external (${linkStats.internalLinkDensity} per 1K words)`);
@@ -690,6 +721,71 @@ async function generateAndPublishBlog(plan, researchData, topicsUsedThisRun = []
     qualityScore: qualityScore.score,
     images: images.filter(i => i.success).length
   };
+}
+
+/**
+ * Inject links to matched Shopify products into the blog HTML.
+ * Finds natural mentions of the product name and wraps them in links.
+ * Only links each product once to avoid over-linking.
+ */
+function injectProductLinks(html, products) {
+  let modified = html;
+  let linksAdded = 0;
+
+  for (const product of products) {
+    const productUrl = getProductUrl(product);
+    const title = product.title || '';
+
+    // Skip if this product is already linked
+    if (modified.includes(productUrl) || modified.includes(`/products/${product.handle}`)) {
+      continue;
+    }
+
+    // Build search phrases: full title, then significant words from the title
+    const phrases = [title.toLowerCase()];
+
+    // Also try shorter phrases (e.g., "14mm Ceramic Nectar Tip" -> "ceramic nectar tip")
+    const titleWords = title.split(/\s+/).filter(w => w.length > 2);
+    if (titleWords.length > 2) {
+      // Try last 3 words, last 2 words as sub-phrases
+      phrases.push(titleWords.slice(-3).join(' ').toLowerCase());
+      phrases.push(titleWords.slice(-2).join(' ').toLowerCase());
+    }
+
+    for (const phrase of phrases) {
+      if (phrase.length < 4) continue;
+
+      const escapedPhrase = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const pattern = new RegExp(
+        `(?<![<\\/a-zA-Z"=])\\b(${escapedPhrase}s?)\\b(?![^<]*<\\/a>)(?![^<]*<\\/h[1-6]>)`,
+        'i'
+      );
+
+      const match = modified.match(pattern);
+      if (match) {
+        const pos = match.index;
+
+        // Verify not inside an existing link
+        const before = modified.substring(0, pos);
+        const lastAOpen = before.lastIndexOf('<a ');
+        const lastAClose = before.lastIndexOf('</a>');
+        if (lastAOpen > lastAClose) continue;
+
+        // Insert the link
+        const linkedText = `<a href="${productUrl}">${match[1]}</a>`;
+        modified = modified.substring(0, pos) + linkedText + modified.substring(pos + match[1].length);
+        linksAdded++;
+        console.log(`  Linked product: "${match[1]}" -> ${productUrl}`);
+        break; // One link per product
+      }
+    }
+  }
+
+  if (linksAdded > 0) {
+    console.log(`  Added ${linksAdded} product link(s) to blog`);
+  }
+
+  return modified;
 }
 
 /**

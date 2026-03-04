@@ -15,6 +15,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import fs from 'fs/promises';
 import path from 'path';
+import axios from 'axios';
 import config from '../config.js';
 import { withRetry } from '../utils/apiRetry.js';
 import { generateImageFilename } from '../utils/seoOptimizer.js';
@@ -30,18 +31,78 @@ function getGenAI() {
 }
 
 /**
- * Generate an image based on a description
+ * Fetch a product image from URL and convert to base64 for Gemini reference input.
+ *
+ * @param {string} imageUrl - The product image URL (Shopify CDN)
+ * @returns {Object|null} { data: base64string, mimeType: string } or null on failure
+ */
+async function fetchImageAsBase64(imageUrl) {
+  try {
+    const response = await axios.get(imageUrl, {
+      responseType: 'arraybuffer',
+      timeout: 15000,
+      headers: { 'Accept': 'image/*' }
+    });
+
+    const buffer = Buffer.from(response.data);
+    const base64 = buffer.toString('base64');
+    const contentType = response.headers['content-type'] || 'image/jpeg';
+
+    return { data: base64, mimeType: contentType };
+  } catch (error) {
+    console.log(`  Could not fetch reference image: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * Generate an image based on a description, optionally using a product photo as reference.
+ *
+ * @param {string} description - What to generate
+ * @param {Object} options - Generation options
+ * @param {string} options.aspectRatio - Image aspect ratio
+ * @param {string} options.style - Image style
+ * @param {Object} options.referenceProduct - Product reference data from productMatcher
+ * @param {string} options.referenceProduct.imageUrl - Product photo URL to use as inspiration
+ * @param {string} options.referenceProduct.title - Product name for prompt context
  */
 export async function generateImage(description, options = {}) {
   const {
     aspectRatio = config.blog.imageAspectRatio,
-    style = 'photorealistic'
+    style = 'photorealistic',
+    referenceProduct = null
   } = options;
 
   console.log(`Generating image: ${description}`);
 
-  // Build enhanced prompt for better image generation
-  const enhancedPrompt = buildImagePrompt(description, style);
+  // Build the content parts — text prompt, optionally with a reference product image
+  const contentParts = [];
+  let usedReference = false;
+
+  // If we have a reference product photo, include it as inspiration
+  if (referenceProduct?.imageUrl) {
+    console.log(`  Using product reference photo: "${referenceProduct.title}"`);
+    const refImage = await fetchImageAsBase64(referenceProduct.imageUrl);
+    if (refImage) {
+      contentParts.push({
+        inlineData: {
+          data: refImage.data,
+          mimeType: refImage.mimeType
+        }
+      });
+      usedReference = true;
+    }
+  }
+
+  // Build enhanced prompt — include reference context if we have a product photo
+  let enhancedPrompt;
+  if (usedReference && referenceProduct) {
+    enhancedPrompt = buildImagePromptWithReference(description, referenceProduct.title, style);
+  } else {
+    enhancedPrompt = buildImagePrompt(description, style);
+  }
+
+  contentParts.push({ text: enhancedPrompt });
 
   try {
     const ai = getGenAI();
@@ -60,7 +121,7 @@ export async function generateImage(description, options = {}) {
 
     const result = await withRetry(
       () => model.generateContent({
-        contents: [{ parts: [{ text: enhancedPrompt }] }],
+        contents: [{ parts: contentParts }],
         generationConfig: { candidateCount: 1 }
       }),
       { maxRetries: 2, operationName: 'Image generation (Gemini Pro)' }
@@ -77,12 +138,14 @@ export async function generateImage(description, options = {}) {
           mimeType: part.inlineData.mimeType || 'image/png',
           prompt: enhancedPrompt,
           generatedAt: new Date().toISOString(),
-          model: 'Nano Banana Pro 3.0 (gemini-3-pro-image-preview)'
+          model: 'Nano Banana Pro 3.0 (gemini-3-pro-image-preview)',
+          usedProductReference: usedReference,
+          referenceProductTitle: referenceProduct?.title || null
         };
       }
     }
 
-    // If no image was generated, try alternative approach
+    // If no image was generated, try alternative approach (without reference — simpler)
     return await generateImageAlternative(description, options);
 
   } catch (error) {
@@ -207,6 +270,38 @@ Technical specifications:
 }
 
 /**
+ * Build enhanced image prompt that incorporates a real product photo as reference.
+ * Tells the AI to use the attached photo as inspiration for the generated image.
+ */
+function buildImagePromptWithReference(description, productTitle, style = 'photorealistic') {
+  const styleModifiers = {
+    photorealistic: 'photorealistic, high quality, professional photography, sharp focus, well-lit',
+    product: 'product photography, clean background, professional lighting, commercial quality, studio shot',
+    lifestyle: 'lifestyle photography, natural lighting, authentic feel, candid moment, warm tones',
+    artistic: 'artistic interpretation, creative composition, visually striking, unique perspective'
+  };
+
+  const styleModifier = styleModifiers[style] || styleModifiers.photorealistic;
+
+  return `The attached photo shows a real product called "${productTitle}" from an online store.
+Use this actual product as visual reference — match its shape, color, material, and design in the generated image.
+
+Generate a new image for this scene: ${description}
+
+IMPORTANT reference instructions:
+- The product in the generated image should look like the one in the reference photo
+- Match the product's actual appearance — its real colors, materials, proportions, and design details
+- Place the product in the described scene/setting, but keep the product itself faithful to the reference
+- DO NOT add any text, logos, words, or writing to the product
+- The reference photo is the ground truth — if the description contradicts the photo, follow the photo
+
+Style: ${styleModifier}
+Create a tasteful, professional image suitable for a cannabis accessories e-commerce blog.
+Focus on the tools, accessories, and lifestyle aspects rather than plant material.
+High resolution, clean modern aesthetic, professional quality.`;
+}
+
+/**
  * Generate multiple images for a blog post
  */
 export async function generateBlogImages(imageMarkers, blogTitle) {
@@ -216,13 +311,18 @@ export async function generateBlogImages(imageMarkers, blogTitle) {
     const marker = imageMarkers[i];
 
     // Determine appropriate style based on marker description
-    const style = determineImageStyle(marker.description);
+    // Use 'product' style when we have a reference product photo
+    let style = determineImageStyle(marker.description);
+    if (marker.referenceProduct?.imageUrl) {
+      style = 'product';
+    }
 
     console.log(`Generating image ${i + 1}/${imageMarkers.length}: ${marker.description}`);
 
     const result = await generateImage(marker.description, {
       style,
-      aspectRatio: config.blog.imageAspectRatio
+      aspectRatio: config.blog.imageAspectRatio,
+      referenceProduct: marker.referenceProduct || null
     });
 
     results.push({
@@ -230,7 +330,8 @@ export async function generateBlogImages(imageMarkers, blogTitle) {
       originalMarker: marker.marker,
       description: marker.description,
       altText: generateAltText(marker.description, blogTitle),
-      index: i
+      index: i,
+      referenceProduct: marker.referenceProduct || null
     });
 
     // Delay between image generations to respect rate limits

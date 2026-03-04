@@ -1090,6 +1090,15 @@ async function getProductsByVendor(vendor, limit = 20) {
                 url
                 altText
               }
+              images(first: 5) {
+                edges {
+                  node {
+                    url
+                    altText
+                  }
+                }
+              }
+              onlineStoreUrl
             }
           }
         }
@@ -1101,12 +1110,79 @@ async function getProductsByVendor(vendor, limit = 20) {
       first: limit
     });
 
-    const products = data.products?.edges?.map(edge => edge.node) || [];
+    const products = (data.products?.edges?.map(edge => edge.node) || []).map(p => ({
+      ...p,
+      images: p.images?.edges?.map(e => e.node) || []
+    }));
     console.log(`Found ${products.length} products from vendor "${vendor}"`);
     return products;
 
   } catch (error) {
     console.error(`Error fetching products by vendor "${vendor}":`, error.message);
+    return [];
+  }
+}
+
+/**
+ * Search products by keyword — finds inventory items matching a topic or description.
+ * Returns products with all images for use as AI reference photos.
+ *
+ * @param {string} searchTerm - Keyword(s) to search for
+ * @param {number} limit - Maximum products to return
+ * @returns {Array} Products with images array
+ */
+async function searchProducts(searchTerm, limit = 10) {
+  try {
+    const query = `
+      query SearchProducts($query: String!, $first: Int!) {
+        products(first: $first, query: $query, sortKey: RELEVANCE) {
+          edges {
+            node {
+              id
+              title
+              handle
+              description
+              productType
+              vendor
+              tags
+              priceRange {
+                minVariantPrice {
+                  amount
+                  currencyCode
+                }
+              }
+              featuredImage {
+                url
+                altText
+              }
+              images(first: 5) {
+                edges {
+                  node {
+                    url
+                    altText
+                  }
+                }
+              }
+              onlineStoreUrl
+            }
+          }
+        }
+      }
+    `;
+
+    const data = await graphqlQuery(query, {
+      query: searchTerm,
+      first: limit
+    });
+
+    const products = (data.products?.edges?.map(edge => edge.node) || []).map(p => ({
+      ...p,
+      images: p.images?.edges?.map(e => e.node) || []
+    }));
+    return products;
+
+  } catch (error) {
+    console.error(`Error searching products for "${searchTerm}":`, error.message);
     return [];
   }
 }
@@ -1121,5 +1197,6 @@ export {
   updateArticle,
   testConnection,
   markdownToHtml,
-  getProductsByVendor
+  getProductsByVendor,
+  searchProducts
 };

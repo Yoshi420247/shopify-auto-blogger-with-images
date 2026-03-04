@@ -50,6 +50,7 @@ import { scoreContent, generateImageFilename } from './utils/seoOptimizer.js';
 import { getRandomPseudonym } from './utils/authorStyles.js';
 import { getCachedOrFetch } from './utils/researchCache.js';
 import axios from 'axios';
+import { findMatchingProducts, matchImagesToProducts, getProductUrl } from './utils/productMatcher.js';
 
 /**
  * Main entry point for the daily Search Console check
@@ -321,16 +322,32 @@ async function writeProductTargetedBlog(target, existingArticles, dryRun) {
 
   console.log(`Generated: "${generatedPost.title}" (${generatedPost.wordCount} words)`);
 
+  // Step 3.5: Match products from inventory for reference images
+  console.log('\nMatching products from inventory...');
+  const productMatch = await findMatchingProducts(topicData.topic);
+  let enrichedMarkers = generatedPost.imageMarkers || [];
+
+  if (productMatch.products.length > 0) {
+    console.log(`Matched ${productMatch.products.length} product(s) for "${productMatch.searchTermUsed}"`);
+    enrichedMarkers = matchImagesToProducts(enrichedMarkers, productMatch.products);
+    const withRef = enrichedMarkers.filter(m => m.referenceProduct?.imageUrl);
+    if (withRef.length > 0) {
+      console.log(`${withRef.length} images will use product photos as reference`);
+    }
+  } else {
+    console.log('No matching products — images will be AI-generated from scratch');
+  }
+
   // Step 4: Generate images (skip if dry run or no Gemini key)
   let images = [];
-  if (!dryRun && config.gemini.apiKey && generatedPost.imageMarkers?.length > 0) {
+  if (!dryRun && config.gemini.apiKey && enrichedMarkers.length > 0) {
     console.log('\nGenerating images...');
-    images = await generateBlogImages(generatedPost.imageMarkers, generatedPost.title);
+    images = await generateBlogImages(enrichedMarkers, generatedPost.title);
     const successful = images.filter(i => i.success);
     console.log(`Generated ${successful.length}/${images.length} images`);
   } else {
     console.log('\nSkipping image generation');
-    images = (generatedPost.imageMarkers || []).map(m => ({
+    images = enrichedMarkers.map(m => ({
       success: false,
       description: m.description,
       skipped: true
