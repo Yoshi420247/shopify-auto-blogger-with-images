@@ -30,9 +30,9 @@ const PAGE_PATTERNS = {
  */
 export function analyzeTrends(comparisonData, options = {}) {
   const {
-    minClicksRecent = 3,          // Minimum clicks in recent period to consider
-    minImpressionsRecent = 20,    // Minimum impressions in recent period
-    growthThreshold = 0.20,       // 20% growth = trending
+    minClicksRecent = 5,          // Minimum clicks in recent period to consider
+    minImpressionsRecent = 30,    // Minimum impressions in recent period
+    growthThreshold = 0.10,       // 10% growth = trending
     topN = 20                     // Max pages per category to return
   } = options;
 
@@ -87,9 +87,11 @@ export function analyzeTrends(comparisonData, options = {}) {
   });
 
   // Filter to pages meeting minimum thresholds
+  // Require BOTH clicks and impressions — pages with impressions but zero clicks
+  // are not worth targeting (they appear in search but nobody clicks)
   const qualifiedPages = pagesWithTrends.filter(p =>
-    p.recentClicks >= minClicksRecent ||
-    p.recentImpressions >= minImpressionsRecent
+    (p.recentClicks >= minClicksRecent && p.recentImpressions >= minImpressionsRecent) ||
+    (p.recentClicks >= minClicksRecent * 3) // Very high clicks override impressions threshold
   );
 
   // Sort by trend score (highest first)
@@ -195,7 +197,25 @@ export function identifyBlogTargets(trends, existingBlogs = [], maxSuggestions =
   const candidates = [
     ...trendingProducts.map(p => ({ ...p, type: 'product' })),
     ...trendingCollections.map(p => ({ ...p, type: 'collection' }))
-  ].sort((a, b) => b.trendScore - a.trendScore);
+  ]
+    // REQUIRE actual positive momentum — don't write about pages with zero growth
+    .filter(p => {
+      const hasClickGrowth = p.clicksGrowth > 0;
+      const hasImpressionGrowth = p.impressionsGrowth >= 0.10; // At least 10% impression growth
+      const hasPositionGain = p.positionChange >= 2;            // Moved up 2+ positions
+      const hasMeaningfulClicks = p.recentClicks >= 5;          // Enough clicks to matter
+
+      const isTrending = (hasClickGrowth && hasMeaningfulClicks) ||
+                          (hasImpressionGrowth && hasMeaningfulClicks) ||
+                          (hasPositionGain && hasMeaningfulClicks);
+
+      if (!isTrending) {
+        const handle = extractHandle(p.page);
+        console.log(`Skipping "${handle}" - not actually trending (clicks: ${p.recentClicks}, growth: ${(p.clicksGrowth * 100).toFixed(0)}%, impressions growth: ${(p.impressionsGrowth * 100).toFixed(0)}%)`);
+      }
+      return isTrending;
+    })
+    .sort((a, b) => b.trendScore - a.trendScore);
 
   // Get existing blog titles for dedup check
   const existingTitlesLower = existingBlogs.map(b =>
