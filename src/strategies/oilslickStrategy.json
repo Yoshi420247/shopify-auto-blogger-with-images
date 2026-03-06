@@ -1,0 +1,306 @@
+{
+  "meta": {
+    "name": "Oil Slick Pad Blog Strategy",
+    "version": "1.0.0",
+    "created": "2026-03-06",
+    "source": "OilSlick_Blog_Strategy_Handoff.docx",
+    "totalPosts": 13,
+    "totalSearchVolume": 25500,
+    "coverageMonths": "March-May 2026"
+  },
+
+  "siteConfig": {
+    "storeDomain": "oilslickpad.com",
+    "blogHandle": "oil-slick-blog",
+    "blogTitle": "Oil Slick Blog",
+    "baseUrl": "https://oilslickpad.com",
+    "tone": "Knowledgeable but approachable. Write like an experienced friend who works at a head shop, not an academic paper. Avoid corporate jargon.",
+    "voice": "first-person-plural",
+    "voiceExample": "Use 'we' and 'our' when referring to Oil Slick Pad. Example: 'We carry over 200 dab rigsâ¦'"
+  },
+
+  "collections": {
+    "primary": [
+      { "handle": "bongs-water-pipes", "path": "/collections/bongs-water-pipes", "priority": "HIGH", "anchorText": ["bongs", "water pipes", "glass bongs", "silicone bongs"] },
+      { "handle": "dab-tools", "path": "/collections/dab-tools", "priority": "HIGH", "anchorText": ["dab tools", "dabbers", "carb caps"] },
+      { "handle": "dab-rigs", "path": "/collections/dab-rigs", "priority": "HIGH", "anchorText": ["dab rigs", "oil rigs", "concentrate rigs"] },
+      { "handle": "nectar-collectors", "path": "/collections/nectar-collectors", "priority": "MEDIUM", "anchorText": ["nectar collectors", "dab straws", "honey straws"] },
+      { "handle": "quartz-bangers", "path": "/collections/quartz-bangers", "priority": "STANDARD", "anchorText": ["quartz bangers", "quartz nails", "banger nails"] },
+      { "handle": "downstems", "path": "/collections/downstems", "priority": "STANDARD", "anchorText": ["downstems", "diffused downstems"] },
+      { "handle": "ash-catchers", "path": "/collections/ash-catchers", "priority": "STANDARD", "anchorText": ["ash catchers", "ash catcher attachments"] },
+      { "handle": "grinders", "path": "/collections/grinders", "priority": "STANDARD", "anchorText": ["grinders", "herb grinders"] }
+    ],
+    "secondary": [
+      { "handle": "hand-pipes", "path": "/collections/hand-pipes" },
+      { "handle": "bubblers", "path": "/collections/bubblers" },
+      { "handle": "silicone-pipes", "path": "/collections/silicone-pipes" },
+      { "handle": "rolling-papers-cones", "path": "/collections/rolling-papers-cones" },
+      { "handle": "made-in-usa", "path": "/collections/made-in-usa" },
+      { "handle": "pendants", "path": "/collections/pendants" },
+      { "handle": "vaporizers", "path": "/collections/vaporizers" }
+    ]
+  },
+
+  "seoRules": {
+    "titleTag": {
+      "maxLength": 60,
+      "format": "[Primary Keyword]: [Value Proposition] | Oil Slick Pad",
+      "rule": "Include the target keyword within the first 60 characters."
+    },
+    "metaDescription": {
+      "maxLength": 155,
+      "rule": "Include target keyword naturally. End with a call to action ('Shop now,' 'Learn more,' 'Find yours')."
+    },
+    "urlHandle": {
+      "rule": "Lowercase, hyphenated, keyword-rich. Short, not stuffed.",
+      "example": "best-dab-rigs-under-50"
+    },
+    "headings": {
+      "h1": "One per post. Should contain or closely match the target keyword.",
+      "h2": "Use 3-6 per post. Include secondary keywords and long-tail variations.",
+      "h3": "Use for subsections within H2 blocks."
+    },
+    "internalLinking": {
+      "minLinksPerPost": 3,
+      "idealLinksPerPost": "5-8",
+      "rules": [
+        "Always link to the relevant collection page listed in the content calendar for that post.",
+        "Link to 2-5 specific product pages when mentioning or recommending products.",
+        "Link to related blog posts when relevant.",
+        "Use natural anchor text, not 'click here'.",
+        "Vary anchor text across posts linking to the same page."
+      ]
+    },
+    "contentQuality": {
+      "wordCountRule": "Follow the target for each post (1,500â2,500 words). Longer is not better if it's filler.",
+      "includeProductSpecs": "When recommending products, include price, material, size, and key features.",
+      "comparisonTables": "Include an HTML comparison table in every listicle and buying guide.",
+      "imageAltText": "Every image must have descriptive alt text with the target keyword where natural."
+    },
+    "publishing": {
+      "blog": "Oil Slick Blog",
+      "authorRule": "Use the store's default author.",
+      "tagsRule": "Add 3-5 relevant tags matching product categories.",
+      "featuredImageRule": "Every post needs a featured image. Ideally a product photo or lifestyle shot."
+    }
+  },
+
+  "contentCalendar": [
+    {
+      "id": "mar-w1",
+      "publishWindow": { "start": "2026-03-02", "end": "2026-03-08" },
+      "title": "Best Dab Rigs Under $50 in 2026",
+      "targetKeyword": "best dab rigs under 50",
+      "searchVolume": 1200,
+      "searchIntent": "commercial",
+      "contentType": "listicle",
+      "wordTarget": 2000,
+      "linkToCollection": "/collections/dab-rigs",
+      "tags": ["dab rigs", "buying guide", "budget", "beginner"],
+      "notes": "Link 5-8 products. Include comparison table with price, material, height, percolator type."
+    },
+    {
+      "id": "mar-w2",
+      "publishWindow": { "start": "2026-03-09", "end": "2026-03-15" },
+      "title": "How to Use a Nectar Collector: Complete Beginner Guide",
+      "targetKeyword": "how to use a nectar collector",
+      "searchVolume": 2400,
+      "searchIntent": "informational",
+      "contentType": "deep_dive",
+      "wordTarget": 2500,
+      "linkToCollection": "/collections/nectar-collectors",
+      "tags": ["nectar collectors", "how-to", "beginner", "guide"],
+      "notes": "Step-by-step with images. Cover glass vs silicone tips. Link nectar collector products."
+    },
+    {
+      "id": "mar-w3",
+      "publishWindow": { "start": "2026-03-16", "end": "2026-03-22" },
+      "title": "Glass Bongs vs Silicone Bongs: Which Is Better?",
+      "targetKeyword": "glass bong vs silicone bong",
+      "searchVolume": 800,
+      "searchIntent": "info/commercial",
+      "contentType": "comparison",
+      "wordTarget": 1800,
+      "linkToCollection": "/collections/bongs-water-pipes",
+      "tags": ["bongs", "comparison", "glass", "silicone"],
+      "notes": "Pros/cons table. Link to both glass and silicone product collections."
+    },
+    {
+      "id": "mar-w4",
+      "publishWindow": { "start": "2026-03-23", "end": "2026-03-29" },
+      "title": "The Ultimate Quartz Banger Buying Guide",
+      "targetKeyword": "quartz banger guide",
+      "searchVolume": 1000,
+      "searchIntent": "commercial",
+      "contentType": "deep_dive",
+      "wordTarget": 2500,
+      "linkToCollection": "/collections/quartz-bangers",
+      "tags": ["quartz bangers", "buying guide", "dabbing"],
+      "notes": "Cover male vs female joints, 10mm/14mm/18mm sizes, wall thickness. Link products."
+    },
+    {
+      "id": "apr-w1a",
+      "publishWindow": { "start": "2026-04-01", "end": "2026-04-05" },
+      "title": "4/20 Gift Guide: Best Smoking Accessories Under $25",
+      "targetKeyword": "420 gift guide smoking accessories",
+      "searchVolume": 3500,
+      "searchIntent": "commercial",
+      "contentType": "listicle",
+      "wordTarget": 2000,
+      "linkToCollection": "/collections/accessories",
+      "tags": ["420", "gift guide", "accessories", "under 25"],
+      "notes": "PRIORITY: Publish early for 4/20 traffic spike. Link 10+ products across categories.",
+      "priority": "high"
+    },
+    {
+      "id": "apr-w1b",
+      "publishWindow": { "start": "2026-04-01", "end": "2026-04-05" },
+      "title": "Best 4/20 Deals and Sales 2026",
+      "targetKeyword": "420 deals 2026",
+      "searchVolume": 5000,
+      "searchIntent": "transactional",
+      "contentType": "standard",
+      "wordTarget": 1500,
+      "linkToCollection": "multiple",
+      "tags": ["420", "deals", "sales", "2026"],
+      "notes": "Update with actual promotions. Create a dedicated 4/20 collection page on Shopify.",
+      "priority": "high"
+    },
+    {
+      "id": "apr-w2",
+      "publishWindow": { "start": "2026-04-06", "end": "2026-04-12" },
+      "title": "How to Clean a Dab Rig: Step-by-Step Guide",
+      "targetKeyword": "how to clean a dab rig",
+      "searchVolume": 2900,
+      "searchIntent": "informational",
+      "contentType": "deep_dive",
+      "wordTarget": 2000,
+      "linkToCollection": "/collections/dab-rigs",
+      "tags": ["dab rigs", "cleaning", "how-to", "maintenance"],
+      "notes": "Evergreen content. Link cleaning products + dab rigs. Include isopropyl alcohol method."
+    },
+    {
+      "id": "apr-w3",
+      "publishWindow": { "start": "2026-04-13", "end": "2026-04-19" },
+      "title": "Best Hand Pipes for Beginners (2026 Guide)",
+      "targetKeyword": "best hand pipes",
+      "searchVolume": 1800,
+      "searchIntent": "commercial",
+      "contentType": "listicle",
+      "wordTarget": 2000,
+      "linkToCollection": "/collections/hand-pipes",
+      "tags": ["hand pipes", "beginner", "buying guide", "2026"],
+      "notes": "Feature 8-10 hand pipes with prices. Publish before 4/20. Include spoons, sherlocks, chillums."
+    },
+    {
+      "id": "apr-w4",
+      "publishWindow": { "start": "2026-04-20", "end": "2026-04-26" },
+      "title": "Dab Temperature Guide: Finding the Perfect Heat",
+      "targetKeyword": "dab temperature guide",
+      "searchVolume": 1500,
+      "searchIntent": "informational",
+      "contentType": "standard",
+      "wordTarget": 2000,
+      "linkToCollection": "/collections/quartz-bangers",
+      "tags": ["dabbing", "temperature", "guide", "quartz bangers"],
+      "notes": "Include temperature chart graphic. Link quartz bangers and carb caps."
+    },
+    {
+      "id": "may-w1",
+      "publishWindow": { "start": "2026-05-04", "end": "2026-05-10" },
+      "title": "Ash Catcher vs Percolator: What's the Difference?",
+      "targetKeyword": "ash catcher vs percolator",
+      "searchVolume": 600,
+      "searchIntent": "informational",
+      "contentType": "comparison",
+      "wordTarget": 1800,
+      "linkToCollection": "/collections/ash-catchers",
+      "tags": ["ash catchers", "percolators", "comparison", "bongs"],
+      "notes": "Low competition keyword. Link ash catchers and bongs. Include diagrams if possible."
+    },
+    {
+      "id": "may-w2",
+      "publishWindow": { "start": "2026-05-11", "end": "2026-05-17" },
+      "title": "Best Rolling Papers Brands Ranked (2026)",
+      "targetKeyword": "best rolling papers",
+      "searchVolume": 2200,
+      "searchIntent": "commercial",
+      "contentType": "listicle",
+      "wordTarget": 2000,
+      "linkToCollection": "/collections/rolling-papers-cones",
+      "tags": ["rolling papers", "brands", "ranking", "2026"],
+      "notes": "Compare Raw, Elements, Zig-Zag, OCB. Link your rolling paper products."
+    },
+    {
+      "id": "may-w3",
+      "publishWindow": { "start": "2026-05-18", "end": "2026-05-24" },
+      "title": "What Size Quartz Banger Do I Need? Joint Size Guide",
+      "targetKeyword": "quartz banger size guide",
+      "searchVolume": 900,
+      "searchIntent": "informational",
+      "contentType": "standard",
+      "wordTarget": 1500,
+      "linkToCollection": "/collections/quartz-bangers",
+      "tags": ["quartz bangers", "size guide", "joint size", "beginner"],
+      "notes": "Include measuring guide images. Cross-link with dab rigs for joint compatibility."
+    },
+    {
+      "id": "may-w4",
+      "publishWindow": { "start": "2026-05-25", "end": "2026-05-31" },
+      "title": "Made in USA Glass: Why American-Made Bongs Are Worth It",
+      "targetKeyword": "american made glass bongs",
+      "searchVolume": 700,
+      "searchIntent": "commercial",
+      "contentType": "standard",
+      "wordTarget": 2000,
+      "linkToCollection": "/collections/made-in-usa",
+      "tags": ["made in usa", "american glass", "bongs", "quality"],
+      "notes": "Differentiator content. Feature Made in USA collection prominently. Quality angle."
+    }
+  ],
+
+  "duplicateCleanup": [
+    {
+      "title": "The Complete Oil Slick Guide for 2026",
+      "keepHandle": "the-complete-oil-slick-guide-for-2026",
+      "removeHandle": "the-complete-oil-slick-guide-for-2027"
+    },
+    {
+      "title": "The Complete Guide to Dabbing (2026)",
+      "keepHandle": "the-complete-guide-to-dabbing-2026",
+      "removeHandle": "the-complete-guide-to-dabbing-2027"
+    },
+    {
+      "title": "Dab Tech in 2026: What's Actually Worth",
+      "keepHandle": "dab-tech-in-2026-whats-actually-worth",
+      "removeHandle": "dab-tech-in-2026-whats-actually-worth-1"
+    },
+    {
+      "title": "Stainless Steel vs Titanium Dab Tools",
+      "keepHandle": "stainless-steel-vs-titanium-dab-tools",
+      "removeHandle": "stainless-steel-vs-titanium-dab-tools-1"
+    },
+    {
+      "title": "Choosing Your First Bong: A Complete Guide",
+      "keepHandle": "choosing-your-first-bong-a-complete-guide",
+      "removeHandle": "choosing-your-first-bong-a-complete-guide-1"
+    },
+    {
+      "title": "Dab Rigs vs Bongs: What's Actually",
+      "keepHandle": "dab-rigs-vs-bongs-what-s-actually",
+      "removeHandle": "dab-rigs-vs-bongs-what-s-actually-1"
+    }
+  ],
+
+  "internalLinkingBacklog": {
+    "underlinkedCollections": [
+      { "handle": "bongs-water-pipes", "missingFromArticles": 15 },
+      { "handle": "dab-tools", "missingFromArticles": 14 },
+      { "handle": "dab-rigs", "missingFromArticles": 10 }
+    ],
+    "totalArticlesToUpdate": 45,
+    "action": "When updating any existing post, check if its topic naturally relates to bongs-water-pipes, dab-tools, or dab-rigs and add a link if so."
+  },
+
+  "promptTemplate": "Write a blog post for oilslickpad.com, an online smoke shop selling dab rigs, bongs, hand pipes, quartz bangers, and accessories.\n\nTopic: {{TOPIC}}\nTarget Keyword: {{KEYWORD}}\nContent Type: {{CONTENT_TYPE}}\nWord Count: {{WORD_TARGET}}\n\nRequirements:\n- Include the target keyword in the H1, first paragraph, and 2-3 H2s\n- Link to collection page: {{COLLECTION_URL}}\n- Link to 3-5 specific product pages from oilslickpad.com\n- Link to 1-2 related blog posts on the site\n- Include a comparison or product table if content type is listicle/buying guide\n- Tone: knowledgeable, approachable, like an experienced friend at a head shop\n- Use 'we' when referring to Oil Slick Pad\n- Write a meta description under 155 characters with the target keyword\n- Suggest 3-5 tags for the post\n\nAdditional Notes: {{NOTES}}"
+}
