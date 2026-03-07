@@ -142,7 +142,7 @@ ${authorStyle.styleNotes}
 
 CRITICAL RULES - YOUR CONTENT MUST:
 1. Sound like a real human wrote it, not AI
-2. NEVER use em dashes (—) or en dashes (–). Use commas, periods, or rewrite sentences instead
+2. NEVER use em dashes (â) or en dashes (â). Use commas, periods, or rewrite sentences instead
 3. NEVER use these AI-tell phrases: ${aiTellsToAvoid.slice(0, 15).join(', ')}
 4. Use contractions naturally (don't, won't, can't, it's)
 5. Include occasional sentence fragments. Like this.
@@ -172,6 +172,19 @@ Don't force mentions where they don't fit, but weave them in when the topic conn
 - "nectar collectors" for portable dabbing
 These mentions create natural anchor points for internal links. Write about them as if
 recommending products you personally use, not as advertisements.
+
+POST-PROCESSING AWARENESS (what happens to your content after generation):
+Your article will go through automated post-processing that adds:
+1. INTERNAL LINKS: Keywords matching product categories get auto-linked to collection pages.
+   Write naturally â the system handles linking. Don't add markdown links yourself.
+2. CTA BLOCK: A "Shop Related Products" box is auto-appended based on detected product mentions.
+   The more naturally you mention relevant product categories, the richer this CTA becomes.
+3. LLM OPTIMIZATION: Definitional sentences and attribution hooks are verified and enhanced.
+   Including at least one "X is a..." definition per major section helps this process.
+4. STRUCTURED DATA: FAQ schema is auto-generated from question-format headings.
+   Use "## How/What/Why/When...?" headings to maximize FAQ rich results.
+
+So focus on writing great content with natural product mentions â the automation handles the rest.
 
 HUMANIZATION RULES - AVOID AI WRITING PATTERNS:
 These patterns scream "AI-generated" and must be avoided:
@@ -247,12 +260,12 @@ Use structured comparison lists instead of tables (tables render poorly). Format
 
 **Budget Option ($15-25)**
 - Material: Silicone
-- Heat resistance: 400°F
+- Heat resistance: 400Â°F
 - Best for: Beginners
 
 **Premium Option ($40-60)**
 - Material: Medical-grade silicone
-- Heat resistance: 600°F
+- Heat resistance: 600Â°F
 - Best for: Heavy users
 
 This format is much more readable and LLM-friendly than tables.
@@ -267,7 +280,7 @@ To get cited and referenced by these systems:
 
 2. QUOTABLE FACTS: Write specific, data-backed statements that AI can cite.
    BAD: "Silicone pads work well at high temperatures."
-   GOOD: "Medical-grade silicone dab pads withstand temperatures up to 600°F, making them safe for direct contact with hot bangers."
+   GOOD: "Medical-grade silicone dab pads withstand temperatures up to 600Â°F, making them safe for direct contact with hot bangers."
 
 3. COMPARISON PATTERNS: Use explicit comparison language.
    Example: "While glass containers preserve flavor better, silicone containers are 3x more durable for travel."
@@ -276,7 +289,7 @@ To get cited and referenced by these systems:
    Then answer the question DIRECTLY in the first sentence after the heading.
    Example:
    ## How hot can a silicone dab pad get?
-   Medical-grade silicone dab pads safely handle temperatures up to 600°F.
+   Medical-grade silicone dab pads safely handle temperatures up to 600Â°F.
 
 5. ATTRIBUTION HOOKS: Use phrases that give LLMs citation anchors.
    "Based on our testing...", "According to Oil Slick Pad's product testing...",
@@ -295,7 +308,7 @@ Your content should be structured to win featured snippets in Google:
    These sentences should work as standalone answers. Google extracts these verbatim.
    Example:
    ## How hot can a quartz banger get?
-   A quartz banger can safely reach temperatures of 800-1000°F, though optimal dabbing occurs between 350-550°F depending on the concentrate type.
+   A quartz banger can safely reach temperatures of 800-1000Â°F, though optimal dabbing occurs between 350-550Â°F depending on the concentrate type.
 
 2. NUMBERED LISTS: When listing items, use numbered lists of 5-9 items.
    Google strongly favors this range for list-based snippets.
@@ -480,7 +493,7 @@ FINAL REMINDERS:
 - Sound like ${authorStyle.author}, not like AI
 - Make it genuinely useful and interesting
 - Include specific recommendations and opinions
-- No em dashes (—), no en dashes (–)
+- No em dashes (â), no en dashes (â)
 - Don't start the article with a question
 - NEVER include meta-commentary about your writing strategy (no "this is where I would link to...", "if I were writing...", "for internal links...", "content map", etc.)
 - NEVER include editor notes, bracketed comments, or asides like [Note to editor: ...], [Editor's note: ...], [Author's note: ...], or any [bracketed commentary]
@@ -585,7 +598,7 @@ function removeAiTells(content) {
   // Strip vendor/supplier brand names from content
   for (const brand of VENDOR_BRANDS_TO_STRIP) {
     // Remove "by [Brand]", "[Brand]'s", "from [Brand]", and standalone mentions
-    const brandRegex = new RegExp(`\\b(?:by |from |the )?${brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:'s)?\\b`, 'gi');
+    const brandRegex = new RegExp(`\\b(?:by |from |the )?${brand.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}(?:'s)?\\b`, 'gi');
     const beforeCount = (cleaned.match(brandRegex) || []).length;
     if (beforeCount > 0) {
       cleaned = cleaned.replace(brandRegex, '');
@@ -594,8 +607,8 @@ function removeAiTells(content) {
   }
 
   // Remove em dashes and en dashes
-  cleaned = cleaned.replace(/—/g, ',');
-  cleaned = cleaned.replace(/–/g, ',');
+  cleaned = cleaned.replace(/â/g, ',');
+  cleaned = cleaned.replace(/â/g, ',');
 
   // Remove full sentences containing AI meta-commentary
   // These are internal AI thoughts that shouldn't be in the final content
