@@ -150,7 +150,34 @@ async function createClaudeCompletion({ messages, maxTokens, useUtilityModel, ca
     }
   }
 
-  const response = await client.messages.create(params);
+  let response;
+  try {
+    response = await client.messages.create(params);
+  } catch (err) {
+    // Detect billing/credit errors and fall back to OpenAI if available
+    const isBillingError = err.status === 400 && err.message?.includes('credit balance is too low');
+    if (isBillingError && config.openai.apiKey) {
+      console.warn('');
+      console.warn('⚠ Anthropic API returned "credit balance is too low".');
+      console.warn('  Your ANTHROPIC_API_KEY may belong to a different workspace than the one with credits.');
+      console.warn('  Fix: Go to https://console.anthropic.com/settings/keys and create a new key');
+      console.warn('  in the workspace that has credits, then update your GitHub secret.');
+      console.warn('');
+      console.warn('  Falling back to OpenAI GPT-5.2 for this request...');
+      return createOpenAICompletion({ messages, maxTokens, reasoningEffort: 'medium', label });
+    }
+    if (isBillingError) {
+      const msg = [
+        'Anthropic API error: credit balance is too low.',
+        'Your ANTHROPIC_API_KEY likely belongs to a different workspace than the one with credits.',
+        'Fix: Go to https://console.anthropic.com/settings/keys, select the workspace',
+        'that has credits ($13.24 shown in billing), generate a new API key,',
+        'and update the ANTHROPIC_API_KEY secret in your GitHub repo settings.',
+      ].join('\n  ');
+      throw new Error(msg);
+    }
+    throw err;
+  }
 
   // Log cache performance and track cost
   if (response.usage) {
